@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.coverage
+htmlcov/
+
+# Environments
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Local app data and generated artifacts
+data/
+debug/
+debug-bundle-*/
+*.log
+*.log.jsonl
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Lecture/media artifacts
+*.wav
+*.mp3
+*.mp4
+*.m4a
+*.opus
+*.webm
+
+# Model/cache artifacts
+models/
+.cache/
+ollama/
+
+# Browser/auth state
+playwright/.auth/
+storage-state.json
+cookies.json
+auth-state.json
+browser-profile/
+
+# Internal planning / AI-agent workflow docs
+AGENTS.md
+docs/*
+!docs/public/
+!docs/public/**
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
