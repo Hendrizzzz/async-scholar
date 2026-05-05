@@ -5,6 +5,7 @@ description = "Local-first lecture monitoring, alerting, archiving, and study-re
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "faster-whisper>=1.2.1",
     "pydantic>=2.13.3",
 ]
 
