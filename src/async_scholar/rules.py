@@ -33,6 +33,65 @@ _ATTENDANCE_RULE = _Rule(
 _RULES: tuple[_Rule, ...] = (
     _ATTENDANCE_RULE,
     _Rule(
+        event_type="name_call",
+        patterns=(
+            re.compile(r"^\s*[A-Z][a-z]+,\s+(?:please|can you|could you|would you)\b"),
+            re.compile(r"\b(?:I am|I'm|I will|I'll) calling on [A-Z][a-z]+\b"),
+            re.compile(r"\blet'?s hear from [A-Z][a-z]+\b", re.IGNORECASE),
+        ),
+        confidence=0.9,
+        message="Name call detected.",
+    ),
+    _Rule(
+        event_type="direct_question",
+        patterns=(
+            re.compile(
+                r"\b(?:can|could|would) "
+                r"(?:someone|anyone|one of you|a volunteer) "
+                r"(?:explain|tell|answer|share|describe)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\bwho can (?:explain|tell|answer|share|describe)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\bwhat do you think (?:about|of|happens|would happen)\b",
+                re.IGNORECASE,
+            ),
+        ),
+        confidence=0.85,
+        message="Direct question detected.",
+    ),
+    _Rule(
+        event_type="camera_mic_request",
+        patterns=(
+            re.compile(
+                r"\b(?:turn|switch) on (?:your|the) (?:camera|microphone|mic)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(r"\bplease unmute\b", re.IGNORECASE),
+            re.compile(r"\bunmute (?:your|the) (?:microphone|mic)\b", re.IGNORECASE),
+            re.compile(r"\b(?:keep|leave) (?:your|the) cameras? on\b", re.IGNORECASE),
+        ),
+        confidence=0.9,
+        message="Camera or microphone request detected.",
+    ),
+    _Rule(
+        event_type="quiz_prompt",
+        patterns=(
+            re.compile(
+                r"\b(?:start|starting|open|take|begin) (?:a|the|your|our)? ?"
+                r"(?:quick )?(?:quiz|poll)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(r"\bquiz question\b", re.IGNORECASE),
+            re.compile(r"\bcheck-in (?:quiz|poll)\b", re.IGNORECASE),
+        ),
+        confidence=0.85,
+        message="Quiz prompt detected.",
+    ),
+    _Rule(
         event_type="task_prompt",
         patterns=(
             re.compile(

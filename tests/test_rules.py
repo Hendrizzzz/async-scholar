@@ -39,6 +39,44 @@ def test_detect_events_ignores_casual_name_mentions() -> None:
     assert events == []
 
 
+def test_detect_events_finds_participation_cues_from_fixture() -> None:
+    segments = load_transcript_fixture(FIXTURE_DIR / "participation_cues.jsonl")
+
+    events = detect_events(segments)
+
+    assert [event.event_id for event in events] == [
+        "fixture:participation_cues:event:0001:name_call",
+        "fixture:participation_cues:event:0002:direct_question",
+        "fixture:participation_cues:event:0003:camera_mic_request",
+        "fixture:participation_cues:event:0004:quiz_prompt",
+    ]
+    assert [event.event_type for event in events] == [
+        "name_call",
+        "direct_question",
+        "camera_mic_request",
+        "quiz_prompt",
+    ]
+    assert [event.detected_at_seconds for event in events] == [
+        0.0,
+        8.0,
+        16.0,
+        24.0,
+    ]
+    assert [event.source_segment_ids for event in events] == [
+        ("fixture:participation_cues:segment:0001",),
+        ("fixture:participation_cues:segment:0002",),
+        ("fixture:participation_cues:segment:0003",),
+        ("fixture:participation_cues:segment:0004",),
+    ]
+    assert [event.message for event in events] == [
+        "Name call detected.",
+        "Direct question detected.",
+        "Camera or microphone request detected.",
+        "Quiz prompt detected.",
+    ]
+    assert all(0 <= event.confidence <= 1 for event in events)
+
+
 def test_detect_events_finds_task_prompt() -> None:
     segment = _segment(
         text="Please submit your worksheet in the learning portal after discussion.",
