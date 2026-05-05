@@ -23,6 +23,13 @@ class ArtifactPaths:
     reviewer_path: Path
 
 
+@dataclass(frozen=True)
+class TranscriptArtifactPaths:
+    output_dir: Path
+    transcript_jsonl_path: Path
+    transcript_markdown_path: Path
+
+
 def safe_session_id(session_id: str) -> str:
     """Convert a validated session ID into a filesystem-safe directory name."""
     safe_id = _SAFE_SESSION_ID_PATTERN.sub("_", session_id).strip("_")
@@ -46,6 +53,67 @@ def write_session_artifacts(
         alerts_path=write_alert_log(events, output_dir, created_at=created_at),
         reviewer_path=write_reviewer_markdown(events, segments, output_dir),
     )
+
+
+def write_transcript_artifacts(
+    *,
+    session_id: str,
+    segments: Iterable[TranscriptSegment],
+    output_root: str | Path,
+) -> TranscriptArtifactPaths:
+    """Write canonical and readable transcript artifacts for one session."""
+    segment_list = list(segments)
+    output_dir = Path(output_root) / safe_session_id(session_id)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    return TranscriptArtifactPaths(
+        output_dir=output_dir,
+        transcript_jsonl_path=write_transcript_jsonl(segment_list, output_dir),
+        transcript_markdown_path=write_transcript_markdown(
+            session_id=session_id,
+            segments=segment_list,
+            output_dir=output_dir,
+        ),
+    )
+
+
+def write_transcript_jsonl(
+    segments: Iterable[TranscriptSegment],
+    output_dir: str | Path,
+) -> Path:
+    """Write transcript segments as canonical JSONL, one segment per line."""
+    transcript_path = Path(output_dir) / "transcript.jsonl"
+    with transcript_path.open("w", encoding="utf-8", newline="\n") as transcript_file:
+        for segment in segments:
+            transcript_file.write(_to_json_line(segment.model_dump(mode="json")))
+    return transcript_path
+
+
+def write_transcript_markdown(
+    *,
+    session_id: str,
+    segments: Iterable[TranscriptSegment],
+    output_dir: str | Path,
+) -> Path:
+    """Write a readable transcript Markdown file in segment order."""
+    segment_list = list(segments)
+    lines = [
+        "# AsyncScholar Transcript",
+        "",
+        f"Session: `{session_id}`",
+        f"Segments: {len(segment_list)}",
+        "",
+    ]
+
+    if not segment_list:
+        lines.append("No transcript segments.")
+    else:
+        for segment in segment_list:
+            lines.extend(_transcript_segment_lines(segment))
+
+    transcript_path = Path(output_dir) / "transcript.md"
+    transcript_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    return transcript_path
 
 
 def write_events_jsonl(
@@ -145,6 +213,24 @@ def _format_snippet(segment: TranscriptSegment) -> str:
     return f"{speaker}{_clip_snippet(segment.text)}"
 
 
+def _transcript_segment_lines(segment: TranscriptSegment) -> list[str]:
+    lines = [
+        f"## {_format_time_range(segment)}",
+        "",
+    ]
+    if segment.speaker:
+        lines.append(f"**{segment.speaker}:** {segment.text}")
+    else:
+        lines.append(segment.text)
+
+    lines.append("")
+    return lines
+
+
+def _format_time_range(segment: TranscriptSegment) -> str:
+    return f"{segment.start_seconds:g}s - {segment.end_seconds:g}s"
+
+
 def _clip_snippet(text: str) -> str:
     normalized = " ".join(text.split())
     if len(normalized) <= _MAX_REVIEWER_SNIPPET_CHARS:
@@ -172,9 +258,13 @@ def _to_json_line(payload: dict[str, object]) -> str:
 
 __all__ = [
     "ArtifactPaths",
+    "TranscriptArtifactPaths",
     "safe_session_id",
     "write_alert_log",
     "write_events_jsonl",
     "write_reviewer_markdown",
     "write_session_artifacts",
+    "write_transcript_artifacts",
+    "write_transcript_jsonl",
+    "write_transcript_markdown",
 ]

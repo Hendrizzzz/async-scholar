@@ -8,6 +8,9 @@ from async_scholar.artifacts import (
     write_alert_log,
     write_events_jsonl,
     write_reviewer_markdown,
+    write_transcript_artifacts,
+    write_transcript_jsonl,
+    write_transcript_markdown,
 )
 from async_scholar.schemas import LectureEvent, TranscriptSegment
 
@@ -67,6 +70,87 @@ def test_write_reviewer_markdown_uses_only_detected_event_snippets(tmp_path) -> 
     assert "Attendance Prompt" in reviewer
     assert "instructor: Good morning. I am going to take attendance" in reviewer
     assert "This unrelated sentence should not appear" not in reviewer
+
+
+def test_write_transcript_jsonl_writes_one_segment_per_line(tmp_path) -> None:
+    segments = [
+        _segment(
+            segment_id="fixture:demo:segment:0001",
+            text="Good morning. We will start with the agenda.",
+        ),
+        _segment(
+            segment_id="fixture:demo:segment:0002",
+            text="Please answer when I call your name.",
+        ),
+    ]
+
+    transcript_path = write_transcript_jsonl(segments, tmp_path)
+
+    lines = transcript_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
+    first_payload = json.loads(lines[0])
+    assert first_payload["segment_id"] == "fixture:demo:segment:0001"
+    assert first_payload["session_id"] == "fixture:demo"
+    assert first_payload["start_seconds"] == 0.0
+    assert first_payload["end_seconds"] == 2.0
+    assert first_payload["speaker"] == "instructor"
+    assert first_payload["text"] == "Good morning. We will start with the agenda."
+
+
+def test_write_transcript_markdown_is_readable_and_ordered(tmp_path) -> None:
+    first_segment = _segment(
+        segment_id="fixture:demo:segment:0001",
+        text="First sentence.",
+    )
+    second_segment = TranscriptSegment(
+        segment_id="fixture:demo:segment:0002",
+        session_id="fixture:demo",
+        start_seconds=2.0,
+        end_seconds=4.5,
+        text="Second sentence without a speaker.",
+    )
+
+    transcript_path = write_transcript_markdown(
+        session_id="fixture:demo",
+        segments=[first_segment, second_segment],
+        output_dir=tmp_path,
+    )
+
+    transcript = transcript_path.read_text(encoding="utf-8")
+    assert "Session: `fixture:demo`" in transcript
+    assert "Segments: 2" in transcript
+    assert "## 0s - 2s" in transcript
+    assert "**instructor:** First sentence." in transcript
+    assert "## 2s - 4.5s" in transcript
+    assert "Second sentence without a speaker." in transcript
+    assert transcript.index("First sentence.") < transcript.index("Second sentence")
+
+
+def test_write_transcript_artifacts_handles_empty_transcripts(tmp_path) -> None:
+    paths = write_transcript_artifacts(
+        session_id="empty/session",
+        segments=[],
+        output_root=tmp_path,
+    )
+
+    assert paths.output_dir == tmp_path / "empty_session"
+    assert paths.transcript_jsonl_path.read_text(encoding="utf-8") == ""
+    transcript = paths.transcript_markdown_path.read_text(encoding="utf-8")
+    assert "Session: `empty/session`" in transcript
+    assert "Segments: 0" in transcript
+    assert "No transcript segments." in transcript
+
+
+def test_write_transcript_artifacts_sanitizes_session_directory(tmp_path) -> None:
+    paths = write_transcript_artifacts(
+        session_id="../lecture:private\\session",
+        segments=[],
+        output_root=tmp_path,
+    )
+
+    assert paths.output_dir == tmp_path / "lecture_private_session"
+    assert paths.transcript_jsonl_path.parent == paths.output_dir
+    assert paths.transcript_markdown_path.parent == paths.output_dir
 
 
 def test_safe_session_id_replaces_path_unsafe_characters() -> None:
