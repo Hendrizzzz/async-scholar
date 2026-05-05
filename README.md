@@ -41,6 +41,20 @@ Show CLI help:
 uv run python -m async_scholar --help
 ```
 
+Run the transcript fixture demo:
+
+```powershell
+uv run python -m async_scholar fixture-demo tests\fixtures\transcripts\attendance_roll_call.jsonl --output-root data\sessions
+```
+
+The demo loads the fixture, runs deterministic event detection, and writes generated artifacts under:
+
+```text
+data/sessions/fixture_attendance_roll_call/events.jsonl
+data/sessions/fixture_attendance_roll_call/alerts.log
+data/sessions/fixture_attendance_roll_call/reviewer.md
+```
+
 Run the verification checks:
 
 ```powershell
