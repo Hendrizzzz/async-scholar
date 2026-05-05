@@ -2,7 +2,7 @@
 
 Local-first lecture monitoring, alerting, archiving, and study-review generation.
 
-This repository is currently in planning/scaffold mode. The first implementation milestone is intentionally small:
+This repository starts with a small scaffold for the first implementation milestone:
 
 ```text
 transcript fixture -> event detected -> fake alert -> reviewer.md
@@ -25,16 +25,26 @@ This project supports lecture assistance: monitoring, transcription, alerts, stu
 
 It does not implement secret attendance impersonation, fake excuses, unconfirmed participation messages, or autonomous answers to academic questions.
 
-## Current Status
+## Setup
 
-Current phase:
+Install/sync the development environment with `uv`:
 
-```text
-Phase 0 - Project Foundation
+```powershell
+uv sync
 ```
 
-Next ticket:
+## Usage
 
-```text
-Project Scaffold
+Show CLI help:
+
+```powershell
+uv run python -m async_scholar --help
+```
+
+Run the verification checks:
+
+```powershell
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
 ```
