@@ -118,6 +118,8 @@ def test_help_path_does_not_create_live_source(
     assert "--seconds" in help_output
     assert "--max-chunks" in help_output
     assert "--device-id" in help_output
+    assert "--silence-threshold" in help_output
+    assert "--clipping-threshold" in help_output
 
 
 @pytest.mark.parametrize(
@@ -129,6 +131,14 @@ def test_help_path_does_not_create_live_source(
         ["--max-chunks", "0"],
         ["--max-chunks", "-1"],
         ["--max-chunks", "1.5"],
+        ["--silence-threshold", "-0.1"],
+        ["--silence-threshold", "1.1"],
+        ["--silence-threshold", "nan"],
+        ["--silence-threshold", "quiet"],
+        ["--clipping-threshold", "-0.1"],
+        ["--clipping-threshold", "1.1"],
+        ["--clipping-threshold", "nan"],
+        ["--clipping-threshold", "loud"],
         ["--device-id", "default"],
         ["--device-id", "sounddevice:"],
         ["--device-id", "sounddevice:-1"],
@@ -174,9 +184,73 @@ def test_fake_source_diagnostic_summary_is_bounded() -> None:
     assert report.total_audio_seconds == pytest.approx(0.5)
     assert report.peak_level > 0.0
     assert report.average_rms_level > 0.0
+    assert report.silence_threshold == pytest.approx(
+        mic_level_diagnostic.DEFAULT_MIC_SIGNAL_SILENCE_THRESHOLD
+    )
+    assert report.clipping_threshold == pytest.approx(
+        mic_level_diagnostic.DEFAULT_MIC_SIGNAL_CLIPPING_THRESHOLD
+    )
+    assert report.silent_reading_count == 0
+    assert report.clipped_reading_count == 0
+    assert report.silence_detected is False
+    assert report.clipping_detected is False
     assert report.sample_rate_hz == 16_000
     assert report.channel_count == 1
     assert report.any_chunks_observed is True
+
+
+def test_default_signal_summary_detects_silence() -> None:
+    source = FakeMicrophoneSource([_chunk(0.0, 0.25, 0, 0, 0)])
+
+    report = asyncio.run(
+        collect_microphone_level_diagnostic(source, seconds=1.0, max_chunks=1)
+    )
+
+    assert report.chunk_count == 1
+    assert report.silent_reading_count == 1
+    assert report.clipped_reading_count == 0
+    assert report.silence_detected is True
+    assert report.clipping_detected is False
+
+
+def test_default_signal_summary_detects_clipping() -> None:
+    source = FakeMicrophoneSource([_chunk(0.0, 0.25, 0, 32_767, -32_767)])
+
+    report = asyncio.run(
+        collect_microphone_level_diagnostic(source, seconds=1.0, max_chunks=1)
+    )
+
+    assert report.chunk_count == 1
+    assert report.silent_reading_count == 0
+    assert report.clipped_reading_count == 1
+    assert report.silence_detected is False
+    assert report.clipping_detected is True
+
+
+def test_custom_thresholds_report_mixed_signal_flags() -> None:
+    source = FakeMicrophoneSource(
+        [
+            _chunk(0.0, 0.25, 1_000, 1_000, 1_000),
+            _chunk(0.25, 0.50, 0, 16_000, -16_000),
+        ]
+    )
+
+    report = asyncio.run(
+        collect_microphone_level_diagnostic(
+            source,
+            seconds=1.0,
+            max_chunks=2,
+            silence_threshold=0.04,
+            clipping_threshold=0.4,
+        )
+    )
+
+    assert report.silence_threshold == pytest.approx(0.04)
+    assert report.clipping_threshold == pytest.approx(0.4)
+    assert report.silent_reading_count == 1
+    assert report.clipped_reading_count == 1
+    assert report.silence_detected is True
+    assert report.clipping_detected is True
 
 
 def test_diagnostic_closes_chunk_iterator_after_bounds() -> None:
@@ -206,6 +280,10 @@ def test_empty_capture_summary_uses_safe_zero_levels() -> None:
     assert report.total_audio_seconds == 0.0
     assert report.peak_level == 0.0
     assert report.average_rms_level == 0.0
+    assert report.silent_reading_count == 0
+    assert report.clipped_reading_count == 0
+    assert report.silence_detected is False
+    assert report.clipping_detected is False
     assert report.sample_rate_hz == 16_000
     assert report.channel_count == 1
     assert report.any_chunks_observed is False
@@ -259,7 +337,18 @@ def test_module_command_prints_json_with_injected_source() -> None:
     stdout = io.StringIO()
 
     exit_code = main(
-        ["--seconds", "2", "--max-chunks", "2", "--device-id", "sounddevice:3"],
+        [
+            "--seconds",
+            "2",
+            "--max-chunks",
+            "2",
+            "--silence-threshold",
+            "0.04",
+            "--clipping-threshold",
+            "0.4",
+            "--device-id",
+            "sounddevice:3",
+        ],
         source_factory=source_factory,
         stdout=stdout,
     )
@@ -272,6 +361,12 @@ def test_module_command_prints_json_with_injected_source() -> None:
     assert payload["requested_duration_seconds"] == 2.0
     assert payload["requested_max_chunks"] == 2
     assert payload["chunk_count"] == 2
+    assert payload["silence_threshold"] == pytest.approx(0.04)
+    assert payload["clipping_threshold"] == pytest.approx(0.4)
+    assert payload["silent_reading_count"] == 2
+    assert payload["clipped_reading_count"] == 0
+    assert payload["silence_detected"] is True
+    assert payload["clipping_detected"] is False
     assert payload["any_chunks_observed"] is True
     assert "pcm_bytes" not in stdout.getvalue()
     assert "sounddevice:3" not in stdout.getvalue()
@@ -296,7 +391,19 @@ def test_module_command_has_no_file_writing_side_effects(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_api_validation_happens_before_source_creation() -> None:
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"device_id": "not-a-device"},
+        {"silence_threshold": -0.1},
+        {"silence_threshold": 1.1},
+        {"clipping_threshold": -0.1},
+        {"clipping_threshold": 1.1},
+    ],
+)
+def test_api_validation_happens_before_source_creation(
+    kwargs: dict[str, object],
+) -> None:
     created_sources = 0
 
     def source_factory(
@@ -313,8 +420,8 @@ def test_api_validation_happens_before_source_creation() -> None:
             run_microphone_level_diagnostic(
                 seconds=DEFAULT_MIC_LEVEL_DIAGNOSTIC_SECONDS,
                 max_chunks=DEFAULT_MIC_LEVEL_DIAGNOSTIC_MAX_CHUNKS,
-                device_id="not-a-device",
                 source_factory=source_factory,
+                **kwargs,
             )
         )
 

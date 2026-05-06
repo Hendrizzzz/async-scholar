@@ -14,6 +14,13 @@ from dataclasses import asdict, dataclass
 from typing import Protocol, TextIO
 
 from async_scholar.audio.level_meter import measure_microphone_level
+from async_scholar.audio.mic_signal_diagnostics import (
+    DEFAULT_MIC_SIGNAL_CLIPPING_THRESHOLD,
+    DEFAULT_MIC_SIGNAL_SILENCE_THRESHOLD,
+    InvalidMicrophoneSignalDiagnosticConfigError,
+    MicrophoneSignalDiagnosticConfig,
+    diagnose_microphone_signal,
+)
 from async_scholar.audio.mic_source import (
     DEFAULT_MIC_CHANNEL_COUNT,
     DEFAULT_MIC_SAMPLE_RATE_HZ,
@@ -49,6 +56,12 @@ class MicrophoneLevelDiagnosticReport:
     total_audio_seconds: float
     peak_level: float
     average_rms_level: float
+    silence_threshold: float
+    clipping_threshold: float
+    silent_reading_count: int
+    clipped_reading_count: int
+    silence_detected: bool
+    clipping_detected: bool
     sample_rate_hz: int
     channel_count: int
     any_chunks_observed: bool
@@ -115,6 +128,20 @@ def _validate_device_id(device_id: str | None) -> str | None:
     return device_id
 
 
+def _validate_signal_diagnostic_config(
+    *,
+    silence_threshold: float,
+    clipping_threshold: float,
+) -> MicrophoneSignalDiagnosticConfig:
+    try:
+        return MicrophoneSignalDiagnosticConfig(
+            silence_threshold=silence_threshold,
+            clipping_threshold=clipping_threshold,
+        )
+    except InvalidMicrophoneSignalDiagnosticConfigError as exc:
+        raise InvalidMicrophoneLevelDiagnosticConfigError(str(exc)) from exc
+
+
 def _default_source_factory(
     config: MicrophoneCaptureConfig,
     device_id: str | None,
@@ -144,20 +171,25 @@ async def collect_microphone_level_diagnostic(
     *,
     seconds: float = DEFAULT_MIC_LEVEL_DIAGNOSTIC_SECONDS,
     max_chunks: int = DEFAULT_MIC_LEVEL_DIAGNOSTIC_MAX_CHUNKS,
+    silence_threshold: float = DEFAULT_MIC_SIGNAL_SILENCE_THRESHOLD,
+    clipping_threshold: float = DEFAULT_MIC_SIGNAL_CLIPPING_THRESHOLD,
 ) -> MicrophoneLevelDiagnosticReport:
     """Collect bounded level readings from an already-created microphone source."""
 
     requested_duration_seconds = _validate_seconds(seconds)
     requested_max_chunks = _validate_max_chunks(max_chunks)
+    signal_config = _validate_signal_diagnostic_config(
+        silence_threshold=silence_threshold,
+        clipping_threshold=clipping_threshold,
+    )
 
     chunk_count = 0
     total_audio_seconds = 0.0
-    peak_level = 0.0
-    rms_level_sum = 0.0
     sample_rate_hz = _source_sample_rate_hz(source)
     channel_count = _source_channel_count(source)
     started_at = time.monotonic()
     chunks = source._iter_chunks()
+    readings = []
 
     try:
         while (
@@ -179,9 +211,8 @@ async def collect_microphone_level_diagnostic(
 
             reading = measure_microphone_level(chunk)
             chunk_count += 1
+            readings.append(reading)
             total_audio_seconds += max(0.0, reading.end_seconds - reading.start_seconds)
-            peak_level = max(peak_level, reading.normalized_peak_level)
-            rms_level_sum += reading.normalized_rms_level
             sample_rate_hz = reading.sample_rate_hz
             channel_count = reading.channel_count
     finally:
@@ -189,15 +220,21 @@ async def collect_microphone_level_diagnostic(
         if callable(aclose):
             await aclose()
 
-    average_rms_level = rms_level_sum / chunk_count if chunk_count else 0.0
+    signal_summary = diagnose_microphone_signal(readings, config=signal_config)
 
     return MicrophoneLevelDiagnosticReport(
         requested_duration_seconds=requested_duration_seconds,
         requested_max_chunks=requested_max_chunks,
         chunk_count=chunk_count,
         total_audio_seconds=total_audio_seconds,
-        peak_level=peak_level,
-        average_rms_level=average_rms_level,
+        peak_level=signal_summary.peak_level,
+        average_rms_level=signal_summary.average_rms_level,
+        silence_threshold=signal_config.silence_threshold,
+        clipping_threshold=signal_config.clipping_threshold,
+        silent_reading_count=signal_summary.silent_reading_count,
+        clipped_reading_count=signal_summary.clipped_reading_count,
+        silence_detected=signal_summary.silence_detected,
+        clipping_detected=signal_summary.clipping_detected,
         sample_rate_hz=sample_rate_hz,
         channel_count=channel_count,
         any_chunks_observed=chunk_count > 0,
@@ -217,6 +254,8 @@ async def run_microphone_level_diagnostic(
     *,
     seconds: float = DEFAULT_MIC_LEVEL_DIAGNOSTIC_SECONDS,
     max_chunks: int = DEFAULT_MIC_LEVEL_DIAGNOSTIC_MAX_CHUNKS,
+    silence_threshold: float = DEFAULT_MIC_SIGNAL_SILENCE_THRESHOLD,
+    clipping_threshold: float = DEFAULT_MIC_SIGNAL_CLIPPING_THRESHOLD,
     device_id: str | None = None,
     source_factory: MicrophoneLevelSourceFactory | None = None,
 ) -> MicrophoneLevelDiagnosticReport:
@@ -225,6 +264,10 @@ async def run_microphone_level_diagnostic(
     requested_duration_seconds = _validate_seconds(seconds)
     requested_max_chunks = _validate_max_chunks(max_chunks)
     validated_device_id = _validate_device_id(device_id)
+    signal_config = _validate_signal_diagnostic_config(
+        silence_threshold=silence_threshold,
+        clipping_threshold=clipping_threshold,
+    )
     config = MicrophoneCaptureConfig()
     factory = source_factory or _default_source_factory
     source = factory(config, validated_device_id, requested_max_chunks)
@@ -233,6 +276,8 @@ async def run_microphone_level_diagnostic(
             source,
             seconds=requested_duration_seconds,
             max_chunks=requested_max_chunks,
+            silence_threshold=signal_config.silence_threshold,
+            clipping_threshold=signal_config.clipping_threshold,
         )
     finally:
         await _stop_source(source)
@@ -271,6 +316,28 @@ def _parse_device_id(raw_device_id: str) -> str:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
+def _parse_signal_threshold(name: str, raw_threshold: str) -> float:
+    try:
+        threshold = float(raw_threshold)
+        config_kwargs = {
+            "silence_threshold": DEFAULT_MIC_SIGNAL_SILENCE_THRESHOLD,
+            "clipping_threshold": DEFAULT_MIC_SIGNAL_CLIPPING_THRESHOLD,
+            name: threshold,
+        }
+        config = _validate_signal_diagnostic_config(**config_kwargs)
+        return getattr(config, name)
+    except (InvalidMicrophoneLevelDiagnosticConfigError, ValueError) as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
+def _parse_silence_threshold(raw_threshold: str) -> float:
+    return _parse_signal_threshold("silence_threshold", raw_threshold)
+
+
+def _parse_clipping_threshold(raw_threshold: str) -> float:
+    return _parse_signal_threshold("clipping_threshold", raw_threshold)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the microphone level diagnostic argument parser."""
 
@@ -295,6 +362,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_MIC_LEVEL_DIAGNOSTIC_MAX_CHUNKS,
         help="Maximum number of microphone chunks to summarize.",
     )
+    parser.add_argument(
+        "--silence-threshold",
+        type=_parse_silence_threshold,
+        default=DEFAULT_MIC_SIGNAL_SILENCE_THRESHOLD,
+        help="Normalized RMS level at or below which a reading is silent.",
+    )
+    parser.add_argument(
+        "--clipping-threshold",
+        type=_parse_clipping_threshold,
+        default=DEFAULT_MIC_SIGNAL_CLIPPING_THRESHOLD,
+        help="Normalized peak level at or above which a reading is clipped.",
+    )
     return parser
 
 
@@ -312,6 +391,8 @@ def main(
         run_microphone_level_diagnostic(
             seconds=args.seconds,
             max_chunks=args.max_chunks,
+            silence_threshold=args.silence_threshold,
+            clipping_threshold=args.clipping_threshold,
             device_id=args.device_id,
             source_factory=source_factory,
         )
