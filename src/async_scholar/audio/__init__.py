@@ -22,6 +22,12 @@ from async_scholar.audio.file_source import (
     FileAudioSource,
     InvalidWavFileError,
 )
+from async_scholar.audio.level_meter import (
+    InvalidMicrophoneLevelInputError,
+    MicrophoneLevelReading,
+    collect_microphone_level_readings,
+    measure_microphone_level,
+)
 from async_scholar.audio.mic_device_diagnostics import (
     MicrophoneDeviceDiagnosticSummary,
     collect_microphone_device_diagnostics,
@@ -69,6 +75,7 @@ __all__ = [
     "DeterministicFakeMicrophoneSource",
     "FILE_INPUT_BACKPRESSURE_RECOMMENDATION",
     "FileAudioSource",
+    "InvalidMicrophoneLevelInputError",
     "InvalidVadTimestampError",
     "InvalidWavFileError",
     "MicrophoneCaptureConfig",
@@ -76,6 +83,7 @@ __all__ = [
     "MicrophoneDeviceMetadata",
     "MicrophoneDeviceProvider",
     "MicrophoneDiagnosticSummary",
+    "MicrophoneLevelReading",
     "MicrophonePcmChunk",
     "MicrophoneSource",
     "SileroVadDetector",
@@ -86,8 +94,10 @@ __all__ = [
     "aggregate_speech_windows",
     "collect_microphone_device_diagnostics",
     "collect_microphone_diagnostics",
+    "collect_microphone_level_readings",
     "detect_speech_windows",
     "evaluate_audio_backpressure",
+    "measure_microphone_level",
     "speech_windows_from_timestamps",
     "validate_microphone_device_listing",
 ]
