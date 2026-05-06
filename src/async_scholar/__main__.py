@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 from async_scholar import __version__
@@ -39,10 +40,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     fixture_demo.set_defaults(handler=_run_fixture_demo_command)
 
+    subparsers.add_parser(
+        "mic-recording-diagnostic",
+        help="run the bounded microphone recording diagnostic",
+    )
+
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv[:1] == ["mic-recording-diagnostic"]:
+        return _run_mic_recording_diagnostic_command(argv[1:])
+
     parser = build_parser()
     args = parser.parse_args(argv)
     handler = getattr(args, "handler", None)
@@ -67,6 +77,14 @@ def _run_fixture_demo_command(args: argparse.Namespace) -> int:
     print(f"Fake alert log: {paths.alerts_path}")
     print(f"Reviewer: {paths.reviewer_path}")
     return 0
+
+
+def _run_mic_recording_diagnostic_command(argv: list[str]) -> int:
+    from async_scholar.audio.mic_recording_diagnostic import (
+        main as run_mic_recording_diagnostic,
+    )
+
+    return run_mic_recording_diagnostic(argv)
 
 
 if __name__ == "__main__":

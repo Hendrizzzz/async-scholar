@@ -55,6 +55,18 @@ data/sessions/fixture_attendance_roll_call/alerts.log
 data/sessions/fixture_attendance_roll_call/reviewer.md
 ```
 
+Show the bounded microphone recording diagnostic options:
+
+```powershell
+uv run python -m async_scholar mic-recording-diagnostic --help
+```
+
+This command is diagnostic-only. Help is lazy and does not open a microphone
+stream or write files. Actual recording happens only when the diagnostic is
+explicitly invoked; it writes bounded local ignored artifacts such as
+`microphone.wav` and `diagnostic-report.json` under the selected output root.
+Treat diagnostic audio as private local data and do not commit or share it.
+
 Run the verification checks:
 
 ```powershell
