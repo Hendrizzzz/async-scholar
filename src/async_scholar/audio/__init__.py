@@ -55,6 +55,10 @@ from async_scholar.audio.sounddevice_mic_devices import (
     InvalidSoundDeviceMicrophoneMetadataError,
     SoundDeviceMicrophoneDeviceProvider,
 )
+from async_scholar.audio.sounddevice_mic_source import (
+    SoundDeviceMicrophoneCaptureError,
+    SoundDeviceMicrophoneSource,
+)
 from async_scholar.audio.vad import (
     InvalidVadTimestampError,
     SileroVadDetector,
@@ -92,7 +96,9 @@ __all__ = [
     "MicrophonePcmChunk",
     "MicrophoneSource",
     "SileroVadDetector",
+    "SoundDeviceMicrophoneCaptureError",
     "SoundDeviceMicrophoneDeviceProvider",
+    "SoundDeviceMicrophoneSource",
     "StaticMicrophoneDeviceProvider",
     "SpeechWindow",
     "SttChunkWindow",
