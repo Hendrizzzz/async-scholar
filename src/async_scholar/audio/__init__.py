@@ -15,6 +15,7 @@ from async_scholar.audio.chunking import (
     VadChunkingConfig,
     aggregate_speech_windows,
 )
+from async_scholar.audio.fake_mic_source import DeterministicFakeMicrophoneSource
 from async_scholar.audio.file_source import (
     AudioChunk,
     AudioMetadata,
@@ -51,6 +52,7 @@ __all__ = [
     "DEFAULT_MIC_SAMPLE_RATE_HZ",
     "DEFAULT_SUSTAINED_BACKLOG_THRESHOLD_SECONDS",
     "DEFAULT_VAD_CHUNKING_CONFIG",
+    "DeterministicFakeMicrophoneSource",
     "FILE_INPUT_BACKPRESSURE_RECOMMENDATION",
     "FileAudioSource",
     "InvalidVadTimestampError",
