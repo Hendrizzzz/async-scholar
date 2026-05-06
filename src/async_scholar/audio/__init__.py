@@ -22,6 +22,10 @@ from async_scholar.audio.file_source import (
     FileAudioSource,
     InvalidWavFileError,
 )
+from async_scholar.audio.mic_diagnostics import (
+    MicrophoneDiagnosticSummary,
+    collect_microphone_diagnostics,
+)
 from async_scholar.audio.mic_source import (
     DEFAULT_MIC_CAPTURE_CONFIG,
     DEFAULT_MIC_CHANNEL_COUNT,
@@ -58,6 +62,7 @@ __all__ = [
     "InvalidVadTimestampError",
     "InvalidWavFileError",
     "MicrophoneCaptureConfig",
+    "MicrophoneDiagnosticSummary",
     "MicrophonePcmChunk",
     "MicrophoneSource",
     "SileroVadDetector",
@@ -65,6 +70,7 @@ __all__ = [
     "SttChunkWindow",
     "VadChunkingConfig",
     "aggregate_speech_windows",
+    "collect_microphone_diagnostics",
     "detect_speech_windows",
     "evaluate_audio_backpressure",
     "speech_windows_from_timestamps",
