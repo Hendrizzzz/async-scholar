@@ -67,6 +67,28 @@ from async_scholar.audio.vad import (
     speech_windows_from_timestamps,
 )
 
+_MIC_LEVEL_DIAGNOSTIC_EXPORTS = {
+    "DEFAULT_MIC_LEVEL_DIAGNOSTIC_MAX_CHUNKS",
+    "DEFAULT_MIC_LEVEL_DIAGNOSTIC_SECONDS",
+    "InvalidMicrophoneLevelDiagnosticConfigError",
+    "MicrophoneLevelDiagnosticReport",
+    "collect_microphone_level_diagnostic",
+    "format_microphone_level_diagnostic_report",
+    "run_microphone_level_diagnostic",
+}
+
+
+def __getattr__(name: str):
+    if name in _MIC_LEVEL_DIAGNOSTIC_EXPORTS:
+        from importlib import import_module
+
+        mic_level_diagnostic = import_module("async_scholar.audio.mic_level_diagnostic")
+        value = getattr(mic_level_diagnostic, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "AudioChunk",
     "AudioMetadata",
@@ -77,6 +99,8 @@ __all__ = [
     "DEFAULT_MIC_CAPTURE_CONFIG",
     "DEFAULT_MIC_CHANNEL_COUNT",
     "DEFAULT_MIC_CHUNK_DURATION_SECONDS",
+    "DEFAULT_MIC_LEVEL_DIAGNOSTIC_MAX_CHUNKS",
+    "DEFAULT_MIC_LEVEL_DIAGNOSTIC_SECONDS",
     "DEFAULT_MIC_SAMPLE_RATE_HZ",
     "DEFAULT_SUSTAINED_BACKLOG_THRESHOLD_SECONDS",
     "DEFAULT_VAD_CHUNKING_CONFIG",
@@ -84,6 +108,7 @@ __all__ = [
     "FILE_INPUT_BACKPRESSURE_RECOMMENDATION",
     "FileAudioSource",
     "InvalidMicrophoneLevelInputError",
+    "InvalidMicrophoneLevelDiagnosticConfigError",
     "InvalidSoundDeviceMicrophoneMetadataError",
     "InvalidVadTimestampError",
     "InvalidWavFileError",
@@ -93,6 +118,7 @@ __all__ = [
     "MicrophoneDeviceProvider",
     "MicrophoneDiagnosticSummary",
     "MicrophoneLevelReading",
+    "MicrophoneLevelDiagnosticReport",
     "MicrophonePcmChunk",
     "MicrophoneSource",
     "SileroVadDetector",
@@ -106,10 +132,13 @@ __all__ = [
     "aggregate_speech_windows",
     "collect_microphone_device_diagnostics",
     "collect_microphone_diagnostics",
+    "collect_microphone_level_diagnostic",
     "collect_microphone_level_readings",
     "detect_speech_windows",
     "evaluate_audio_backpressure",
+    "format_microphone_level_diagnostic_report",
     "measure_microphone_level",
+    "run_microphone_level_diagnostic",
     "speech_windows_from_timestamps",
     "validate_microphone_device_listing",
 ]
