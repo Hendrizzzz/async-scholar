@@ -87,6 +87,18 @@ _MIC_LEVEL_DIAGNOSTIC_EXPORTS = {
     "run_microphone_level_diagnostic",
 }
 
+_MIC_RECORDING_DIAGNOSTIC_EXPORTS = {
+    "DEFAULT_MIC_RECORDING_DIAGNOSTIC_REPORT_FILENAME",
+    "DEFAULT_MIC_RECORDING_DIAGNOSTIC_WAV_FILENAME",
+    "InvalidMicrophoneRecordingDiagnosticConfigError",
+    "MIC_RECORDING_DIAGNOSTIC_DIRECTORY_PREFIX",
+    "MicrophoneRecordingDiagnosticReport",
+    "MicrophoneRecordingDiagnosticResult",
+    "format_microphone_recording_diagnostic_report",
+    "record_microphone_diagnostic",
+    "run_microphone_recording_diagnostic",
+}
+
 
 def __getattr__(name: str):
     if name in _MIC_LEVEL_DIAGNOSTIC_EXPORTS:
@@ -94,6 +106,15 @@ def __getattr__(name: str):
 
         mic_level_diagnostic = import_module("async_scholar.audio.mic_level_diagnostic")
         value = getattr(mic_level_diagnostic, name)
+        globals()[name] = value
+        return value
+    if name in _MIC_RECORDING_DIAGNOSTIC_EXPORTS:
+        from importlib import import_module
+
+        mic_recording_diagnostic = import_module(
+            "async_scholar.audio.mic_recording_diagnostic",
+        )
+        value = getattr(mic_recording_diagnostic, name)
         globals()[name] = value
         return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -111,6 +132,8 @@ __all__ = [
     "DEFAULT_MIC_CHUNK_DURATION_SECONDS",
     "DEFAULT_MIC_LEVEL_DIAGNOSTIC_MAX_CHUNKS",
     "DEFAULT_MIC_LEVEL_DIAGNOSTIC_SECONDS",
+    "DEFAULT_MIC_RECORDING_DIAGNOSTIC_REPORT_FILENAME",
+    "DEFAULT_MIC_RECORDING_DIAGNOSTIC_WAV_FILENAME",
     "DEFAULT_MIC_SIGNAL_CLIPPING_THRESHOLD",
     "DEFAULT_MIC_SIGNAL_DIAGNOSTIC_CONFIG",
     "DEFAULT_MIC_SIGNAL_SILENCE_THRESHOLD",
@@ -122,6 +145,7 @@ __all__ = [
     "FileAudioSource",
     "InvalidMicrophoneLevelInputError",
     "InvalidMicrophoneLevelDiagnosticConfigError",
+    "InvalidMicrophoneRecordingDiagnosticConfigError",
     "InvalidMicrophoneSignalDiagnosticConfigError",
     "InvalidMicrophoneSignalReadingError",
     "InvalidSoundDeviceMicrophoneMetadataError",
@@ -135,6 +159,8 @@ __all__ = [
     "MicrophoneLevelReading",
     "MicrophoneLevelDiagnosticReport",
     "MicrophonePcmChunk",
+    "MicrophoneRecordingDiagnosticReport",
+    "MicrophoneRecordingDiagnosticResult",
     "MicrophoneSignalDiagnosticConfig",
     "MicrophoneSignalDiagnosticSummary",
     "MicrophoneSource",
@@ -155,8 +181,12 @@ __all__ = [
     "diagnose_microphone_signal",
     "evaluate_audio_backpressure",
     "format_microphone_level_diagnostic_report",
+    "format_microphone_recording_diagnostic_report",
     "measure_microphone_level",
+    "MIC_RECORDING_DIAGNOSTIC_DIRECTORY_PREFIX",
+    "record_microphone_diagnostic",
     "run_microphone_level_diagnostic",
+    "run_microphone_recording_diagnostic",
     "speech_windows_from_timestamps",
     "validate_microphone_device_listing",
 ]
