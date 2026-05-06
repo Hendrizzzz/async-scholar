@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 from async_scholar.artifacts import TranscriptArtifactPaths, write_transcript_artifacts
+from async_scholar.audio.chunking import (
+    SttChunkWindow,
+    VadChunkingConfig,
+    aggregate_speech_windows,
+)
+from async_scholar.audio.vad import SpeechWindow
 from async_scholar.schemas import TranscriptSegment
 
 
@@ -18,6 +24,7 @@ class FileTranscriber(Protocol):
 
 
 TranscriberFactory = Callable[[str], FileTranscriber]
+SpeechDetector = Callable[[Path], Iterable[SpeechWindow]]
 
 
 @dataclass(frozen=True)
@@ -25,6 +32,27 @@ class FileTranscriptionResult:
     session_id: str
     segment_count: int
     artifact_paths: TranscriptArtifactPaths
+
+
+def plan_file_transcription_chunks(
+    audio_path: str | Path,
+    *,
+    speech_detector: SpeechDetector | None = None,
+    audio_duration_seconds: float | None = None,
+    chunking_config: VadChunkingConfig | None = None,
+) -> list[SttChunkWindow]:
+    """Plan deterministic STT chunk windows for one existing local audio file."""
+    audio_file = Path(audio_path)
+    if not audio_file.is_file():
+        raise FileNotFoundError(audio_file)
+
+    detector = speech_detector or _detect_speech_windows
+    speech_windows = detector(audio_file)
+    return aggregate_speech_windows(
+        speech_windows,
+        audio_duration_seconds=audio_duration_seconds,
+        config=chunking_config,
+    )
 
 
 def transcribe_file_to_artifacts(
@@ -66,6 +94,12 @@ def _build_faster_whisper_transcriber(model_size_or_path: str) -> FileTranscribe
     return FasterWhisperTranscriber(model_size_or_path=model_size_or_path)
 
 
+def _detect_speech_windows(audio_path: Path) -> list[SpeechWindow]:
+    from async_scholar.audio.vad import detect_speech_windows
+
+    return detect_speech_windows(audio_path)
+
+
 def _artifact_session_id(
     audio_path: Path,
     segments: Sequence[TranscriptSegment],
@@ -85,6 +119,8 @@ def _deterministic_empty_transcript_session_id(audio_path: Path) -> str:
 __all__ = [
     "FileTranscriber",
     "FileTranscriptionResult",
+    "SpeechDetector",
     "TranscriberFactory",
+    "plan_file_transcription_chunks",
     "transcribe_file_to_artifacts",
 ]
