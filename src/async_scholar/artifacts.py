@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from async_scholar.alerts import classify_alert_severity
 from async_scholar.schemas import Alert, LectureEvent, TranscriptSegment
 
 _SAFE_SESSION_ID_PATTERN = re.compile(r"[^A-Za-z0-9_-]+")
@@ -147,7 +148,10 @@ def write_alert_log(
                 message=event.message,
                 created_at=alert_time,
             )
-            payload = alert.model_dump(mode="json") | {"event_type": event.event_type}
+            payload = alert.model_dump(mode="json") | {
+                "event_type": event.event_type,
+                "severity": classify_alert_severity(event.event_type),
+            }
             alerts_file.write(_to_json_line(payload))
 
     return alerts_path

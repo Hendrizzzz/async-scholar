@@ -44,9 +44,11 @@ def test_write_alert_log_is_concise_and_omits_transcript_text(tmp_path) -> None:
     assert payload["alert_id"] == "fixture:demo:event:0001:attendance_prompt:alert"
     assert payload["event_id"] == event.event_id
     assert payload["event_type"] == "attendance_prompt"
+    assert payload["severity"] == "urgent"
     assert payload["message"] == "Attendance prompt detected."
     assert payload["requires_confirmation"] is True
     assert payload["status"] == "pending"
+    assert "source_segment_ids" not in payload
     assert transcript_text not in log_text
 
 
