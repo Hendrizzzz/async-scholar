@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Literal, TextIO, TypedDict
 
 AlertSeverity = Literal["low", "normal", "urgent"]
 
@@ -71,9 +71,20 @@ def build_alert_notification_payload(event_type: str) -> AlertNotificationPayloa
     }
 
 
+def write_console_alert_notification(
+    event_type: str,
+    stream: TextIO,
+) -> AlertNotificationPayload:
+    """Write one privacy-safe console notification line to a text stream."""
+    payload = build_alert_notification_payload(event_type)
+    stream.write(f"{payload['severity']} | {payload['title']} | {payload['body']}\n")
+    return payload
+
+
 __all__ = [
     "AlertNotificationPayload",
     "AlertSeverity",
     "build_alert_notification_payload",
     "classify_alert_severity",
+    "write_console_alert_notification",
 ]
