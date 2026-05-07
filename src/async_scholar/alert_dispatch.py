@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Literal, NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict, cast
 
 from async_scholar.alerts import (
     AlertNotificationPayload,
@@ -17,8 +17,17 @@ AlertDispatchErrorKind = Literal[
     "missing_dispatcher",
     "provider_error",
     "unsupported_provider",
+    "unsupported_platform",
+    "command_failed",
+    "command_failure",
+    "timeout",
+    "os_error",
+    "network_error",
+    "http_error",
+    "missing_credentials",
 ]
 AlertProviderDispatcher = Callable[[AlertNotificationPayload], object]
+AlertProviderStatus = AlertDispatchStatus | Literal["unsupported"]
 
 
 class AlertDispatchResult(TypedDict):
@@ -32,8 +41,25 @@ class AlertDispatchResult(TypedDict):
 
 
 _ALLOWED_ERROR_KINDS: frozenset[AlertDispatchErrorKind] = frozenset(
-    {"missing_dispatcher", "provider_error", "unsupported_provider"}
+    {
+        "missing_dispatcher",
+        "provider_error",
+        "unsupported_provider",
+        "unsupported_platform",
+        "command_failed",
+        "command_failure",
+        "timeout",
+        "os_error",
+        "network_error",
+        "http_error",
+        "missing_credentials",
+    }
 )
+_ALLOWED_STATUSES: frozenset[AlertProviderStatus] = frozenset(
+    {"sent", "skipped", "failed", "unsupported"}
+)
+_FIELD_READ_ERROR = object()
+_MISSING = object()
 
 
 def dispatch_alert(
@@ -90,11 +116,49 @@ def _normalize_provider_result(
     severity: AlertSeverity,
     provider_result: object,
 ) -> AlertDispatchResult:
-    if not isinstance(provider_result, Mapping):
-        return _build_result(provider=provider, severity=severity, status="sent")
+    status_raw = _read_provider_result_field(
+        provider_result,
+        field_name="status",
+        default="sent",
+    )
+    if status_raw is _FIELD_READ_ERROR:
+        return _build_result(
+            provider=provider,
+            severity=severity,
+            status="failed",
+            error_kind="provider_error",
+        )
 
-    status = provider_result.get("status", "sent")
-    error_kind = _normalize_error_kind(provider_result.get("error_kind"))
+    status = _normalize_status(status_raw)
+    if status is None:
+        return _build_result(
+            provider=provider,
+            severity=severity,
+            status="failed",
+            error_kind="provider_error",
+        )
+
+    error_kind_raw = _read_provider_result_field(
+        provider_result,
+        field_name="error_kind",
+        default=_MISSING,
+    )
+    if error_kind_raw is _FIELD_READ_ERROR:
+        return _build_result(
+            provider=provider,
+            severity=severity,
+            status="failed",
+            error_kind="provider_error",
+        )
+
+    error_kind, is_allowed_error_kind = _normalize_error_kind(error_kind_raw)
+    if not is_allowed_error_kind:
+        return _build_result(
+            provider=provider,
+            severity=severity,
+            status="failed",
+            error_kind="provider_error",
+        )
 
     if status == "sent":
         return _build_result(provider=provider, severity=severity, status="sent")
@@ -117,21 +181,45 @@ def _normalize_provider_result(
             provider=provider,
             severity=severity,
             status="skipped",
-            error_kind="unsupported_provider",
+            error_kind=error_kind or "unsupported_provider",
         )
 
     return _build_result(
         provider=provider,
         severity=severity,
         status="failed",
-        error_kind="unsupported_provider",
+        error_kind="provider_error",
     )
 
 
-def _normalize_error_kind(error_kind: object) -> AlertDispatchErrorKind | None:
-    if isinstance(error_kind, str) and error_kind in _ALLOWED_ERROR_KINDS:
-        return error_kind
+def _read_provider_result_field(
+    provider_result: object,
+    *,
+    field_name: str,
+    default: object,
+) -> object:
+    try:
+        if isinstance(provider_result, Mapping):
+            return provider_result.get(field_name, default)
+        return getattr(provider_result, field_name, default)
+    except Exception:
+        return _FIELD_READ_ERROR
+
+
+def _normalize_status(status: object) -> AlertProviderStatus | None:
+    if isinstance(status, str) and status in _ALLOWED_STATUSES:
+        return cast(AlertProviderStatus, status)
     return None
+
+
+def _normalize_error_kind(
+    error_kind: object,
+) -> tuple[AlertDispatchErrorKind | None, bool]:
+    if error_kind is _MISSING or error_kind is None:
+        return None, True
+    if isinstance(error_kind, str) and error_kind in _ALLOWED_ERROR_KINDS:
+        return cast(AlertDispatchErrorKind, error_kind), True
+    return None, False
 
 
 def _build_result(

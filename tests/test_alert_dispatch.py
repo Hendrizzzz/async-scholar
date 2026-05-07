@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
+
+import pytest
 
 from async_scholar.alert_dispatch import dispatch_alert
 from async_scholar.alerts import build_alert_notification_payload
@@ -113,6 +116,186 @@ def test_dispatch_alert_normalizes_unsupported_provider_result() -> None:
             "error_kind": "unsupported_provider",
         }
     ]
+
+
+def test_dispatch_alert_normalizes_object_unsupported_result_as_skip() -> None:
+    @dataclass(frozen=True)
+    class ProviderResult:
+        status: str
+        error_kind: str
+        raw_details: str
+
+    def dispatcher(payload: object) -> ProviderResult:
+        return ProviderResult(
+            status="unsupported",
+            error_kind="unsupported_platform",
+            raw_details="unsupported on C:\\Users\\student\\.env",
+        )
+
+    results = dispatch_alert(
+        _event("dismissal_cue"),
+        provider_names=["desktop"],
+        dispatchers={"desktop": dispatcher},
+    )
+
+    assert results == [
+        {
+            "provider": "desktop",
+            "severity": "low",
+            "status": "skipped",
+            "requires_confirmation": True,
+            "error_kind": "unsupported_platform",
+        }
+    ]
+    serialized = json.dumps(results)
+    assert ".env" not in serialized
+    assert "student" not in serialized
+
+
+@pytest.mark.parametrize(
+    "error_kind",
+    [
+        "missing_dispatcher",
+        "provider_error",
+        "unsupported_provider",
+        "unsupported_platform",
+        "command_failed",
+        "command_failure",
+        "timeout",
+        "os_error",
+        "network_error",
+        "http_error",
+        "missing_credentials",
+    ],
+)
+def test_dispatch_alert_normalizes_object_failed_result_with_allowlisted_error_kind(
+    error_kind: str,
+) -> None:
+    @dataclass(frozen=True)
+    class ProviderResult:
+        status: str
+        error_kind: str
+        stderr: str
+        request_url: str
+
+    def dispatcher(payload: object) -> ProviderResult:
+        return ProviderResult(
+            status="failed",
+            error_kind=error_kind,
+            stderr="BOT_TOKEN=secret-token stderr should not leak",
+            request_url="https://api.telegram.example/bot-secret/sendMessage",
+        )
+
+    results = dispatch_alert(
+        _event("quiz_prompt"),
+        provider_names=["telegram"],
+        dispatchers={"telegram": dispatcher},
+    )
+
+    assert results == [
+        {
+            "provider": "telegram",
+            "severity": "urgent",
+            "status": "failed",
+            "requires_confirmation": True,
+            "error_kind": error_kind,
+        }
+    ]
+    serialized = json.dumps(results)
+    assert "secret-token" not in serialized
+    assert "sendMessage" not in serialized
+
+
+def test_dispatch_alert_keeps_telegram_mapping_failed_result_sanitized() -> None:
+    def dispatcher(payload: object) -> dict[str, str]:
+        return {
+            "status": "failed",
+            "error_kind": "http_error",
+            "url": "https://api.telegram.example/bot-secret/sendMessage",
+            "body": "chat_id=12345",
+        }
+
+    results = dispatch_alert(
+        _event("attendance_prompt"),
+        provider_names=["telegram"],
+        dispatchers={"telegram": dispatcher},
+    )
+
+    assert results == [
+        {
+            "provider": "telegram",
+            "severity": "urgent",
+            "status": "failed",
+            "requires_confirmation": True,
+            "error_kind": "http_error",
+        }
+    ]
+    serialized = json.dumps(results)
+    assert "bot-secret" not in serialized
+    assert "12345" not in serialized
+
+
+def test_dispatch_alert_normalizes_unknown_status_as_sanitized_failure() -> None:
+    def dispatcher(payload: object) -> dict[str, str]:
+        return {
+            "status": "sent BOT_TOKEN=secret-token",
+            "error_kind": "provider_error",
+            "stdout": "raw transcript answer",
+        }
+
+    results = dispatch_alert(
+        _event("direct_question"),
+        provider_names=["desktop"],
+        dispatchers={"desktop": dispatcher},
+    )
+
+    assert results == [
+        {
+            "provider": "desktop",
+            "severity": "normal",
+            "status": "failed",
+            "requires_confirmation": True,
+            "error_kind": "provider_error",
+        }
+    ]
+    serialized = json.dumps(results)
+    assert "secret-token" not in serialized
+    assert "raw transcript" not in serialized
+
+
+def test_dispatch_alert_normalizes_unknown_error_kind_as_sanitized_failure() -> None:
+    @dataclass(frozen=True)
+    class ProviderResult:
+        status: str
+        error_kind: str
+        exception_text: str
+
+    def dispatcher(payload: object) -> ProviderResult:
+        return ProviderResult(
+            status="skipped",
+            error_kind="C:\\Users\\student\\.env BOT_TOKEN=secret-token",
+            exception_text="raw OS exception with private path",
+        )
+
+    results = dispatch_alert(
+        _event("camera_mic_request"),
+        provider_names=["desktop"],
+        dispatchers={"desktop": dispatcher},
+    )
+
+    assert results == [
+        {
+            "provider": "desktop",
+            "severity": "urgent",
+            "status": "failed",
+            "requires_confirmation": True,
+            "error_kind": "provider_error",
+        }
+    ]
+    serialized = json.dumps(results)
+    assert ".env" not in serialized
+    assert "secret-token" not in serialized
+    assert "raw OS exception" not in serialized
 
 
 def test_dispatch_alert_preserves_multiple_provider_order() -> None:
