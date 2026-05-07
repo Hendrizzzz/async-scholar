@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import cast
 
 import pytest
 
-from async_scholar.alert_dispatch import dispatch_alert
+from async_scholar.alert_dispatch import (
+    AlertDispatchErrorKind,
+    AlertDispatchResult,
+    _build_urgent_alert_retry_log_decisions,
+    dispatch_alert,
+)
 from async_scholar.alerts import build_alert_notification_payload
 from async_scholar.schemas import LectureEvent
 
@@ -23,6 +29,24 @@ def _event(
         source_segment_ids=["segment-1"],
         message=message,
     )
+
+
+def _dispatch_result(
+    provider: str,
+    *,
+    severity: str = "urgent",
+    status: str = "failed",
+    error_kind: AlertDispatchErrorKind | None = None,
+) -> AlertDispatchResult:
+    result = {
+        "provider": provider,
+        "severity": severity,
+        "status": status,
+        "requires_confirmation": True,
+    }
+    if error_kind is not None:
+        result["error_kind"] = error_kind
+    return cast(AlertDispatchResult, result)
 
 
 def test_dispatch_alert_uses_injected_dispatcher_and_sanitizes_success() -> None:
@@ -367,3 +391,207 @@ def test_dispatch_alert_does_not_leak_suspicious_event_content() -> None:
     for leaked_string in leaked_strings:
         assert leaked_string not in serialized_results
         assert leaked_string not in serialized_payload
+
+
+@pytest.mark.parametrize(
+    "error_kind",
+    [
+        "provider_error",
+        "timeout",
+        "network_error",
+        "http_error",
+        "command_failed",
+        "command_failure",
+        "os_error",
+    ],
+)
+def test_retry_log_decisions_classify_urgent_retryable_failures(
+    error_kind: AlertDispatchErrorKind,
+) -> None:
+    decisions = _build_urgent_alert_retry_log_decisions(
+        [_dispatch_result("telegram", error_kind=error_kind)]
+    )
+
+    assert decisions == [
+        {
+            "provider": "telegram",
+            "severity": "urgent",
+            "status": "failed",
+            "requires_confirmation": True,
+            "error_kind": error_kind,
+            "retry_action": "retry",
+            "max_attempts": 3,
+        }
+    ]
+    assert set(decisions[0]) == {
+        "provider",
+        "severity",
+        "status",
+        "requires_confirmation",
+        "error_kind",
+        "retry_action",
+        "max_attempts",
+    }
+
+
+@pytest.mark.parametrize(
+    ("status", "error_kind"),
+    [
+        ("skipped", "missing_dispatcher"),
+        ("skipped", "unsupported_provider"),
+        ("failed", "unsupported_platform"),
+        ("failed", "missing_credentials"),
+    ],
+)
+def test_retry_log_decisions_classify_urgent_non_retryable_issues(
+    status: str,
+    error_kind: AlertDispatchErrorKind,
+) -> None:
+    decisions = _build_urgent_alert_retry_log_decisions(
+        [_dispatch_result("desktop", status=status, error_kind=error_kind)]
+    )
+
+    assert decisions == [
+        {
+            "provider": "desktop",
+            "severity": "urgent",
+            "status": status,
+            "requires_confirmation": True,
+            "error_kind": error_kind,
+            "retry_action": "manual_check",
+            "max_attempts": 0,
+        }
+    ]
+
+
+def test_retry_log_decisions_omit_urgent_sent_results() -> None:
+    decisions = _build_urgent_alert_retry_log_decisions(
+        [_dispatch_result("telegram", status="sent")]
+    )
+
+    assert decisions == []
+
+
+@pytest.mark.parametrize("severity", ["normal", "low"])
+def test_retry_log_decisions_omit_non_urgent_failures(severity: str) -> None:
+    decisions = _build_urgent_alert_retry_log_decisions(
+        [
+            _dispatch_result(
+                "telegram",
+                severity=severity,
+                status="failed",
+                error_kind="timeout",
+            )
+        ]
+    )
+
+    assert decisions == []
+
+
+def test_retry_log_decisions_classify_missing_error_kind_as_manual_check() -> None:
+    decisions = _build_urgent_alert_retry_log_decisions(
+        [_dispatch_result("desktop", status="failed")]
+    )
+
+    assert decisions == [
+        {
+            "provider": "desktop",
+            "severity": "urgent",
+            "status": "failed",
+            "requires_confirmation": True,
+            "retry_action": "manual_check",
+            "max_attempts": 0,
+        }
+    ]
+    assert set(decisions[0]) == {
+        "provider",
+        "severity",
+        "status",
+        "requires_confirmation",
+        "retry_action",
+        "max_attempts",
+    }
+
+
+def test_retry_log_decisions_preserve_multiple_provider_order() -> None:
+    decisions = _build_urgent_alert_retry_log_decisions(
+        [
+            _dispatch_result("telegram", error_kind="timeout"),
+            _dispatch_result("console", status="sent"),
+            _dispatch_result(
+                "desktop",
+                status="skipped",
+                error_kind="missing_dispatcher",
+            ),
+            _dispatch_result("file", error_kind="os_error"),
+        ]
+    )
+
+    assert [decision["provider"] for decision in decisions] == [
+        "telegram",
+        "desktop",
+        "file",
+    ]
+    assert [decision["retry_action"] for decision in decisions] == [
+        "retry",
+        "manual_check",
+        "retry",
+    ]
+
+
+def test_retry_log_decisions_do_not_leak_unknown_or_private_fields() -> None:
+    raw_result = {
+        "provider": "telegram",
+        "severity": "urgent",
+        "status": "failed",
+        "requires_confirmation": True,
+        "error_kind": "http_error",
+        "message": "raw transcript answer",
+        "source_segment_ids": ["segment-secret"],
+        "event_id": "event-secret",
+        "session_id": "session-secret",
+        "private_path": "C:\\Users\\student\\.env",
+        "raw_audio": "C:\\Users\\student\\lecture.wav",
+        "bot_token": "BOT_TOKEN=secret-token",
+        "chat_id": "12345",
+        "request_url": "https://api.telegram.example/bot-secret/sendMessage",
+        "stdout": "provider stdout",
+        "stderr": "provider stderr",
+        "exception_text": "raw exception text",
+        "auth_state": "browser auth data",
+        "model_path": "C:\\models\\private-model",
+    }
+
+    decisions = _build_urgent_alert_retry_log_decisions(
+        [cast(AlertDispatchResult, raw_result)]
+    )
+
+    assert decisions == [
+        {
+            "provider": "telegram",
+            "severity": "urgent",
+            "status": "failed",
+            "requires_confirmation": True,
+            "error_kind": "http_error",
+            "retry_action": "retry",
+            "max_attempts": 3,
+        }
+    ]
+    serialized = json.dumps(decisions)
+    for leaked_string in [
+        "raw transcript",
+        "segment-secret",
+        "event-secret",
+        "session-secret",
+        ".env",
+        "lecture.wav",
+        "secret-token",
+        "12345",
+        "sendMessage",
+        "stdout",
+        "stderr",
+        "raw exception",
+        "auth data",
+        "private-model",
+    ]:
+        assert leaked_string not in serialized

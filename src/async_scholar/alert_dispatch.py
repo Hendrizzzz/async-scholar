@@ -28,6 +28,7 @@ AlertDispatchErrorKind = Literal[
 ]
 AlertProviderDispatcher = Callable[[AlertNotificationPayload], object]
 AlertProviderStatus = AlertDispatchStatus | Literal["unsupported"]
+AlertRetryAction = Literal["retry", "manual_check"]
 
 
 class AlertDispatchResult(TypedDict):
@@ -37,6 +38,18 @@ class AlertDispatchResult(TypedDict):
     severity: AlertSeverity
     status: AlertDispatchStatus
     requires_confirmation: bool
+    error_kind: NotRequired[AlertDispatchErrorKind]
+
+
+class AlertRetryLogDecision(TypedDict):
+    """Sanitized JSON-ready retry log decision for an urgent dispatch issue."""
+
+    provider: str
+    severity: AlertSeverity
+    status: AlertDispatchStatus
+    requires_confirmation: bool
+    retry_action: AlertRetryAction
+    max_attempts: int
     error_kind: NotRequired[AlertDispatchErrorKind]
 
 
@@ -58,6 +71,18 @@ _ALLOWED_ERROR_KINDS: frozenset[AlertDispatchErrorKind] = frozenset(
 _ALLOWED_STATUSES: frozenset[AlertProviderStatus] = frozenset(
     {"sent", "skipped", "failed", "unsupported"}
 )
+_RETRYABLE_ERROR_KINDS: frozenset[AlertDispatchErrorKind] = frozenset(
+    {
+        "provider_error",
+        "timeout",
+        "network_error",
+        "http_error",
+        "command_failed",
+        "command_failure",
+        "os_error",
+    }
+)
+_URGENT_ALERT_RETRY_MAX_ATTEMPTS = 3
 _FIELD_READ_ERROR = object()
 _MISSING = object()
 
@@ -108,6 +133,46 @@ def dispatch_alert(
         )
 
     return results
+
+
+def _build_urgent_alert_retry_log_decisions(
+    results: Sequence[AlertDispatchResult],
+    *,
+    max_attempts: int = _URGENT_ALERT_RETRY_MAX_ATTEMPTS,
+) -> list[AlertRetryLogDecision]:
+    """Build sanitized retry log decisions without performing retry work."""
+
+    decisions: list[AlertRetryLogDecision] = []
+    for result in results:
+        if result["severity"] != "urgent" or result["status"] not in {
+            "failed",
+            "skipped",
+        }:
+            continue
+
+        error_kind = result.get("error_kind")
+        retry_action = _classify_alert_retry_action(error_kind)
+        decision: AlertRetryLogDecision = {
+            "provider": result["provider"],
+            "severity": result["severity"],
+            "status": result["status"],
+            "requires_confirmation": result["requires_confirmation"],
+            "retry_action": retry_action,
+            "max_attempts": max_attempts if retry_action == "retry" else 0,
+        }
+        if error_kind is not None:
+            decision["error_kind"] = error_kind
+        decisions.append(decision)
+
+    return decisions
+
+
+def _classify_alert_retry_action(
+    error_kind: AlertDispatchErrorKind | None,
+) -> AlertRetryAction:
+    if error_kind in _RETRYABLE_ERROR_KINDS:
+        return "retry"
+    return "manual_check"
 
 
 def _normalize_provider_result(
