@@ -9,11 +9,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from async_scholar.alerts import classify_alert_severity
+from async_scholar.alert_dispatch import dispatch_alert
 from async_scholar.schemas import Alert, LectureEvent, TranscriptSegment
 
 _SAFE_SESSION_ID_PATTERN = re.compile(r"[^A-Za-z0-9_-]+")
 _MAX_REVIEWER_SNIPPET_CHARS = 220
+_FILE_ALERT_PROVIDER = "file"
 
 
 @dataclass(frozen=True)
@@ -141,6 +142,11 @@ def write_alert_log(
 
     with alerts_path.open("w", encoding="utf-8", newline="\n") as alerts_file:
         for event in events:
+            dispatch_results = dispatch_alert(
+                event,
+                provider_names=(_FILE_ALERT_PROVIDER,),
+                dispatchers={_FILE_ALERT_PROVIDER: _record_file_alert_dispatch},
+            )
             alert = Alert(
                 alert_id=f"{event.event_id}:alert",
                 session_id=event.session_id,
@@ -150,11 +156,16 @@ def write_alert_log(
             )
             payload = alert.model_dump(mode="json") | {
                 "event_type": event.event_type,
-                "severity": classify_alert_severity(event.event_type),
+                "severity": dispatch_results[0]["severity"],
+                "dispatch_results": dispatch_results,
             }
             alerts_file.write(_to_json_line(payload))
 
     return alerts_path
+
+
+def _record_file_alert_dispatch(_payload: object) -> None:
+    return None
 
 
 def write_reviewer_markdown(

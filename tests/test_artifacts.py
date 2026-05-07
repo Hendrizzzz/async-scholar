@@ -45,11 +45,65 @@ def test_write_alert_log_is_concise_and_omits_transcript_text(tmp_path) -> None:
     assert payload["event_id"] == event.event_id
     assert payload["event_type"] == "attendance_prompt"
     assert payload["severity"] == "urgent"
+    assert payload["dispatch_results"] == [
+        {
+            "provider": "file",
+            "severity": "urgent",
+            "status": "sent",
+            "requires_confirmation": True,
+        }
+    ]
+    assert set(payload["dispatch_results"][0]) == {
+        "provider",
+        "severity",
+        "status",
+        "requires_confirmation",
+    }
     assert payload["message"] == "Attendance prompt detected."
     assert payload["requires_confirmation"] is True
     assert payload["status"] == "pending"
     assert "source_segment_ids" not in payload
     assert transcript_text not in log_text
+
+
+def test_write_alert_log_dispatch_result_omits_private_event_content(tmp_path) -> None:
+    event = LectureEvent(
+        event_id="event-secret-token",
+        session_id="session-secret",
+        event_type=(
+            "BOT_TOKEN=secret-token C:\\Users\\student\\lecture.wav .env browser_cookie"
+        ),
+        detected_at_seconds=99.0,
+        source_segment_ids=("segment-secret",),
+        message="Lecture event detected.",
+    )
+
+    alerts_path = write_alert_log(
+        [event],
+        tmp_path,
+        created_at=datetime(2026, 5, 5, 0, 0, tzinfo=UTC),
+    )
+
+    payload = json.loads(alerts_path.read_text(encoding="utf-8"))
+    dispatch_results = payload["dispatch_results"]
+    serialized_results = json.dumps(dispatch_results)
+    assert dispatch_results == [
+        {
+            "provider": "file",
+            "severity": "normal",
+            "status": "sent",
+            "requires_confirmation": True,
+        }
+    ]
+    assert "source_segment_ids" not in payload
+    assert "secret-token" not in serialized_results
+    assert "C:\\Users\\student\\lecture.wav" not in serialized_results
+    assert "lecture.wav" not in serialized_results
+    assert ".env" not in serialized_results
+    assert "browser_cookie" not in serialized_results
+    assert "event-secret-token" not in serialized_results
+    assert "session-secret" not in serialized_results
+    assert "segment-secret" not in serialized_results
 
 
 def test_write_reviewer_markdown_uses_only_detected_event_snippets(tmp_path) -> None:
