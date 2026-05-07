@@ -9,7 +9,7 @@ import pytest
 from async_scholar.alert_dispatch import (
     AlertDispatchErrorKind,
     AlertDispatchResult,
-    _build_urgent_alert_retry_log_decisions,
+    build_urgent_alert_retry_log_decisions,
     dispatch_alert,
 )
 from async_scholar.alerts import build_alert_notification_payload
@@ -408,7 +408,7 @@ def test_dispatch_alert_does_not_leak_suspicious_event_content() -> None:
 def test_retry_log_decisions_classify_urgent_retryable_failures(
     error_kind: AlertDispatchErrorKind,
 ) -> None:
-    decisions = _build_urgent_alert_retry_log_decisions(
+    decisions = build_urgent_alert_retry_log_decisions(
         [_dispatch_result("telegram", error_kind=error_kind)]
     )
 
@@ -447,7 +447,7 @@ def test_retry_log_decisions_classify_urgent_non_retryable_issues(
     status: str,
     error_kind: AlertDispatchErrorKind,
 ) -> None:
-    decisions = _build_urgent_alert_retry_log_decisions(
+    decisions = build_urgent_alert_retry_log_decisions(
         [_dispatch_result("desktop", status=status, error_kind=error_kind)]
     )
 
@@ -465,7 +465,7 @@ def test_retry_log_decisions_classify_urgent_non_retryable_issues(
 
 
 def test_retry_log_decisions_omit_urgent_sent_results() -> None:
-    decisions = _build_urgent_alert_retry_log_decisions(
+    decisions = build_urgent_alert_retry_log_decisions(
         [_dispatch_result("telegram", status="sent")]
     )
 
@@ -474,7 +474,7 @@ def test_retry_log_decisions_omit_urgent_sent_results() -> None:
 
 @pytest.mark.parametrize("severity", ["normal", "low"])
 def test_retry_log_decisions_omit_non_urgent_failures(severity: str) -> None:
-    decisions = _build_urgent_alert_retry_log_decisions(
+    decisions = build_urgent_alert_retry_log_decisions(
         [
             _dispatch_result(
                 "telegram",
@@ -489,7 +489,7 @@ def test_retry_log_decisions_omit_non_urgent_failures(severity: str) -> None:
 
 
 def test_retry_log_decisions_classify_missing_error_kind_as_manual_check() -> None:
-    decisions = _build_urgent_alert_retry_log_decisions(
+    decisions = build_urgent_alert_retry_log_decisions(
         [_dispatch_result("desktop", status="failed")]
     )
 
@@ -514,7 +514,7 @@ def test_retry_log_decisions_classify_missing_error_kind_as_manual_check() -> No
 
 
 def test_retry_log_decisions_preserve_multiple_provider_order() -> None:
-    decisions = _build_urgent_alert_retry_log_decisions(
+    decisions = build_urgent_alert_retry_log_decisions(
         [
             _dispatch_result("telegram", error_kind="timeout"),
             _dispatch_result("console", status="sent"),
@@ -562,7 +562,7 @@ def test_retry_log_decisions_do_not_leak_unknown_or_private_fields() -> None:
         "model_path": "C:\\models\\private-model",
     }
 
-    decisions = _build_urgent_alert_retry_log_decisions(
+    decisions = build_urgent_alert_retry_log_decisions(
         [cast(AlertDispatchResult, raw_result)]
     )
 

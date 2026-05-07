@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from typing import cast
 
+import async_scholar.artifacts as artifacts
+from async_scholar.alert_dispatch import AlertDispatchResult
 from async_scholar.artifacts import (
     safe_session_id,
     write_alert_log,
@@ -59,6 +62,7 @@ def test_write_alert_log_is_concise_and_omits_transcript_text(tmp_path) -> None:
         "status",
         "requires_confirmation",
     }
+    assert payload["retry_log_decisions"] == []
     assert payload["message"] == "Attendance prompt detected."
     assert payload["requires_confirmation"] is True
     assert payload["status"] == "pending"
@@ -104,6 +108,125 @@ def test_write_alert_log_dispatch_result_omits_private_event_content(tmp_path) -
     assert "event-secret-token" not in serialized_results
     assert "session-secret" not in serialized_results
     assert "segment-secret" not in serialized_results
+
+
+def test_write_alert_log_records_sanitized_retry_log_decisions(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    event = LectureEvent(
+        event_id="event-secret-token",
+        session_id="session-secret",
+        event_type="attendance_prompt",
+        detected_at_seconds=99.0,
+        source_segment_ids=("segment-secret",),
+        message="Lecture event detected.",
+    )
+    dispatch_results = cast(
+        list[AlertDispatchResult],
+        [
+            {
+                "provider": "telegram",
+                "severity": "urgent",
+                "status": "failed",
+                "requires_confirmation": True,
+                "error_kind": "timeout",
+            },
+            {
+                "provider": "desktop",
+                "severity": "urgent",
+                "status": "skipped",
+                "requires_confirmation": True,
+                "error_kind": "missing_dispatcher",
+            },
+            {
+                "provider": "file",
+                "severity": "urgent",
+                "status": "sent",
+                "requires_confirmation": True,
+            },
+        ],
+    )
+
+    def fake_dispatch_alert(
+        event_arg: LectureEvent,
+        provider_names: object,
+        dispatchers: object,
+    ) -> list[AlertDispatchResult]:
+        assert event_arg == event
+        assert provider_names == ("file",)
+        assert "file" in dispatchers
+        return dispatch_results
+
+    monkeypatch.setattr(artifacts, "dispatch_alert", fake_dispatch_alert)
+
+    alerts_path = write_alert_log(
+        [event],
+        tmp_path,
+        created_at=datetime(2026, 5, 5, 0, 0, tzinfo=UTC),
+    )
+
+    payload = json.loads(alerts_path.read_text(encoding="utf-8"))
+    assert payload["retry_log_decisions"] == [
+        {
+            "provider": "telegram",
+            "severity": "urgent",
+            "status": "failed",
+            "requires_confirmation": True,
+            "error_kind": "timeout",
+            "retry_action": "retry",
+            "max_attempts": 3,
+        },
+        {
+            "provider": "desktop",
+            "severity": "urgent",
+            "status": "skipped",
+            "requires_confirmation": True,
+            "error_kind": "missing_dispatcher",
+            "retry_action": "manual_check",
+            "max_attempts": 0,
+        },
+    ]
+    assert [set(decision) for decision in payload["retry_log_decisions"]] == [
+        {
+            "provider",
+            "severity",
+            "status",
+            "requires_confirmation",
+            "error_kind",
+            "retry_action",
+            "max_attempts",
+        },
+        {
+            "provider",
+            "severity",
+            "status",
+            "requires_confirmation",
+            "error_kind",
+            "retry_action",
+            "max_attempts",
+        },
+    ]
+
+    serialized_retry_decisions = json.dumps(payload["retry_log_decisions"])
+    for leaked_string in [
+        "raw transcript",
+        "segment-secret",
+        "event-secret",
+        "session-secret",
+        ".env",
+        "lecture.wav",
+        "secret-token",
+        "12345",
+        "sendMessage",
+        "stdout",
+        "stderr",
+        "raw exception",
+        "auth data",
+        "private-model",
+        "Lecture event detected",
+    ]:
+        assert leaked_string not in serialized_retry_decisions
 
 
 def test_write_reviewer_markdown_uses_only_detected_event_snippets(tmp_path) -> None:

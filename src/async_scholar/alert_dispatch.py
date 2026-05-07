@@ -135,7 +135,7 @@ def dispatch_alert(
     return results
 
 
-def _build_urgent_alert_retry_log_decisions(
+def build_urgent_alert_retry_log_decisions(
     results: Sequence[AlertDispatchResult],
     *,
     max_attempts: int = _URGENT_ALERT_RETRY_MAX_ATTEMPTS,

@@ -9,7 +9,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from async_scholar.alert_dispatch import dispatch_alert
+from async_scholar.alert_dispatch import (
+    build_urgent_alert_retry_log_decisions,
+    dispatch_alert,
+)
 from async_scholar.schemas import Alert, LectureEvent, TranscriptSegment
 
 _SAFE_SESSION_ID_PATTERN = re.compile(r"[^A-Za-z0-9_-]+")
@@ -158,6 +161,9 @@ def write_alert_log(
                 "event_type": event.event_type,
                 "severity": dispatch_results[0]["severity"],
                 "dispatch_results": dispatch_results,
+                "retry_log_decisions": build_urgent_alert_retry_log_decisions(
+                    dispatch_results
+                ),
             }
             alerts_file.write(_to_json_line(payload))
 
