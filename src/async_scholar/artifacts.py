@@ -18,6 +18,19 @@ from async_scholar.schemas import Alert, LectureEvent, TranscriptSegment
 _SAFE_SESSION_ID_PATTERN = re.compile(r"[^A-Za-z0-9_-]+")
 _MAX_REVIEWER_SNIPPET_CHARS = 220
 _FILE_ALERT_PROVIDER = "file"
+_ALERT_LOG_SESSION_ID = "alert-log-session"
+_ALERT_LOG_GENERIC_EVENT_TYPE = "lecture_event"
+_ALERT_LOG_EVENT_MESSAGES = {
+    "attendance_prompt": "Attendance prompt detected.",
+    "camera_mic_request": "Camera or microphone request detected.",
+    "deadline_mention": "Deadline mention detected.",
+    "direct_question": "Direct question detected.",
+    "dismissal_cue": "Dismissal cue detected.",
+    "name_call": "Name call detected.",
+    "quiz_prompt": "Quiz prompt detected.",
+    "task_prompt": "Task prompt detected.",
+    _ALERT_LOG_GENERIC_EVENT_TYPE: "Lecture event detected.",
+}
 
 
 @dataclass(frozen=True)
@@ -144,21 +157,22 @@ def write_alert_log(
     alerts_path = Path(output_dir) / "alerts.log"
 
     with alerts_path.open("w", encoding="utf-8", newline="\n") as alerts_file:
-        for event in events:
+        for alert_index, event in enumerate(events, start=1):
+            alert_event_type = _sanitize_alert_log_event_type(event.event_type)
             dispatch_results = dispatch_alert(
                 event,
                 provider_names=(_FILE_ALERT_PROVIDER,),
                 dispatchers={_FILE_ALERT_PROVIDER: _record_file_alert_dispatch},
             )
             alert = Alert(
-                alert_id=f"{event.event_id}:alert",
-                session_id=event.session_id,
-                event_id=event.event_id,
-                message=event.message,
+                alert_id=f"alert-log-alert-{alert_index:04d}",
+                session_id=_ALERT_LOG_SESSION_ID,
+                event_id=f"alert-log-event-{alert_index:04d}",
+                message=_alert_log_message(alert_event_type),
                 created_at=alert_time,
             )
             payload = alert.model_dump(mode="json") | {
-                "event_type": event.event_type,
+                "event_type": alert_event_type,
                 "severity": dispatch_results[0]["severity"],
                 "dispatch_results": dispatch_results,
                 "retry_log_decisions": build_urgent_alert_retry_log_decisions(
@@ -172,6 +186,19 @@ def write_alert_log(
 
 def _record_file_alert_dispatch(_payload: object) -> None:
     return None
+
+
+def _sanitize_alert_log_event_type(event_type: str) -> str:
+    if event_type in _ALERT_LOG_EVENT_MESSAGES:
+        return event_type
+    return _ALERT_LOG_GENERIC_EVENT_TYPE
+
+
+def _alert_log_message(event_type: str) -> str:
+    return _ALERT_LOG_EVENT_MESSAGES.get(
+        event_type,
+        _ALERT_LOG_EVENT_MESSAGES[_ALERT_LOG_GENERIC_EVENT_TYPE],
+    )
 
 
 def write_reviewer_markdown(

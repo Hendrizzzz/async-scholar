@@ -44,8 +44,9 @@ def test_write_alert_log_is_concise_and_omits_transcript_text(tmp_path) -> None:
 
     log_text = alerts_path.read_text(encoding="utf-8")
     payload = json.loads(log_text)
-    assert payload["alert_id"] == "fixture:demo:event:0001:attendance_prompt:alert"
-    assert payload["event_id"] == event.event_id
+    assert payload["alert_id"] == "alert-log-alert-0001"
+    assert payload["event_id"] == "alert-log-event-0001"
+    assert payload["session_id"] == "alert-log-session"
     assert payload["event_type"] == "attendance_prompt"
     assert payload["severity"] == "urgent"
     assert payload["dispatch_results"] == [
@@ -68,6 +69,100 @@ def test_write_alert_log_is_concise_and_omits_transcript_text(tmp_path) -> None:
     assert payload["status"] == "pending"
     assert "source_segment_ids" not in payload
     assert transcript_text not in log_text
+
+
+def test_write_alert_log_sanitizes_malformed_event_payload(tmp_path) -> None:
+    event = LectureEvent(
+        event_id=(
+            "raw-event-id BOT_TOKEN=event-token chat_id=12345 "
+            "https://api.telegram.org/bot-event-token/sendMessage"
+        ),
+        session_id=(
+            "raw-session-id C:\\Users\\student\\.env browser-profile auth-state "
+            "C:\\models\\private-model"
+        ),
+        event_type=(
+            "raw_unknown_event transcript text C:\\Users\\student\\lecture.wav "
+            "https://api.telegram.org/bot-token/sendMessage stdout stderr "
+            "RuntimeError exception .env browser auth model-cache "
+            "arbitrary-private-text"
+        ),
+        detected_at_seconds=99.0,
+        source_segment_ids=(
+            "raw-source-id C:\\Users\\student\\audio.mp3 browser-cookie",
+        ),
+        message=(
+            "raw event.message transcript text says mark me present; "
+            "BOT_TOKEN=message-token; CHAT_ID=12345; "
+            "request URL https://api.telegram.org/bot-message-token/sendMessage; "
+            "stdout dump; stderr dump; exception Traceback; .env; "
+            "browser auth data; model path C:\\models\\private-model; "
+            "raw audio path C:\\Users\\student\\lecture.wav; arbitrary unknown "
+            "event text"
+        ),
+    )
+
+    alerts_path = write_alert_log(
+        [event],
+        tmp_path,
+        created_at=datetime(2026, 5, 5, 0, 0, tzinfo=UTC),
+    )
+
+    log_text = alerts_path.read_text(encoding="utf-8")
+    payload = json.loads(log_text)
+    assert payload["alert_id"] == "alert-log-alert-0001"
+    assert payload["event_id"] == "alert-log-event-0001"
+    assert payload["session_id"] == "alert-log-session"
+    assert payload["event_type"] == "lecture_event"
+    assert payload["message"] == "Lecture event detected."
+    assert payload["severity"] == "normal"
+    assert payload["dispatch_results"] == [
+        {
+            "provider": "file",
+            "severity": "normal",
+            "status": "sent",
+            "requires_confirmation": True,
+        }
+    ]
+    assert payload["retry_log_decisions"] == []
+    assert payload["requires_confirmation"] is True
+    assert payload["status"] == "pending"
+    assert "source_segment_ids" not in payload
+
+    for leaked_string in [
+        "raw event.message",
+        "mark me present",
+        "raw_unknown_event",
+        "raw-event-id",
+        "raw-session-id",
+        "raw-source-id",
+        "C:\\Users\\student",
+        "lecture.wav",
+        "audio.mp3",
+        "BOT_TOKEN",
+        "event-token",
+        "message-token",
+        "CHAT_ID",
+        "chat_id",
+        "12345",
+        "api.telegram.org",
+        "sendMessage",
+        "request URL",
+        "stdout",
+        "stderr",
+        "RuntimeError",
+        "Traceback",
+        "exception",
+        ".env",
+        "browser",
+        "auth",
+        "private-model",
+        "model-cache",
+        "arbitrary-private-text",
+        "arbitrary unknown event text",
+        "transcript text",
+    ]:
+        assert leaked_string not in log_text
 
 
 def test_write_alert_log_dispatch_result_omits_private_event_content(tmp_path) -> None:
