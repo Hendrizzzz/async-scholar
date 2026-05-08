@@ -1,55 +1,56 @@
 """NiceGUI UI surfaces for AsyncScholar."""
 
-from async_scholar.ui.event_timeline import (
-    SAFE_EVENT_TIMELINE_FIELDS,
-    EventTimelineEventModel,
-    EventTimelineSource,
-    EventTimelineView,
-    event_to_timeline_model,
-    format_event_timeline_event,
-    normalize_event_timeline_events,
-    render_event_timeline_view,
-)
-from async_scholar.ui.session_status import (
-    SAFE_STATUS_FIELDS,
-    SessionStatusModel,
-    SessionStatusView,
-    SessionStatusWorker,
-    format_status_model,
-    render_session_status_view,
-    snapshot_to_status_model,
-)
-from async_scholar.ui.transcript_stream import (
-    SAFE_TRANSCRIPT_FIELDS,
-    TranscriptSegmentModel,
-    TranscriptStreamView,
-    format_transcript_segment,
-    normalize_transcript_segments,
-    render_transcript_stream_view,
-    segment_to_transcript_model,
-)
+from __future__ import annotations
 
-__all__ = [
-    "SAFE_EVENT_TIMELINE_FIELDS",
-    "SAFE_STATUS_FIELDS",
-    "SAFE_TRANSCRIPT_FIELDS",
-    "EventTimelineEventModel",
-    "EventTimelineSource",
-    "EventTimelineView",
-    "SessionStatusModel",
-    "SessionStatusView",
-    "SessionStatusWorker",
-    "TranscriptSegmentModel",
-    "TranscriptStreamView",
-    "event_to_timeline_model",
-    "format_event_timeline_event",
-    "format_status_model",
-    "format_transcript_segment",
-    "normalize_event_timeline_events",
-    "normalize_transcript_segments",
-    "render_event_timeline_view",
-    "render_session_status_view",
-    "render_transcript_stream_view",
-    "segment_to_transcript_model",
-    "snapshot_to_status_model",
-]
+from importlib import import_module
+from typing import Any
+
+_SYMBOL_MODULES = {
+    "SAFE_ALERT_HISTORY_FIELDS": "async_scholar.ui.alert_history",
+    "SAFE_EVENT_TIMELINE_FIELDS": "async_scholar.ui.event_timeline",
+    "SAFE_STATUS_FIELDS": "async_scholar.ui.session_status",
+    "SAFE_TRANSCRIPT_FIELDS": "async_scholar.ui.transcript_stream",
+    "AlertHistoryAlertModel": "async_scholar.ui.alert_history",
+    "AlertHistorySource": "async_scholar.ui.alert_history",
+    "AlertHistoryView": "async_scholar.ui.alert_history",
+    "EventTimelineEventModel": "async_scholar.ui.event_timeline",
+    "EventTimelineSource": "async_scholar.ui.event_timeline",
+    "EventTimelineView": "async_scholar.ui.event_timeline",
+    "SessionStatusModel": "async_scholar.ui.session_status",
+    "SessionStatusView": "async_scholar.ui.session_status",
+    "SessionStatusWorker": "async_scholar.ui.session_status",
+    "TranscriptSegmentModel": "async_scholar.ui.transcript_stream",
+    "TranscriptStreamView": "async_scholar.ui.transcript_stream",
+    "alert_to_history_model": "async_scholar.ui.alert_history",
+    "event_to_timeline_model": "async_scholar.ui.event_timeline",
+    "format_alert_history_item": "async_scholar.ui.alert_history",
+    "format_event_timeline_event": "async_scholar.ui.event_timeline",
+    "format_status_model": "async_scholar.ui.session_status",
+    "format_transcript_segment": "async_scholar.ui.transcript_stream",
+    "normalize_alert_history_alerts": "async_scholar.ui.alert_history",
+    "normalize_event_timeline_events": "async_scholar.ui.event_timeline",
+    "normalize_transcript_segments": "async_scholar.ui.transcript_stream",
+    "render_alert_history_view": "async_scholar.ui.alert_history",
+    "render_event_timeline_view": "async_scholar.ui.event_timeline",
+    "render_session_status_view": "async_scholar.ui.session_status",
+    "render_transcript_stream_view": "async_scholar.ui.transcript_stream",
+    "segment_to_transcript_model": "async_scholar.ui.transcript_stream",
+    "snapshot_to_status_model": "async_scholar.ui.session_status",
+}
+
+__all__ = list(_SYMBOL_MODULES)
+
+
+def __getattr__(name: str) -> Any:
+    try:
+        module_name = _SYMBOL_MODULES[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+
+    value = getattr(import_module(module_name), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted([*globals(), *__all__])
