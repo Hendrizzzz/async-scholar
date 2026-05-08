@@ -17,7 +17,7 @@ class SessionStatusSnapshot:
     run_status: str
     segment_count: int
     event_count: int
-    artifact_paths: ArtifactPaths
+    artifact_paths: ArtifactPaths | None
 
 
 @dataclass(frozen=True)
@@ -37,6 +37,50 @@ class FixtureDemoResult:
             event_count=self.event_count,
             artifact_paths=self.artifact_paths,
         )
+
+
+class FixtureSessionLifecycleController:
+    """Synchronous fixture-backed lifecycle surface for Gate C prep."""
+
+    def __init__(
+        self,
+        fixture_path: str | Path,
+        *,
+        output_root: str | Path = Path("data") / "sessions",
+    ) -> None:
+        self._fixture_path = Path(fixture_path)
+        self._output_root = Path(output_root)
+        self._result: FixtureDemoResult | None = None
+        self._run_status = "not_started"
+
+    def start(self) -> SessionStatusSnapshot:
+        if self._result is not None or self._run_status == "stopped":
+            return self.status()
+
+        self._result = run_fixture_demo(
+            self._fixture_path,
+            output_root=self._output_root,
+        )
+        self._run_status = "completed"
+        return self.status()
+
+    def status(self) -> SessionStatusSnapshot:
+        if self._result is not None:
+            return self._result.status_snapshot
+
+        return SessionStatusSnapshot(
+            session_id="fixture_demo",
+            source_kind="fixture_demo",
+            run_status=self._run_status,
+            segment_count=0,
+            event_count=0,
+            artifact_paths=None,
+        )
+
+    def stop(self) -> SessionStatusSnapshot:
+        if self._result is None:
+            self._run_status = "stopped"
+        return self.status()
 
 
 def run_fixture_demo(
@@ -63,4 +107,9 @@ def run_fixture_demo(
     )
 
 
-__all__ = ["FixtureDemoResult", "SessionStatusSnapshot", "run_fixture_demo"]
+__all__ = [
+    "FixtureDemoResult",
+    "FixtureSessionLifecycleController",
+    "SessionStatusSnapshot",
+    "run_fixture_demo",
+]

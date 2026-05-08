@@ -3,13 +3,62 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from async_scholar.demo import SessionStatusSnapshot, run_fixture_demo
+from async_scholar.demo import (
+    FixtureSessionLifecycleController,
+    SessionStatusSnapshot,
+    run_fixture_demo,
+)
+
+FIXTURE_PATH = Path("tests/fixtures/transcripts/attendance_roll_call.jsonl")
+PRIVATE_TRANSCRIPT_SNIPPETS = (
+    "Good morning, everyone. I am going to take attendance",
+    "When I call your name, please say present",
+    "Here, professor.",
+)
+FORBIDDEN_STATUS_ATTRIBUTES = (
+    "segments",
+    "events",
+    "alerts",
+    "alert_payloads",
+    "source_segment_ids",
+    "source_segment_id",
+    "fixture_path",
+    "output_root",
+    "raw_audio_path",
+    "recording_path",
+    "private_recording",
+    "secrets",
+    "auth_state",
+    "browser_state",
+    "model_path",
+    "generated_media",
+    "scheduler_state",
+    "worker_state",
+    "ui_state",
+)
+FORBIDDEN_STATUS_TEXT = (
+    *PRIVATE_TRANSCRIPT_SNIPPETS,
+    "source_segment_id",
+    "requires_confirmation",
+    "alert payload",
+    "microphone.wav",
+    "raw_audio",
+    "private_recording",
+    ".env",
+    "cookie",
+    "token",
+    "auth",
+    "browser",
+    "model_path",
+    "generated_media",
+    "scheduler",
+    "worker",
+    "nicegui",
+)
 
 
 def test_run_fixture_demo_writes_expected_artifacts(tmp_path) -> None:
-    fixture_path = Path("tests/fixtures/transcripts/attendance_roll_call.jsonl")
-
-    result = run_fixture_demo(fixture_path, output_root=tmp_path)
+    result = run_fixture_demo(FIXTURE_PATH, output_root=tmp_path)
 
     output_dir = tmp_path / "fixture_attendance_roll_call"
     assert result.session_id == "fixture:attendance_roll_call"
@@ -38,9 +87,7 @@ def test_run_fixture_demo_writes_expected_artifacts(tmp_path) -> None:
 
 
 def test_run_fixture_demo_exposes_safe_status_snapshot(tmp_path) -> None:
-    fixture_path = Path("tests/fixtures/transcripts/attendance_roll_call.jsonl")
-
-    result = run_fixture_demo(fixture_path, output_root=tmp_path)
+    result = run_fixture_demo(FIXTURE_PATH, output_root=tmp_path)
     snapshot = result.status_snapshot
 
     assert isinstance(snapshot, SessionStatusSnapshot)
@@ -57,10 +104,95 @@ def test_run_fixture_demo_exposes_safe_status_snapshot(tmp_path) -> None:
 
 
 def test_status_snapshot_keeps_private_contents_out_of_contract(tmp_path) -> None:
-    fixture_path = Path("tests/fixtures/transcripts/attendance_roll_call.jsonl")
+    snapshot = run_fixture_demo(FIXTURE_PATH, output_root=tmp_path).status_snapshot
 
-    snapshot = run_fixture_demo(fixture_path, output_root=tmp_path).status_snapshot
+    _assert_status_snapshot_is_private(snapshot)
 
+
+def test_fixture_session_lifecycle_initial_status_is_safe(tmp_path) -> None:
+    controller = FixtureSessionLifecycleController(FIXTURE_PATH, output_root=tmp_path)
+
+    snapshot = controller.status()
+
+    assert snapshot.session_id == "fixture_demo"
+    assert snapshot.source_kind == "fixture_demo"
+    assert snapshot.run_status == "not_started"
+    assert snapshot.segment_count == 0
+    assert snapshot.event_count == 0
+    assert snapshot.artifact_paths is None
+    _assert_status_snapshot_is_private(snapshot)
+
+
+def test_fixture_session_lifecycle_start_reaches_completed_status(tmp_path) -> None:
+    controller = FixtureSessionLifecycleController(FIXTURE_PATH, output_root=tmp_path)
+
+    snapshot = controller.start()
+
+    assert snapshot.session_id == "fixture:attendance_roll_call"
+    assert snapshot.source_kind == "fixture_demo"
+    assert snapshot.run_status == "completed"
+    assert snapshot.segment_count == 5
+    assert snapshot.event_count == 2
+    assert snapshot.artifact_paths is not None
+    assert snapshot.artifact_paths.output_dir == (
+        tmp_path / "fixture_attendance_roll_call"
+    )
+    assert snapshot.artifact_paths.events_path.exists()
+    assert snapshot.artifact_paths.alerts_path.exists()
+    assert snapshot.artifact_paths.reviewer_path.exists()
+    _assert_status_snapshot_is_private(snapshot)
+
+
+def test_fixture_session_lifecycle_status_reads_are_idempotent(tmp_path) -> None:
+    controller = FixtureSessionLifecycleController(FIXTURE_PATH, output_root=tmp_path)
+
+    started_snapshot = controller.start()
+    first_status = controller.status()
+    second_status = controller.status()
+
+    assert first_status == started_snapshot
+    assert second_status == first_status
+
+    assert started_snapshot.artifact_paths is not None
+    reviewer_path = started_snapshot.artifact_paths.reviewer_path
+    reviewer_text = reviewer_path.read_text(encoding="utf-8")
+    reviewer_path.write_text(f"{reviewer_text}\nlocal sentinel", encoding="utf-8")
+
+    assert controller.start() == started_snapshot
+    assert reviewer_path.read_text(encoding="utf-8").endswith("\nlocal sentinel")
+
+
+def test_fixture_session_lifecycle_stop_without_start_is_idempotent(tmp_path) -> None:
+    controller = FixtureSessionLifecycleController(FIXTURE_PATH, output_root=tmp_path)
+
+    stopped_snapshot = controller.stop()
+
+    assert stopped_snapshot.session_id == "fixture_demo"
+    assert stopped_snapshot.source_kind == "fixture_demo"
+    assert stopped_snapshot.run_status == "stopped"
+    assert stopped_snapshot.segment_count == 0
+    assert stopped_snapshot.event_count == 0
+    assert stopped_snapshot.artifact_paths is None
+    assert controller.status() == stopped_snapshot
+    assert controller.stop() == stopped_snapshot
+    assert controller.start() == stopped_snapshot
+    assert not (tmp_path / "fixture_attendance_roll_call").exists()
+    _assert_status_snapshot_is_private(stopped_snapshot)
+
+
+def test_fixture_session_lifecycle_stop_preserves_completed_status(tmp_path) -> None:
+    controller = FixtureSessionLifecycleController(FIXTURE_PATH, output_root=tmp_path)
+    completed_snapshot = controller.start()
+
+    stopped_snapshot = controller.stop()
+
+    assert stopped_snapshot == completed_snapshot
+    assert stopped_snapshot.run_status == "completed"
+    assert controller.status() == completed_snapshot
+    _assert_status_snapshot_is_private(stopped_snapshot)
+
+
+def _assert_status_snapshot_is_private(snapshot: SessionStatusSnapshot) -> None:
     assert set(SessionStatusSnapshot.__dataclass_fields__) == {
         "session_id",
         "source_kind",
@@ -69,10 +201,8 @@ def test_status_snapshot_keeps_private_contents_out_of_contract(tmp_path) -> Non
         "event_count",
         "artifact_paths",
     }
-    assert not hasattr(snapshot, "segments")
-    assert not hasattr(snapshot, "events")
-    assert not hasattr(snapshot, "alerts")
-    assert not hasattr(snapshot, "source_segment_ids")
+    for attribute_name in FORBIDDEN_STATUS_ATTRIBUTES:
+        assert not hasattr(snapshot, attribute_name)
 
     safe_status_values = {
         "session_id": snapshot.session_id,
@@ -83,10 +213,18 @@ def test_status_snapshot_keeps_private_contents_out_of_contract(tmp_path) -> Non
     }
     safe_status_text = json.dumps(safe_status_values, sort_keys=True)
 
-    assert (
-        "Good morning, everyone. I am going to take attendance" not in safe_status_text
-    )
-    assert "When I call your name, please say present" not in safe_status_text
-    assert "Here, professor." not in safe_status_text
-    assert "source_segment_id" not in safe_status_text
-    assert "requires_confirmation" not in safe_status_text
+    artifact_path_text = ""
+    if snapshot.artifact_paths is not None:
+        artifact_path_text = json.dumps(
+            {
+                "output_dir": str(snapshot.artifact_paths.output_dir),
+                "events_path": str(snapshot.artifact_paths.events_path),
+                "alerts_path": str(snapshot.artifact_paths.alerts_path),
+                "reviewer_path": str(snapshot.artifact_paths.reviewer_path),
+            },
+            sort_keys=True,
+        )
+
+    exposed_status_text = f"{safe_status_text}\n{artifact_path_text}"
+    for forbidden_text in FORBIDDEN_STATUS_TEXT:
+        assert forbidden_text.lower() not in exposed_status_text.lower()
