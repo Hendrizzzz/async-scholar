@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 
 from async_scholar.demo import (
     FixtureSessionLifecycleController,
+    FixtureSessionWorker,
     SessionStatusSnapshot,
     run_fixture_demo,
 )
@@ -34,6 +36,10 @@ FORBIDDEN_STATUS_ATTRIBUTES = (
     "generated_media",
     "scheduler_state",
     "worker_state",
+    "worker_thread",
+    "thread",
+    "exception",
+    "traceback",
     "ui_state",
 )
 FORBIDDEN_STATUS_TEXT = (
@@ -53,6 +59,9 @@ FORBIDDEN_STATUS_TEXT = (
     "generated_media",
     "scheduler",
     "worker",
+    "thread",
+    "exception",
+    "traceback",
     "nicegui",
 )
 
@@ -190,6 +199,191 @@ def test_fixture_session_lifecycle_stop_preserves_completed_status(tmp_path) -> 
     assert stopped_snapshot.run_status == "completed"
     assert controller.status() == completed_snapshot
     _assert_status_snapshot_is_private(stopped_snapshot)
+
+
+def test_fixture_session_worker_initial_status_is_safe(tmp_path) -> None:
+    worker = FixtureSessionWorker(FIXTURE_PATH, output_root=tmp_path)
+
+    snapshot = worker.status()
+
+    assert isinstance(snapshot, SessionStatusSnapshot)
+    assert snapshot.session_id == "fixture_demo"
+    assert snapshot.source_kind == "fixture_demo"
+    assert snapshot.run_status == "not_started"
+    assert snapshot.segment_count == 0
+    assert snapshot.event_count == 0
+    assert snapshot.artifact_paths is None
+    _assert_status_snapshot_is_private(snapshot)
+
+
+def test_fixture_session_worker_running_and_completed_transition(
+    tmp_path_factory,
+    monkeypatch,
+) -> None:
+    output_root = tmp_path_factory.mktemp("session-output")
+    entered = threading.Event()
+    release = threading.Event()
+    original_start = FixtureSessionLifecycleController.start
+
+    def controlled_start(self: FixtureSessionLifecycleController):
+        entered.set()
+        if not release.wait(timeout=5):
+            raise RuntimeError("worker test release was not signaled")
+        return original_start(self)
+
+    monkeypatch.setattr(
+        FixtureSessionLifecycleController,
+        "start",
+        controlled_start,
+    )
+    worker = FixtureSessionWorker(FIXTURE_PATH, output_root=output_root)
+
+    started_snapshot = worker.start()
+    assert started_snapshot.run_status == "running"
+    assert started_snapshot.artifact_paths is None
+    _assert_status_snapshot_is_private(started_snapshot)
+
+    _wait_for_event(entered, "worker thread did not enter the controller")
+    running_snapshot = worker.status()
+    assert running_snapshot.run_status == "running"
+    assert running_snapshot.artifact_paths is None
+    assert not (output_root / "fixture_attendance_roll_call").exists()
+    _assert_status_snapshot_is_private(running_snapshot)
+
+    release.set()
+    completed_snapshot = worker.join(timeout=5)
+
+    assert completed_snapshot.session_id == "fixture:attendance_roll_call"
+    assert completed_snapshot.source_kind == "fixture_demo"
+    assert completed_snapshot.run_status == "completed"
+    assert completed_snapshot.segment_count == 5
+    assert completed_snapshot.event_count == 2
+    assert completed_snapshot.artifact_paths is not None
+    assert completed_snapshot.artifact_paths.output_dir == (
+        output_root / "fixture_attendance_roll_call"
+    )
+    assert completed_snapshot.artifact_paths.events_path.exists()
+    assert completed_snapshot.artifact_paths.alerts_path.exists()
+    assert completed_snapshot.artifact_paths.reviewer_path.exists()
+    _assert_status_snapshot_is_private(completed_snapshot)
+
+
+def test_fixture_session_worker_start_is_idempotent_while_running(
+    tmp_path_factory,
+    monkeypatch,
+) -> None:
+    output_root = tmp_path_factory.mktemp("session-output")
+    entered = threading.Event()
+    release = threading.Event()
+    call_count = 0
+    call_count_lock = threading.Lock()
+    original_start = FixtureSessionLifecycleController.start
+
+    def controlled_start(self: FixtureSessionLifecycleController):
+        nonlocal call_count
+        with call_count_lock:
+            call_count += 1
+        entered.set()
+        if not release.wait(timeout=5):
+            raise RuntimeError("worker test release was not signaled")
+        return original_start(self)
+
+    monkeypatch.setattr(
+        FixtureSessionLifecycleController,
+        "start",
+        controlled_start,
+    )
+    worker = FixtureSessionWorker(FIXTURE_PATH, output_root=output_root)
+
+    first_snapshot = worker.start()
+    _wait_for_event(entered, "worker thread did not enter the controller")
+    second_snapshot = worker.start()
+
+    assert first_snapshot.run_status == "running"
+    assert second_snapshot.run_status == "running"
+    with call_count_lock:
+        assert call_count == 1
+
+    release.set()
+    completed_snapshot = worker.join(timeout=5)
+
+    assert completed_snapshot.run_status == "completed"
+    assert worker.start() == completed_snapshot
+    with call_count_lock:
+        assert call_count == 1
+
+
+def test_fixture_session_worker_stop_without_start_prevents_artifacts(tmp_path) -> None:
+    worker = FixtureSessionWorker(FIXTURE_PATH, output_root=tmp_path)
+
+    stopped_snapshot = worker.stop()
+
+    assert stopped_snapshot.session_id == "fixture_demo"
+    assert stopped_snapshot.source_kind == "fixture_demo"
+    assert stopped_snapshot.run_status == "stopped"
+    assert stopped_snapshot.segment_count == 0
+    assert stopped_snapshot.event_count == 0
+    assert stopped_snapshot.artifact_paths is None
+    assert worker.status() == stopped_snapshot
+    assert worker.stop() == stopped_snapshot
+    assert worker.start() == stopped_snapshot
+    assert worker.join(timeout=0) == stopped_snapshot
+    assert not (tmp_path / "fixture_attendance_roll_call").exists()
+    _assert_status_snapshot_is_private(stopped_snapshot)
+
+
+def test_fixture_session_worker_stop_preserves_completed_status(
+    tmp_path_factory,
+) -> None:
+    output_root = tmp_path_factory.mktemp("session-output")
+    worker = FixtureSessionWorker(FIXTURE_PATH, output_root=output_root)
+    worker.start()
+    completed_snapshot = worker.join(timeout=5)
+
+    stopped_snapshot = worker.stop()
+
+    assert stopped_snapshot == completed_snapshot
+    assert stopped_snapshot.run_status == "completed"
+    assert worker.status() == completed_snapshot
+    _assert_status_snapshot_is_private(stopped_snapshot)
+
+
+def test_fixture_session_worker_failure_status_is_sanitized(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    def failing_start(self: FixtureSessionLifecycleController) -> None:
+        raise RuntimeError(
+            "Good morning, everyone. source_segment_id token traceback "
+            "tests/fixtures/transcripts/attendance_roll_call.jsonl"
+        )
+
+    monkeypatch.setattr(
+        FixtureSessionLifecycleController,
+        "start",
+        failing_start,
+    )
+    worker = FixtureSessionWorker(FIXTURE_PATH, output_root=tmp_path)
+
+    started_snapshot = worker.start()
+    failed_snapshot = worker.join(timeout=5)
+
+    assert started_snapshot.run_status == "running"
+    assert failed_snapshot.session_id == "fixture_demo"
+    assert failed_snapshot.source_kind == "fixture_demo"
+    assert failed_snapshot.run_status == "failed"
+    assert failed_snapshot.segment_count == 0
+    assert failed_snapshot.event_count == 0
+    assert failed_snapshot.artifact_paths is None
+    assert worker.status() == failed_snapshot
+    assert worker.start() == failed_snapshot
+    assert not (tmp_path / "fixture_attendance_roll_call").exists()
+    _assert_status_snapshot_is_private(started_snapshot)
+    _assert_status_snapshot_is_private(failed_snapshot)
+
+
+def _wait_for_event(event: threading.Event, message: str) -> None:
+    assert event.wait(timeout=5), message
 
 
 def _assert_status_snapshot_is_private(snapshot: SessionStatusSnapshot) -> None:

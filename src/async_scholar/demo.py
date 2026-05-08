@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -83,6 +84,77 @@ class FixtureSessionLifecycleController:
         return self.status()
 
 
+class FixtureSessionWorker:
+    """Background fixture lifecycle wrapper for Gate C worker-model prep."""
+
+    def __init__(
+        self,
+        fixture_path: str | Path,
+        *,
+        output_root: str | Path = Path("data") / "sessions",
+    ) -> None:
+        self._controller = FixtureSessionLifecycleController(
+            fixture_path,
+            output_root=output_root,
+        )
+        self._lock = threading.Lock()
+        self._run_status = "not_started"
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> SessionStatusSnapshot:
+        with self._lock:
+            if self._run_status != "not_started":
+                return self._status_locked()
+
+            self._run_status = "running"
+            self._thread = threading.Thread(target=self._run, daemon=True)
+            self._thread.start()
+            return self._status_locked()
+
+    def status(self) -> SessionStatusSnapshot:
+        with self._lock:
+            return self._status_locked()
+
+    def stop(self) -> SessionStatusSnapshot:
+        with self._lock:
+            if self._run_status == "not_started":
+                self._run_status = "stopped"
+            return self._status_locked()
+
+    def join(self, timeout: float | None = None) -> SessionStatusSnapshot:
+        with self._lock:
+            thread = self._thread
+
+        if thread is not None:
+            thread.join(timeout=timeout)
+
+        return self.status()
+
+    def _run(self) -> None:
+        try:
+            self._controller.start()
+        except Exception:
+            with self._lock:
+                self._run_status = "failed"
+            return
+
+        with self._lock:
+            self._run_status = "completed"
+
+    def _status_locked(self) -> SessionStatusSnapshot:
+        if self._run_status == "completed":
+            return self._controller.status()
+
+        return SessionStatusSnapshot(
+            session_id="fixture_demo",
+            source_kind="fixture_demo",
+            run_status=self._run_status,
+            segment_count=0,
+            event_count=0,
+            artifact_paths=None,
+        )
+
+
 def run_fixture_demo(
     fixture_path: str | Path,
     *,
@@ -110,6 +182,7 @@ def run_fixture_demo(
 __all__ = [
     "FixtureDemoResult",
     "FixtureSessionLifecycleController",
+    "FixtureSessionWorker",
     "SessionStatusSnapshot",
     "run_fixture_demo",
 ]
