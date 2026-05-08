@@ -11,11 +11,32 @@ from async_scholar.rules import detect_events
 
 
 @dataclass(frozen=True)
+class SessionStatusSnapshot:
+    session_id: str
+    source_kind: str
+    run_status: str
+    segment_count: int
+    event_count: int
+    artifact_paths: ArtifactPaths
+
+
+@dataclass(frozen=True)
 class FixtureDemoResult:
     session_id: str
     segment_count: int
     event_count: int
     artifact_paths: ArtifactPaths
+
+    @property
+    def status_snapshot(self) -> SessionStatusSnapshot:
+        return SessionStatusSnapshot(
+            session_id=self.session_id,
+            source_kind="fixture_demo",
+            run_status="completed",
+            segment_count=self.segment_count,
+            event_count=self.event_count,
+            artifact_paths=self.artifact_paths,
+        )
 
 
 def run_fixture_demo(
@@ -42,4 +63,4 @@ def run_fixture_demo(
     )
 
 
-__all__ = ["FixtureDemoResult", "run_fixture_demo"]
+__all__ = ["FixtureDemoResult", "SessionStatusSnapshot", "run_fixture_demo"]

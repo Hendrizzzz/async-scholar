@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from async_scholar.demo import run_fixture_demo
+from async_scholar.demo import SessionStatusSnapshot, run_fixture_demo
 
 
 def test_run_fixture_demo_writes_expected_artifacts(tmp_path) -> None:
@@ -35,3 +35,58 @@ def test_run_fixture_demo_writes_expected_artifacts(tmp_path) -> None:
     assert "Good morning, everyone. I am going to take attendance" in reviewer
     assert "When I call your name, please say present" in reviewer
     assert "Here, professor." not in reviewer
+
+
+def test_run_fixture_demo_exposes_safe_status_snapshot(tmp_path) -> None:
+    fixture_path = Path("tests/fixtures/transcripts/attendance_roll_call.jsonl")
+
+    result = run_fixture_demo(fixture_path, output_root=tmp_path)
+    snapshot = result.status_snapshot
+
+    assert isinstance(snapshot, SessionStatusSnapshot)
+    assert snapshot.session_id == "fixture:attendance_roll_call"
+    assert snapshot.source_kind == "fixture_demo"
+    assert snapshot.run_status == "completed"
+    assert snapshot.segment_count == 5
+    assert snapshot.event_count == 2
+    assert snapshot.artifact_paths == result.artifact_paths
+    assert snapshot.artifact_paths.output_dir == result.artifact_paths.output_dir
+    assert snapshot.artifact_paths.events_path == result.artifact_paths.events_path
+    assert snapshot.artifact_paths.alerts_path == result.artifact_paths.alerts_path
+    assert snapshot.artifact_paths.reviewer_path == result.artifact_paths.reviewer_path
+
+
+def test_status_snapshot_keeps_private_contents_out_of_contract(tmp_path) -> None:
+    fixture_path = Path("tests/fixtures/transcripts/attendance_roll_call.jsonl")
+
+    snapshot = run_fixture_demo(fixture_path, output_root=tmp_path).status_snapshot
+
+    assert set(SessionStatusSnapshot.__dataclass_fields__) == {
+        "session_id",
+        "source_kind",
+        "run_status",
+        "segment_count",
+        "event_count",
+        "artifact_paths",
+    }
+    assert not hasattr(snapshot, "segments")
+    assert not hasattr(snapshot, "events")
+    assert not hasattr(snapshot, "alerts")
+    assert not hasattr(snapshot, "source_segment_ids")
+
+    safe_status_values = {
+        "session_id": snapshot.session_id,
+        "source_kind": snapshot.source_kind,
+        "run_status": snapshot.run_status,
+        "segment_count": snapshot.segment_count,
+        "event_count": snapshot.event_count,
+    }
+    safe_status_text = json.dumps(safe_status_values, sort_keys=True)
+
+    assert (
+        "Good morning, everyone. I am going to take attendance" not in safe_status_text
+    )
+    assert "When I call your name, please say present" not in safe_status_text
+    assert "Here, professor." not in safe_status_text
+    assert "source_segment_id" not in safe_status_text
+    assert "requires_confirmation" not in safe_status_text
