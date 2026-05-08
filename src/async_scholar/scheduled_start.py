@@ -1,0 +1,257 @@
+"""Non-executing scheduled-start plan models."""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+from pydantic import VERSION, BaseModel
+
+from async_scholar.schedule_config import ScheduleConfig
+
+if VERSION.startswith("2."):
+    from pydantic import ConfigDict, field_validator
+
+    _PYDANTIC_V2 = True
+else:
+    from pydantic import validator
+
+    _PYDANTIC_V2 = False
+
+
+COURSE_ID_MAX_LENGTH = 64
+OPTIONAL_TEXT_MAX_LENGTH = 120
+TIMEZONE_NAME_MAX_LENGTH = 64
+DURATION_MINUTES_MAX = 24 * 60
+SOURCE_KIND_VALUES = ("file", "mic")
+DAY_OF_WEEK_VALUES = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
+
+_COURSE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+_LOCAL_START_TIME_PATTERN = re.compile(r"^\d{2}:\d{2}$")
+_DAY_OF_WEEK_SET = frozenset(DAY_OF_WEEK_VALUES)
+_SOURCE_KIND_SET = frozenset(SOURCE_KIND_VALUES)
+
+ScheduledStartPlanSummary = dict[str, str | int | bool | None]
+
+
+def _before_validator(*field_names: str) -> Any:
+    if _PYDANTIC_V2:
+        return field_validator(*field_names, mode="before")
+    return validator(*field_names, pre=True, allow_reuse=True)
+
+
+def _clean_required_text(value: Any, *, field_name: str, max_length: int) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string")
+
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"{field_name} is required")
+    if len(normalized) > max_length:
+        raise ValueError(f"{field_name} is too long")
+    return normalized
+
+
+def _has_control_character(value: str) -> bool:
+    return any(ord(char) < 0x20 or ord(char) == 0x7F for char in value)
+
+
+def _clean_optional_text(value: Any, *, field_name: str, max_length: int) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string")
+
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if len(normalized) > max_length:
+        raise ValueError(f"{field_name} is too long")
+    if _has_control_character(normalized):
+        raise ValueError(f"{field_name} contains unsupported characters")
+    return normalized
+
+
+def _normalize_selected_class_time_index(
+    selected_class_time_index: Any,
+    schedule_config: ScheduleConfig,
+) -> int:
+    if isinstance(selected_class_time_index, bool) or not isinstance(
+        selected_class_time_index,
+        int,
+    ):
+        raise ValueError("selected_class_time_index must be an integer")
+    if selected_class_time_index < 0 or selected_class_time_index >= len(
+        schedule_config.class_times
+    ):
+        raise ValueError("selected_class_time_index is out of range")
+    return selected_class_time_index
+
+
+class ScheduledStartPlan(BaseModel):
+    """Immutable plan metadata for a future local session start."""
+
+    course_id: str
+    day_of_week: str
+    local_start_time: str
+    duration_minutes: int
+    timezone_name: str | None = None
+    meeting_label: str | None = None
+    source_kind: str
+    enabled: bool = True
+
+    if _PYDANTIC_V2:
+        model_config = ConfigDict(
+            extra="forbid",
+            frozen=True,
+            hide_input_in_errors=True,
+        )
+    else:
+
+        class Config:
+            extra = "forbid"
+            frozen = True
+
+    @_before_validator("course_id")
+    def _normalize_course_id(cls, value: Any) -> str:
+        normalized = _clean_required_text(
+            value,
+            field_name="course_id",
+            max_length=COURSE_ID_MAX_LENGTH,
+        ).lower()
+        if _COURSE_ID_PATTERN.fullmatch(normalized) is None:
+            raise ValueError(
+                "course_id must use letters, numbers, hyphens, or underscores"
+            )
+        return normalized
+
+    @_before_validator("day_of_week")
+    def _normalize_day_of_week(cls, value: Any) -> str:
+        normalized = _clean_required_text(
+            value,
+            field_name="day_of_week",
+            max_length=max(len(day) for day in DAY_OF_WEEK_VALUES),
+        ).lower()
+        if normalized not in _DAY_OF_WEEK_SET:
+            raise ValueError("day_of_week must be a full weekday name")
+        return normalized
+
+    @_before_validator("local_start_time")
+    def _normalize_local_start_time(cls, value: Any) -> str:
+        normalized = _clean_required_text(
+            value,
+            field_name="local_start_time",
+            max_length=5,
+        )
+        if _LOCAL_START_TIME_PATTERN.fullmatch(normalized) is None:
+            raise ValueError("local_start_time must use HH:MM")
+
+        hour_text, minute_text = normalized.split(":")
+        hour = int(hour_text)
+        minute = int(minute_text)
+        if hour > 23 or minute > 59:
+            raise ValueError("local_start_time must be a valid local time")
+        return normalized
+
+    @_before_validator("duration_minutes")
+    def _normalize_duration_minutes(cls, value: Any) -> int:
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError("duration_minutes must be an integer")
+        if value <= 0 or value > DURATION_MINUTES_MAX:
+            raise ValueError("duration_minutes must be positive and bounded")
+        return value
+
+    @_before_validator("timezone_name")
+    def _normalize_timezone_name(cls, value: Any) -> str | None:
+        return _clean_optional_text(
+            value,
+            field_name="timezone_name",
+            max_length=TIMEZONE_NAME_MAX_LENGTH,
+        )
+
+    @_before_validator("meeting_label")
+    def _normalize_meeting_label(cls, value: Any) -> str | None:
+        return _clean_optional_text(
+            value,
+            field_name="meeting_label",
+            max_length=OPTIONAL_TEXT_MAX_LENGTH,
+        )
+
+    @_before_validator("source_kind")
+    def _normalize_source_kind(cls, value: Any) -> str:
+        normalized = _clean_required_text(
+            value,
+            field_name="source_kind",
+            max_length=max(len(kind) for kind in SOURCE_KIND_VALUES),
+        ).lower()
+        if normalized not in _SOURCE_KIND_SET:
+            raise ValueError("source_kind must be file or mic")
+        return normalized
+
+    @_before_validator("enabled")
+    def _normalize_enabled(cls, value: Any) -> bool:
+        if not isinstance(value, bool):
+            raise ValueError("enabled must be a boolean")
+        return value
+
+    def to_safe_summary(self) -> ScheduledStartPlanSummary:
+        """Return inert plan metadata suitable for display or export."""
+
+        return {
+            "course_id": self.course_id,
+            "day_of_week": self.day_of_week,
+            "local_start_time": self.local_start_time,
+            "duration_minutes": self.duration_minutes,
+            "timezone_name": self.timezone_name,
+            "meeting_label": self.meeting_label,
+            "source_kind": self.source_kind,
+            "enabled": self.enabled,
+        }
+
+    def safe_summary(self) -> ScheduledStartPlanSummary:
+        """Alias for callers that need a concise safe display payload."""
+
+        return self.to_safe_summary()
+
+    def to_safe_export(self) -> ScheduledStartPlanSummary:
+        """Return deterministic plan data without execution state."""
+
+        return self.to_safe_summary()
+
+
+def build_scheduled_start_plan(
+    schedule_config: ScheduleConfig,
+    selected_class_time_index: int,
+    source_kind: str,
+    *,
+    enabled: bool = True,
+) -> ScheduledStartPlan:
+    """Build an inert plan from one configured weekly class window."""
+
+    if not isinstance(schedule_config, ScheduleConfig):
+        raise ValueError("schedule_config must be a ScheduleConfig")
+
+    normalized_index = _normalize_selected_class_time_index(
+        selected_class_time_index,
+        schedule_config,
+    )
+    selected_class_time = schedule_config.class_times[normalized_index]
+
+    return ScheduledStartPlan(
+        course_id=schedule_config.course_id,
+        day_of_week=selected_class_time.day_of_week,
+        local_start_time=selected_class_time.local_start_time,
+        duration_minutes=selected_class_time.duration_minutes,
+        timezone_name=selected_class_time.timezone_name,
+        meeting_label=selected_class_time.meeting_label,
+        source_kind=source_kind,
+        enabled=enabled,
+    )
