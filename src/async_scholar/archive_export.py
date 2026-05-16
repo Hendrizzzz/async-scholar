@@ -250,6 +250,101 @@ class ArchiveSessionInventory(BaseModel):
         }
 
 
+class ArchiveExportPreflightArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: ArchiveArtifactKind
+    filename: StrictStr
+    exists: StrictBool
+    size_bytes: StrictInt | None = None
+
+    @field_validator("filename")
+    @classmethod
+    def _filename_is_safe(cls, value: str) -> str:
+        return _validate_safe_filename(value)
+
+    @field_validator("size_bytes")
+    @classmethod
+    def _size_is_non_negative(cls, value: int | None) -> int | None:
+        if value is not None and value < 0:
+            raise ValueError("size_bytes must be non-negative")
+        return value
+
+    @model_validator(mode="after")
+    def _metadata_is_consistent(self) -> ArchiveExportPreflightArtifact:
+        expected_filename = ARCHIVE_ARTIFACT_FILENAMES_BY_KIND[self.kind]
+        if self.filename != expected_filename:
+            raise ValueError("archive artifact kind and filename do not match")
+        if self.exists and self.size_bytes is None:
+            raise ValueError("existing artifacts must include size_bytes")
+        if not self.exists and self.size_bytes is not None:
+            raise ValueError("missing artifacts must not include size_bytes")
+        return self
+
+    def to_json_ready(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "kind": self.kind.value,
+            "filename": self.filename,
+            "exists": self.exists,
+        }
+        if self.size_bytes is not None:
+            payload["size_bytes"] = self.size_bytes
+        return payload
+
+
+class ArchiveExportPreflightSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    session_id: StrictStr
+    session_dir: StrictStr
+    existing_count: StrictInt = Field(ge=0)
+    missing_count: StrictInt = Field(ge=0)
+    total_existing_size_bytes: StrictInt = Field(ge=0)
+    artifacts: tuple[ArchiveExportPreflightArtifact, ...] = Field(min_length=1)
+
+    @field_validator("session_id", "session_dir")
+    @classmethod
+    def _session_directory_is_safe(cls, value: str) -> str:
+        return _validate_safe_session_directory_name(value)
+
+    @model_validator(mode="after")
+    def _metadata_is_consistent(self) -> ArchiveExportPreflightSummary:
+        if self.session_dir != self.session_id:
+            raise ValueError("session_dir must match the safe session_id")
+
+        expected_kinds = tuple(ARCHIVE_ARTIFACT_FILENAMES_BY_KIND)
+        artifact_kinds = tuple(artifact.kind for artifact in self.artifacts)
+        if artifact_kinds != expected_kinds:
+            raise ValueError("preflight artifacts must match the archive allowlist")
+
+        existing_count = sum(1 for artifact in self.artifacts if artifact.exists)
+        missing_count = len(self.artifacts) - existing_count
+        total_existing_size_bytes = sum(
+            artifact.size_bytes or 0 for artifact in self.artifacts if artifact.exists
+        )
+
+        if self.existing_count != existing_count:
+            raise ValueError("existing_count must match artifacts")
+        if self.missing_count != missing_count:
+            raise ValueError("missing_count must match artifacts")
+        if self.total_existing_size_bytes != total_existing_size_bytes:
+            raise ValueError("total_existing_size_bytes must match artifacts")
+        return self
+
+    def to_json_ready(self) -> dict[str, object]:
+        return {
+            "session_id": self.session_id,
+            "session_dir": self.session_dir,
+            "existing_count": self.existing_count,
+            "missing_count": self.missing_count,
+            "total_existing_size_bytes": self.total_existing_size_bytes,
+            "artifacts": [artifact.to_json_ready() for artifact in self.artifacts],
+        }
+
+    def safe_summary(self) -> dict[str, object]:
+        return self.to_json_ready()
+
+
 def _artifact_entry_from_filename(filename: str) -> ArchiveArtifactEntry:
     if not isinstance(filename, str):
         raise TypeError("archive artifact filenames must be strings")
@@ -426,6 +521,38 @@ def build_archive_export_manifest_from_root(
         raise ValueError("archive export manifest could not be built") from None
 
 
+def build_archive_export_preflight_summary_from_root(
+    archive_root: str | Path,
+    session_id: str,
+) -> ArchiveExportPreflightSummary:
+    try:
+        inventory = build_archive_session_inventory(archive_root, session_id)
+        artifacts = tuple(
+            ArchiveExportPreflightArtifact(
+                kind=artifact.kind,
+                filename=artifact.filename,
+                exists=artifact.exists,
+                size_bytes=artifact.size_bytes,
+            )
+            for artifact in inventory.artifacts
+        )
+        existing_count = sum(1 for artifact in artifacts if artifact.exists)
+        return ArchiveExportPreflightSummary(
+            session_id=inventory.session_id,
+            session_dir=inventory.session_dir,
+            existing_count=existing_count,
+            missing_count=len(artifacts) - existing_count,
+            total_existing_size_bytes=sum(
+                artifact.size_bytes or 0 for artifact in artifacts if artifact.exists
+            ),
+            artifacts=artifacts,
+        )
+    except (OSError, RuntimeError, TypeError, ValidationError, ValueError):
+        raise ValueError(
+            "archive export preflight summary could not be built"
+        ) from None
+
+
 def archive_export_manifest_to_json_ready(
     manifest: ArchiveExportManifest,
 ) -> dict[str, object]:
@@ -448,3 +575,15 @@ def archive_session_inventory_safe_summary(
     inventory: ArchiveSessionInventory,
 ) -> dict[str, object]:
     return inventory.safe_summary()
+
+
+def archive_export_preflight_summary_to_json_ready(
+    summary: ArchiveExportPreflightSummary,
+) -> dict[str, object]:
+    return summary.to_json_ready()
+
+
+def archive_export_preflight_summary_safe_summary(
+    summary: ArchiveExportPreflightSummary,
+) -> dict[str, object]:
+    return summary.safe_summary()

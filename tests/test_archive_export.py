@@ -9,15 +9,19 @@ from async_scholar.archive_export import (
     ArchiveArtifactEntry,
     ArchiveArtifactKind,
     ArchiveExportManifest,
+    ArchiveExportPreflightSummary,
     ArchiveInventoryArtifact,
     ArchiveSessionInventory,
     archive_export_manifest_safe_summary,
     archive_export_manifest_to_json_ready,
+    archive_export_preflight_summary_safe_summary,
+    archive_export_preflight_summary_to_json_ready,
     archive_session_inventory_safe_summary,
     archive_session_inventory_to_json_ready,
     build_archive_export_manifest,
     build_archive_export_manifest_from_inventory,
     build_archive_export_manifest_from_root,
+    build_archive_export_preflight_summary_from_root,
     build_archive_session_inventory,
     resolve_session_archive_dir,
 )
@@ -540,6 +544,179 @@ def test_archive_export_manifest_from_root_exposes_only_manifest_metadata(
         assert forbidden_fragment not in serialized_payload
 
 
+def test_archive_export_preflight_summary_from_root_returns_safe_metadata(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    events_text = "{}"
+    reviewer_text = "Synthetic reviewer note with token-shaped private text."
+    (session_dir / "events.jsonl").write_text(events_text, encoding="utf-8")
+    (session_dir / "reviewer.md").write_text(reviewer_text, encoding="utf-8")
+
+    summary = build_archive_export_preflight_summary_from_root(
+        archive_root,
+        "session-001",
+    )
+    payload = archive_export_preflight_summary_to_json_ready(summary)
+
+    assert isinstance(summary, ArchiveExportPreflightSummary)
+    assert payload == archive_export_preflight_summary_safe_summary(summary)
+    assert set(payload) == {
+        "session_id",
+        "session_dir",
+        "existing_count",
+        "missing_count",
+        "total_existing_size_bytes",
+        "artifacts",
+    }
+    assert payload["session_id"] == "session-001"
+    assert payload["session_dir"] == "session-001"
+    assert payload["existing_count"] == 2
+    assert payload["missing_count"] == len(ALLOWED_ARCHIVE_ARTIFACT_FILENAMES) - 2
+    assert payload["total_existing_size_bytes"] == len(
+        events_text.encode("utf-8")
+    ) + len(reviewer_text.encode("utf-8"))
+    assert [artifact["filename"] for artifact in payload["artifacts"]] == list(
+        ALLOWED_ARCHIVE_ARTIFACT_FILENAMES
+    )
+
+    artifacts_by_filename = {
+        artifact["filename"]: artifact for artifact in payload["artifacts"]
+    }
+    assert artifacts_by_filename["events.jsonl"] == {
+        "kind": "events_jsonl",
+        "filename": "events.jsonl",
+        "exists": True,
+        "size_bytes": len(events_text.encode("utf-8")),
+    }
+    assert artifacts_by_filename["reviewer.md"] == {
+        "kind": "reviewer_markdown",
+        "filename": "reviewer.md",
+        "exists": True,
+        "size_bytes": len(reviewer_text.encode("utf-8")),
+    }
+    assert artifacts_by_filename["transcript.jsonl"] == {
+        "kind": "transcript_jsonl",
+        "filename": "transcript.jsonl",
+        "exists": False,
+    }
+
+
+def test_archive_export_preflight_summary_from_root_allows_all_missing_artifacts(
+    tmp_path,
+) -> None:
+    summary = build_archive_export_preflight_summary_from_root(
+        tmp_path,
+        "session-001",
+    )
+    payload = archive_export_preflight_summary_to_json_ready(summary)
+
+    assert payload["existing_count"] == 0
+    assert payload["missing_count"] == len(ALLOWED_ARCHIVE_ARTIFACT_FILENAMES)
+    assert payload["total_existing_size_bytes"] == 0
+    assert [artifact["exists"] for artifact in payload["artifacts"]] == [False] * len(
+        ALLOWED_ARCHIVE_ARTIFACT_FILENAMES
+    )
+    assert all("size_bytes" not in artifact for artifact in payload["artifacts"])
+
+
+@pytest.mark.parametrize(
+    "session_id",
+    [
+        "../session",
+        "session/one",
+        "session\\one",
+        "C:session",
+        "https://example.test/session",
+        "CON",
+        "lpt1.txt",
+    ],
+)
+def test_archive_export_preflight_summary_from_root_rejects_unsafe_session_ids(
+    tmp_path,
+    session_id: str,
+) -> None:
+    with pytest.raises(ValueError) as exc_info:
+        build_archive_export_preflight_summary_from_root(tmp_path, session_id)
+
+    assert str(exc_info.value) == "archive export preflight summary could not be built"
+
+
+def test_archive_export_preflight_summary_from_root_sanitizes_path_errors(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root-token-secret-auth-profile"
+    archive_root.write_text("Synthetic private root placeholder.", encoding="utf-8")
+
+    with pytest.raises(ValueError) as exc_info:
+        build_archive_export_preflight_summary_from_root(archive_root, "session-001")
+
+    error_text = str(exc_info.value)
+    assert error_text == "archive export preflight summary could not be built"
+    for unsafe_fragment in (
+        str(tmp_path),
+        "archive-root",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "Synthetic private",
+    ):
+        assert unsafe_fragment not in error_text
+
+
+def test_archive_export_preflight_summary_from_root_exposes_no_private_data(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root-token-secret-auth-profile"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    private_text = "Synthetic transcript token secret auth profile text."
+    (session_dir / "transcript.jsonl").write_text(private_text, encoding="utf-8")
+
+    summary = build_archive_export_preflight_summary_from_root(
+        archive_root,
+        "session-001",
+    )
+    payload = archive_export_preflight_summary_to_json_ready(summary)
+    serialized_payload = json.dumps(payload, sort_keys=True).lower()
+
+    for forbidden_fragment in (
+        "archive-root",
+        "relative_path",
+        str(tmp_path).lower(),
+        "synthetic transcript",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "c:\\",
+        "/users/",
+    ):
+        assert forbidden_fragment not in serialized_payload
+
+
+def test_archive_export_preflight_summary_does_not_change_manifest_schema(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    (session_dir / "transcript.jsonl").write_text("{}", encoding="utf-8")
+
+    build_archive_export_preflight_summary_from_root(archive_root, "session-001")
+    manifest = build_archive_export_manifest_from_root(archive_root, "session-001")
+
+    assert archive_export_manifest_to_json_ready(manifest) == {
+        "session_id": "session-001",
+        "artifacts": [
+            {"kind": "transcript_jsonl", "filename": "transcript.jsonl"},
+        ],
+    }
+
+
 def test_archive_export_manifest_from_root_rejects_session_symlink_escape(
     tmp_path,
 ) -> None:
@@ -814,6 +991,50 @@ def test_archive_manifest_from_root_helper_has_no_content_or_execution_behavior(
         "sounddevice",
         "faster_whisper",
         "nicegui",
+        "threading",
+        "asyncio",
+        "Timer(",
+    )
+    for fragment in forbidden_fragments:
+        assert fragment not in helper_source
+
+
+def test_archive_preflight_from_root_helper_has_no_content_or_execution_behavior() -> (
+    None
+):
+    source = Path("src/async_scholar/archive_export.py").read_text(encoding="utf-8")
+    helper_source = source[
+        source.index(
+            "def build_archive_export_preflight_summary_from_root"
+        ) : source.index("\ndef archive_export_manifest_to_json_ready")
+    ]
+
+    forbidden_fragments = (
+        "open(",
+        "read_text(",
+        "write_text(",
+        "mkdir(",
+        "iterdir(",
+        "glob(",
+        "rglob(",
+        "listdir(",
+        "scandir(",
+        "walk(",
+        "unlink(",
+        "remove(",
+        "rmdir(",
+        "ZipFile",
+        "zipfile",
+        "tarfile",
+        "shutil",
+        "sqlite3",
+        "requests",
+        "httpx",
+        "playwright",
+        "sounddevice",
+        "faster_whisper",
+        "nicegui",
+        "subprocess",
         "threading",
         "asyncio",
         "Timer(",
