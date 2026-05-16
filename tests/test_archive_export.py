@@ -5,11 +5,17 @@ import pytest
 from pydantic import ValidationError
 
 from async_scholar.archive_export import (
+    ALLOWED_ARCHIVE_ARTIFACT_FILENAMES,
     ArchiveArtifactEntry,
     ArchiveExportManifest,
+    ArchiveSessionInventory,
     archive_export_manifest_safe_summary,
     archive_export_manifest_to_json_ready,
+    archive_session_inventory_safe_summary,
+    archive_session_inventory_to_json_ready,
     build_archive_export_manifest,
+    build_archive_session_inventory,
+    resolve_session_archive_dir,
 )
 
 
@@ -168,6 +174,159 @@ def test_archive_export_manifest_helpers_return_json_ready_data() -> None:
     assert json.loads(json.dumps(summary, sort_keys=True)) == summary
 
 
+def test_resolve_session_archive_dir_confines_safe_session_id(tmp_path) -> None:
+    archive_root = tmp_path / "archive-root"
+
+    resolved_session_dir = resolve_session_archive_dir(archive_root, "session-001")
+
+    assert resolved_session_dir == archive_root.resolve(strict=False) / "session-001"
+
+
+def test_archive_session_inventory_returns_relative_allowlisted_metadata(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    transcript_text = "Synthetic private lecture sentence with token-shaped text."
+    reviewer_text = "Synthetic reviewer note that should never be serialized."
+    (session_dir / "transcript.jsonl").write_text(transcript_text, encoding="utf-8")
+    (session_dir / "reviewer.md").write_text(reviewer_text, encoding="utf-8")
+
+    inventory = build_archive_session_inventory(archive_root, "session-001")
+    payload = archive_session_inventory_to_json_ready(inventory)
+    summary = archive_session_inventory_safe_summary(inventory)
+
+    assert inventory.session_id == "session-001"
+    assert inventory.session_dir == "session-001"
+    assert [artifact.filename for artifact in inventory.artifacts] == list(
+        ALLOWED_ARCHIVE_ARTIFACT_FILENAMES
+    )
+    assert payload["session_id"] == "session-001"
+    assert payload["session_dir"] == "session-001"
+    assert summary["existing_artifact_count"] == 2
+    assert payload["artifacts"][0] == {
+        "kind": "transcript_jsonl",
+        "filename": "transcript.jsonl",
+        "relative_path": "transcript.jsonl",
+        "exists": True,
+        "size_bytes": len(transcript_text.encode("utf-8")),
+    }
+    assert payload["artifacts"][1] == {
+        "kind": "transcript_markdown",
+        "filename": "transcript.md",
+        "relative_path": "transcript.md",
+        "exists": False,
+    }
+    assert payload["artifacts"][4] == {
+        "kind": "reviewer_markdown",
+        "filename": "reviewer.md",
+        "relative_path": "reviewer.md",
+        "exists": True,
+        "size_bytes": len(reviewer_text.encode("utf-8")),
+    }
+    assert json.loads(json.dumps(payload, sort_keys=True)) == payload
+    assert json.loads(json.dumps(summary, sort_keys=True)) == summary
+
+    serialized_payload = json.dumps(payload, sort_keys=True).lower()
+    assert str(tmp_path).lower() not in serialized_payload
+    assert "synthetic private lecture sentence" not in serialized_payload
+    assert "token-shaped text" not in serialized_payload
+    assert "synthetic reviewer note" not in serialized_payload
+
+
+def test_archive_session_inventory_ignores_unallowlisted_files(tmp_path) -> None:
+    archive_root = tmp_path / "archive-root"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    (session_dir / "private-notes.txt").write_text(
+        "Synthetic private notes that must not be inventoried.",
+        encoding="utf-8",
+    )
+
+    payload = archive_session_inventory_to_json_ready(
+        build_archive_session_inventory(archive_root, "session-001"),
+    )
+
+    serialized_payload = json.dumps(payload, sort_keys=True)
+    assert [artifact["filename"] for artifact in payload["artifacts"]] == list(
+        ALLOWED_ARCHIVE_ARTIFACT_FILENAMES
+    )
+    assert "private-notes.txt" not in serialized_payload
+    assert "Synthetic private notes" not in serialized_payload
+
+
+@pytest.mark.parametrize(
+    "session_id",
+    [
+        "",
+        "   ",
+        ".hidden",
+        "../session",
+        "session/one",
+        "session\\one",
+        "C:session",
+        "\\\\server\\share",
+        "https://example.test/session",
+        "session\none",
+        "session one",
+        "CON",
+        "con.txt",
+        "LPT1.session",
+    ],
+)
+def test_archive_session_inventory_rejects_unsafe_session_ids(
+    tmp_path,
+    session_id: str,
+) -> None:
+    with pytest.raises((ValueError, ValidationError)):
+        build_archive_session_inventory(tmp_path, session_id)
+
+
+def test_archive_session_inventory_model_rejects_shape_drift() -> None:
+    with pytest.raises(ValidationError):
+        ArchiveSessionInventory(
+            session_id="session-001",
+            session_dir="session-001",
+            artifacts=[
+                {
+                    "kind": "transcript_jsonl",
+                    "filename": "transcript.jsonl",
+                    "relative_path": "../transcript.jsonl",
+                    "exists": False,
+                    "absolute_path": "C:\\Users\\student\\transcript.jsonl",
+                },
+            ],
+            archive_root="C:\\Users\\student\\archives",
+        )
+
+
+def test_archive_session_inventory_rejects_session_symlink_escape(tmp_path) -> None:
+    archive_root = tmp_path / "archive-root"
+    outside_root = tmp_path / "outside-root"
+    archive_root.mkdir()
+    outside_root.mkdir()
+    _make_symlink(outside_root, archive_root / "session-001", target_is_directory=True)
+
+    with pytest.raises(ValueError):
+        build_archive_session_inventory(archive_root, "session-001")
+
+
+def test_archive_session_inventory_rejects_artifact_symlink_escape(tmp_path) -> None:
+    archive_root = tmp_path / "archive-root"
+    session_dir = archive_root / "session-001"
+    outside_root = tmp_path / "outside-root"
+    session_dir.mkdir(parents=True)
+    outside_root.mkdir()
+    outside_file = outside_root / "transcript.jsonl"
+    outside_text = "Synthetic outside transcript content that must not leak."
+    outside_file.write_text(outside_text, encoding="utf-8")
+    _make_symlink(outside_file, session_dir / "transcript.jsonl")
+
+    with pytest.raises(ValueError):
+        build_archive_session_inventory(archive_root, "session-001")
+
+
 def test_archive_export_manifest_safe_helpers_expose_only_manifest_metadata() -> None:
     manifest = build_archive_export_manifest(
         "session-001",
@@ -223,6 +382,12 @@ def test_archive_export_module_has_no_execution_or_persistence_behavior() -> Non
         "read_text(",
         "write_text(",
         "mkdir(",
+        "iterdir(",
+        "glob(",
+        "rglob(",
+        "listdir(",
+        "scandir(",
+        "walk(",
         "unlink(",
         "remove(",
         "rmdir(",
@@ -243,3 +408,15 @@ def test_archive_export_module_has_no_execution_or_persistence_behavior() -> Non
     )
     for fragment in forbidden_fragments:
         assert fragment not in source
+
+
+def _make_symlink(
+    source: Path,
+    link: Path,
+    *,
+    target_is_directory: bool = False,
+) -> None:
+    try:
+        link.symlink_to(source, target_is_directory=target_is_directory)
+    except (NotImplementedError, OSError) as error:
+        pytest.skip(f"symlink creation is unavailable in this environment: {error}")
