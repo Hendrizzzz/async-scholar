@@ -17,6 +17,7 @@ from async_scholar.archive_export import (
     archive_session_inventory_to_json_ready,
     build_archive_export_manifest,
     build_archive_export_manifest_from_inventory,
+    build_archive_export_manifest_from_root,
     build_archive_session_inventory,
     resolve_session_archive_dir,
 )
@@ -438,6 +439,146 @@ def test_archive_export_manifest_from_inventory_exposes_only_manifest_metadata(
         assert forbidden_fragment not in serialized_payload
 
 
+def test_archive_export_manifest_from_root_keeps_existing_artifacts_only(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    (session_dir / "events.jsonl").write_text("{}", encoding="utf-8")
+    (session_dir / "runtime.jsonl").write_text("{}", encoding="utf-8")
+
+    manifest = build_archive_export_manifest_from_root(archive_root, "session-001")
+
+    assert archive_export_manifest_to_json_ready(manifest) == {
+        "session_id": "session-001",
+        "artifacts": [
+            {"kind": "events_jsonl", "filename": "events.jsonl"},
+            {"kind": "runtime_log", "filename": "runtime.jsonl"},
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    "session_id",
+    [
+        "../session",
+        "session/one",
+        "session\\one",
+        "C:session",
+        "https://example.test/session",
+        "CON",
+        "lpt1.txt",
+    ],
+)
+def test_archive_export_manifest_from_root_rejects_unsafe_session_ids(
+    tmp_path,
+    session_id: str,
+) -> None:
+    with pytest.raises(ValueError) as exc_info:
+        build_archive_export_manifest_from_root(tmp_path, session_id)
+
+    assert str(exc_info.value) == "archive export manifest could not be built"
+
+
+def test_archive_export_manifest_from_root_rejects_all_missing_without_leaking(
+    tmp_path,
+) -> None:
+    unsafe_fragments = (
+        str(tmp_path),
+        "Users",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "session-001",
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        build_archive_export_manifest_from_root(tmp_path, "session-001")
+
+    error_text = str(exc_info.value)
+    assert error_text == "archive export manifest could not be built"
+    for unsafe_fragment in unsafe_fragments:
+        assert unsafe_fragment not in error_text
+
+
+def test_archive_export_manifest_from_root_exposes_only_manifest_metadata(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root-token-secret-auth-profile"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    private_text = "Synthetic transcript token secret auth profile text."
+    (session_dir / "transcript.jsonl").write_text(private_text, encoding="utf-8")
+
+    manifest = build_archive_export_manifest_from_root(archive_root, "session-001")
+    payload = archive_export_manifest_to_json_ready(manifest)
+
+    assert payload == {
+        "session_id": "session-001",
+        "artifacts": [
+            {"kind": "transcript_jsonl", "filename": "transcript.jsonl"},
+        ],
+    }
+    serialized_payload = json.dumps(payload, sort_keys=True).lower()
+    for forbidden_fragment in (
+        "archive-root",
+        "session_dir",
+        "relative_path",
+        "exists",
+        "size_bytes",
+        str(tmp_path).lower(),
+        "synthetic transcript",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "c:\\",
+        "/users/",
+    ):
+        assert forbidden_fragment not in serialized_payload
+
+
+def test_archive_export_manifest_from_root_rejects_session_symlink_escape(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    outside_root = tmp_path / "outside-root-token-secret-auth-profile"
+    archive_root.mkdir()
+    outside_root.mkdir()
+    _make_symlink(outside_root, archive_root / "session-001", target_is_directory=True)
+
+    with pytest.raises(ValueError) as exc_info:
+        build_archive_export_manifest_from_root(archive_root, "session-001")
+
+    error_text = str(exc_info.value)
+    assert error_text == "archive export manifest could not be built"
+    for unsafe_fragment in (str(tmp_path), "outside-root", "token", "secret", "auth"):
+        assert unsafe_fragment not in error_text
+
+
+def test_archive_export_manifest_from_root_rejects_artifact_symlink_escape(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    session_dir = archive_root / "session-001"
+    outside_root = tmp_path / "outside-root-token-secret-auth-profile"
+    session_dir.mkdir(parents=True)
+    outside_root.mkdir()
+    outside_file = outside_root / "transcript.jsonl"
+    outside_file.write_text("Synthetic outside transcript secret.", encoding="utf-8")
+    _make_symlink(outside_file, session_dir / "transcript.jsonl")
+
+    with pytest.raises(ValueError) as exc_info:
+        build_archive_export_manifest_from_root(archive_root, "session-001")
+
+    error_text = str(exc_info.value)
+    assert error_text == "archive export manifest could not be built"
+    for unsafe_fragment in (str(tmp_path), "outside-root", "secret", "transcript"):
+        assert unsafe_fragment not in error_text
+
+
 @pytest.mark.parametrize(
     "session_id",
     [
@@ -606,6 +747,49 @@ def test_archive_manifest_from_inventory_helper_has_no_filesystem_io() -> None:
         ".exists(",
         ".is_file(",
         ".stat(",
+        "open(",
+        "read_text(",
+        "write_text(",
+        "mkdir(",
+        "iterdir(",
+        "glob(",
+        "rglob(",
+        "listdir(",
+        "scandir(",
+        "walk(",
+        "unlink(",
+        "remove(",
+        "rmdir(",
+        "ZipFile",
+        "zipfile",
+        "tarfile",
+        "shutil",
+        "sqlite3",
+        "requests",
+        "httpx",
+        "playwright",
+        "sounddevice",
+        "faster_whisper",
+        "nicegui",
+        "threading",
+        "asyncio",
+        "Timer(",
+    )
+    for fragment in forbidden_fragments:
+        assert fragment not in helper_source
+
+
+def test_archive_manifest_from_root_helper_has_no_content_or_execution_behavior() -> (
+    None
+):
+    source = Path("src/async_scholar/archive_export.py").read_text(encoding="utf-8")
+    helper_source = source[
+        source.index("def build_archive_export_manifest_from_root") : source.index(
+            "\ndef archive_export_manifest_to_json_ready"
+        )
+    ]
+
+    forbidden_fragments = (
         "open(",
         "read_text(",
         "write_text(",

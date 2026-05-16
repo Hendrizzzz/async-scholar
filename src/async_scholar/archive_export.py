@@ -415,6 +415,17 @@ def build_archive_export_manifest_from_inventory(
     )
 
 
+def build_archive_export_manifest_from_root(
+    archive_root: str | Path,
+    session_id: str,
+) -> ArchiveExportManifest:
+    try:
+        inventory = build_archive_session_inventory(archive_root, session_id)
+        return build_archive_export_manifest_from_inventory(inventory)
+    except (OSError, RuntimeError, ValueError):
+        raise ValueError("archive export manifest could not be built") from None
+
+
 def archive_export_manifest_to_json_ready(
     manifest: ArchiveExportManifest,
 ) -> dict[str, object]:
