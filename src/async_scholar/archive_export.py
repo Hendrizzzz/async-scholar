@@ -13,6 +13,7 @@ from pydantic import (
     StrictBool,
     StrictInt,
     StrictStr,
+    ValidationError,
     field_validator,
     model_validator,
 )
@@ -384,6 +385,33 @@ def build_archive_session_inventory(
             )
             for kind, filename in ARCHIVE_ARTIFACT_FILENAMES_BY_KIND.items()
         ),
+    )
+
+
+def build_archive_export_manifest_from_inventory(
+    inventory: ArchiveSessionInventory,
+) -> ArchiveExportManifest:
+    if type(inventory) is not ArchiveSessionInventory:
+        raise TypeError("inventory must be an ArchiveSessionInventory")
+
+    try:
+        revalidated_inventory = ArchiveSessionInventory.model_validate(
+            inventory.model_dump(),
+        )
+    except ValidationError:
+        raise ValueError("inventory metadata failed validation") from None
+
+    existing_filenames = [
+        artifact.filename
+        for artifact in revalidated_inventory.artifacts
+        if artifact.exists is True
+    ]
+    if not existing_filenames:
+        raise ValueError("inventory must contain at least one existing artifact")
+
+    return build_archive_export_manifest(
+        revalidated_inventory.session_id,
+        existing_filenames,
     )
 
 

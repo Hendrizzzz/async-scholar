@@ -7,13 +7,16 @@ from pydantic import ValidationError
 from async_scholar.archive_export import (
     ALLOWED_ARCHIVE_ARTIFACT_FILENAMES,
     ArchiveArtifactEntry,
+    ArchiveArtifactKind,
     ArchiveExportManifest,
+    ArchiveInventoryArtifact,
     ArchiveSessionInventory,
     archive_export_manifest_safe_summary,
     archive_export_manifest_to_json_ready,
     archive_session_inventory_safe_summary,
     archive_session_inventory_to_json_ready,
     build_archive_export_manifest,
+    build_archive_export_manifest_from_inventory,
     build_archive_session_inventory,
     resolve_session_archive_dir,
 )
@@ -256,6 +259,185 @@ def test_archive_session_inventory_ignores_unallowlisted_files(tmp_path) -> None
     assert "Synthetic private notes" not in serialized_payload
 
 
+def test_archive_export_manifest_from_inventory_keeps_existing_artifacts_only(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    (session_dir / "transcript.jsonl").write_text("{}", encoding="utf-8")
+    (session_dir / "alerts.log").write_text("{}", encoding="utf-8")
+    (session_dir / "benchmark-report.json").write_text("{}", encoding="utf-8")
+
+    inventory = build_archive_session_inventory(archive_root, "session-001")
+    manifest = build_archive_export_manifest_from_inventory(inventory)
+
+    assert archive_export_manifest_to_json_ready(manifest) == {
+        "session_id": "session-001",
+        "artifacts": [
+            {"kind": "transcript_jsonl", "filename": "transcript.jsonl"},
+            {"kind": "alerts_log", "filename": "alerts.log"},
+            {"kind": "benchmark_report", "filename": "benchmark-report.json"},
+        ],
+    }
+
+
+def test_archive_export_manifest_from_inventory_rejects_all_missing_artifacts(
+    tmp_path,
+) -> None:
+    inventory = build_archive_session_inventory(tmp_path, "session-001")
+
+    with pytest.raises(ValueError, match="at least one existing artifact"):
+        build_archive_export_manifest_from_inventory(inventory)
+
+
+@pytest.mark.parametrize(
+    "inventory_input",
+    [
+        "inventory",
+        b"inventory",
+        ["transcript.jsonl"],
+        {"session_id": "session-001"},
+    ],
+)
+def test_archive_export_manifest_from_inventory_rejects_non_inventory_inputs(
+    inventory_input: object,
+) -> None:
+    with pytest.raises(TypeError):
+        build_archive_export_manifest_from_inventory(inventory_input)
+
+
+def test_archive_export_manifest_from_inventory_rejects_subclass_input(
+    tmp_path,
+) -> None:
+    class InventorySubclass(ArchiveSessionInventory):
+        pass
+
+    inventory = build_archive_session_inventory(tmp_path, "session-001")
+    subclass_inventory = InventorySubclass.model_validate(inventory.model_dump())
+
+    with pytest.raises(TypeError):
+        build_archive_export_manifest_from_inventory(subclass_inventory)
+
+
+def test_archive_export_manifest_from_inventory_revalidates_constructed_inventory(
+    tmp_path,
+) -> None:
+    valid_inventory = build_archive_session_inventory(tmp_path, "session-001")
+    tampered_artifacts = list(valid_inventory.artifacts)
+    tampered_artifacts[0] = ArchiveInventoryArtifact.model_construct(
+        kind=ArchiveArtifactKind.TRANSCRIPT_JSONL,
+        filename="C:/Users/student/transcript.jsonl",
+        relative_path="C:/Users/student/transcript.jsonl",
+        exists=True,
+        size_bytes=10,
+    )
+    tampered_inventory = ArchiveSessionInventory.model_construct(
+        session_id="session-001",
+        session_dir="session-001",
+        artifacts=tuple(tampered_artifacts),
+    )
+
+    with pytest.raises(ValueError, match="inventory metadata failed validation"):
+        build_archive_export_manifest_from_inventory(tampered_inventory)
+
+
+def test_archive_export_manifest_from_inventory_sanitizes_revalidation_errors(
+    tmp_path,
+) -> None:
+    valid_inventory = build_archive_session_inventory(tmp_path, "session-001")
+    unsafe_fragments = (
+        "C:/Users/student/transcript.jsonl",
+        "Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+    )
+    tampered_artifacts = list(valid_inventory.artifacts)
+    tampered_artifacts[0] = ArchiveInventoryArtifact.model_construct(
+        kind=ArchiveArtifactKind.TRANSCRIPT_JSONL,
+        filename="C:/Users/student/transcript-token-secret-auth-profile.jsonl",
+        relative_path="C:/Users/student/transcript-token-secret-auth-profile.jsonl",
+        exists=True,
+        size_bytes=10,
+    )
+    tampered_inventory = ArchiveSessionInventory.model_construct(
+        session_id="session-001",
+        session_dir="session-001",
+        artifacts=tuple(tampered_artifacts),
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        build_archive_export_manifest_from_inventory(tampered_inventory)
+
+    error_text = str(exc_info.value)
+    assert error_text == "inventory metadata failed validation"
+    for unsafe_fragment in unsafe_fragments:
+        assert unsafe_fragment not in error_text
+
+
+def test_archive_export_manifest_from_inventory_revalidates_nested_consistency(
+    tmp_path,
+) -> None:
+    valid_inventory = build_archive_session_inventory(tmp_path, "session-001")
+    tampered_artifacts = list(valid_inventory.artifacts)
+    tampered_artifacts[0] = ArchiveInventoryArtifact.model_construct(
+        kind=ArchiveArtifactKind.TRANSCRIPT_JSONL,
+        filename="transcript.jsonl",
+        relative_path="transcript.jsonl",
+        exists=True,
+        size_bytes=None,
+    )
+    tampered_inventory = ArchiveSessionInventory.model_construct(
+        session_id="session-001",
+        session_dir="session-001",
+        artifacts=tuple(tampered_artifacts),
+    )
+
+    with pytest.raises(ValueError, match="inventory metadata failed validation"):
+        build_archive_export_manifest_from_inventory(tampered_inventory)
+
+
+def test_archive_export_manifest_from_inventory_exposes_only_manifest_metadata(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    secret_text = "Synthetic transcript token secret auth profile text."
+    (session_dir / "transcript.jsonl").write_text(secret_text, encoding="utf-8")
+
+    manifest = build_archive_export_manifest_from_inventory(
+        build_archive_session_inventory(archive_root, "session-001"),
+    )
+    payload = archive_export_manifest_to_json_ready(manifest)
+
+    assert payload == {
+        "session_id": "session-001",
+        "artifacts": [
+            {"kind": "transcript_jsonl", "filename": "transcript.jsonl"},
+        ],
+    }
+    serialized_payload = json.dumps(payload, sort_keys=True).lower()
+    for forbidden_fragment in (
+        "session_dir",
+        "relative_path",
+        "exists",
+        "size_bytes",
+        str(tmp_path).lower(),
+        "synthetic transcript",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "c:\\",
+        "/users/",
+    ):
+        assert forbidden_fragment not in serialized_payload
+
+
 @pytest.mark.parametrize(
     "session_id",
     [
@@ -408,6 +590,52 @@ def test_archive_export_module_has_no_execution_or_persistence_behavior() -> Non
     )
     for fragment in forbidden_fragments:
         assert fragment not in source
+
+
+def test_archive_manifest_from_inventory_helper_has_no_filesystem_io() -> None:
+    source = Path("src/async_scholar/archive_export.py").read_text(encoding="utf-8")
+    helper_source = source[
+        source.index("def build_archive_export_manifest_from_inventory") : source.index(
+            "\ndef archive_export_manifest_to_json_ready"
+        )
+    ]
+
+    forbidden_fragments = (
+        "Path(",
+        ".resolve(",
+        ".exists(",
+        ".is_file(",
+        ".stat(",
+        "open(",
+        "read_text(",
+        "write_text(",
+        "mkdir(",
+        "iterdir(",
+        "glob(",
+        "rglob(",
+        "listdir(",
+        "scandir(",
+        "walk(",
+        "unlink(",
+        "remove(",
+        "rmdir(",
+        "ZipFile",
+        "zipfile",
+        "tarfile",
+        "shutil",
+        "sqlite3",
+        "requests",
+        "httpx",
+        "playwright",
+        "sounddevice",
+        "faster_whisper",
+        "nicegui",
+        "threading",
+        "asyncio",
+        "Timer(",
+    )
+    for fragment in forbidden_fragments:
+        assert fragment not in helper_source
 
 
 def _make_symlink(
