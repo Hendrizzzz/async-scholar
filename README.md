@@ -55,6 +55,16 @@ data/sessions/fixture_attendance_roll_call/alerts.log
 data/sessions/fixture_attendance_roll_call/reviewer.md
 ```
 
+Show read-only crash recovery preflight metadata for one explicit local session root:
+
+```powershell
+uv run python -m async_scholar crash-recovery-preflight fixture_attendance_roll_call --sessions-root data\sessions
+```
+
+This command returns a metadata-only JSON summary for allowlisted session
+artifacts. It does not repair, clean up, delete, copy, export, schedule, or
+deliver anything, and it does not read artifact contents.
+
 Show the bounded microphone recording diagnostic options:
 
 ```powershell
