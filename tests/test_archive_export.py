@@ -8,10 +8,13 @@ from async_scholar.archive_export import (
     ALLOWED_ARCHIVE_ARTIFACT_FILENAMES,
     ArchiveArtifactEntry,
     ArchiveArtifactKind,
+    ArchiveExportExecutionResult,
     ArchiveExportManifest,
     ArchiveExportPreflightSummary,
     ArchiveInventoryArtifact,
     ArchiveSessionInventory,
+    archive_export_execution_result_safe_summary,
+    archive_export_execution_result_to_json_ready,
     archive_export_manifest_safe_summary,
     archive_export_manifest_to_json_ready,
     archive_export_preflight_summary_safe_summary,
@@ -23,6 +26,7 @@ from async_scholar.archive_export import (
     build_archive_export_manifest_from_root,
     build_archive_export_preflight_summary_from_root,
     build_archive_session_inventory,
+    execute_archive_export_to_local_root,
     resolve_session_archive_dir,
 )
 
@@ -717,6 +721,320 @@ def test_archive_export_preflight_summary_does_not_change_manifest_schema(
     }
 
 
+def test_execute_archive_export_to_local_root_copies_existing_artifacts(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    export_root = tmp_path / "export-root"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    export_root.mkdir()
+    events_text = "{}"
+    reviewer_text = "Synthetic reviewer text with token-shaped private text."
+    (session_dir / "events.jsonl").write_text(events_text, encoding="utf-8")
+    (session_dir / "reviewer.md").write_text(reviewer_text, encoding="utf-8")
+
+    result = execute_archive_export_to_local_root(
+        archive_root,
+        export_root,
+        "session-001",
+    )
+    payload = archive_export_execution_result_to_json_ready(result)
+
+    assert isinstance(result, ArchiveExportExecutionResult)
+    assert payload == archive_export_execution_result_safe_summary(result)
+    assert payload == {
+        "session_id": "session-001",
+        "session_dir": "session-001",
+        "export_dir": "session-001",
+        "artifact_count": 2,
+        "total_exported_size_bytes": len(events_text.encode("utf-8"))
+        + len(reviewer_text.encode("utf-8")),
+        "artifacts": [
+            {
+                "kind": "events_jsonl",
+                "filename": "events.jsonl",
+                "size_bytes": len(events_text.encode("utf-8")),
+                "status": "exported",
+            },
+            {
+                "kind": "reviewer_markdown",
+                "filename": "reviewer.md",
+                "size_bytes": len(reviewer_text.encode("utf-8")),
+                "status": "exported",
+            },
+        ],
+    }
+    assert (export_root / "session-001" / "events.jsonl").read_text(
+        encoding="utf-8"
+    ) == events_text
+    assert (export_root / "session-001" / "reviewer.md").read_text(
+        encoding="utf-8"
+    ) == reviewer_text
+    assert (session_dir / "events.jsonl").read_text(encoding="utf-8") == events_text
+    assert (session_dir / "reviewer.md").read_text(encoding="utf-8") == reviewer_text
+
+
+def test_execute_archive_export_to_local_root_omits_missing_artifacts(tmp_path) -> None:
+    archive_root = tmp_path / "archive-root"
+    export_root = tmp_path / "export-root"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    export_root.mkdir()
+    (session_dir / "alerts.log").write_text("{}", encoding="utf-8")
+
+    result = execute_archive_export_to_local_root(
+        archive_root,
+        export_root,
+        "session-001",
+    )
+    payload = archive_export_execution_result_to_json_ready(result)
+
+    assert payload["artifact_count"] == 1
+    assert payload["artifacts"] == [
+        {
+            "kind": "alerts_log",
+            "filename": "alerts.log",
+            "size_bytes": 2,
+            "status": "exported",
+        }
+    ]
+    assert (export_root / "session-001" / "alerts.log").is_file()
+    assert not (export_root / "session-001" / "transcript.jsonl").exists()
+
+
+def test_execute_archive_export_to_local_root_rejects_all_missing_artifacts(
+    tmp_path,
+) -> None:
+    export_root = tmp_path / "export-root"
+    export_root.mkdir()
+
+    with pytest.raises(ValueError) as exc_info:
+        execute_archive_export_to_local_root(tmp_path, export_root, "session-001")
+
+    assert str(exc_info.value) == "archive export could not be executed"
+    assert not (export_root / "session-001").exists()
+
+
+@pytest.mark.parametrize(
+    "session_id",
+    [
+        "../session",
+        "session/one",
+        "session\\one",
+        "C:session",
+        "https://example.test/session",
+        "CON",
+        "lpt1.txt",
+    ],
+)
+def test_execute_archive_export_to_local_root_rejects_unsafe_session_ids(
+    tmp_path,
+    session_id: str,
+) -> None:
+    export_root = tmp_path / "export-root"
+    export_root.mkdir()
+
+    with pytest.raises(ValueError) as exc_info:
+        execute_archive_export_to_local_root(tmp_path, export_root, session_id)
+
+    assert str(exc_info.value) == "archive export could not be executed"
+
+
+def test_execute_archive_export_to_local_root_requires_existing_export_root(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    (session_dir / "events.jsonl").write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ValueError) as exc_info:
+        execute_archive_export_to_local_root(
+            archive_root,
+            tmp_path / "missing-export-root",
+            "session-001",
+        )
+
+    assert str(exc_info.value) == "archive export could not be executed"
+
+
+def test_execute_archive_export_to_local_root_rejects_export_root_inside_archive_root(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    export_root = archive_root / "exports"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    export_root.mkdir()
+    (session_dir / "events.jsonl").write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ValueError) as exc_info:
+        execute_archive_export_to_local_root(archive_root, export_root, "session-001")
+
+    assert str(exc_info.value) == "archive export could not be executed"
+    assert not (export_root / "session-001").exists()
+
+
+def test_execute_archive_export_to_local_root_rejects_destination_overwrite(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    export_root = tmp_path / "export-root"
+    session_dir = archive_root / "session-001"
+    destination_dir = export_root / "session-001"
+    session_dir.mkdir(parents=True)
+    destination_dir.mkdir(parents=True)
+    (session_dir / "events.jsonl").write_text("new", encoding="utf-8")
+    existing_destination = destination_dir / "events.jsonl"
+    existing_destination.write_text("existing", encoding="utf-8")
+
+    with pytest.raises(ValueError) as exc_info:
+        execute_archive_export_to_local_root(archive_root, export_root, "session-001")
+
+    assert str(exc_info.value) == "archive export could not be executed"
+    assert existing_destination.read_text(encoding="utf-8") == "existing"
+
+
+def test_execute_archive_export_to_local_root_exposes_no_private_data(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root-token-secret-auth-profile"
+    export_root = tmp_path / "export-root-token-secret-auth-profile"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    export_root.mkdir()
+    private_text = "Synthetic transcript token secret auth profile text."
+    (session_dir / "transcript.jsonl").write_text(private_text, encoding="utf-8")
+
+    result = execute_archive_export_to_local_root(
+        archive_root,
+        export_root,
+        "session-001",
+    )
+    payload = archive_export_execution_result_to_json_ready(result)
+    serialized_payload = json.dumps(payload, sort_keys=True).lower()
+
+    for forbidden_fragment in (
+        "archive-root",
+        "export-root",
+        "relative_path",
+        str(tmp_path).lower(),
+        "synthetic transcript",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "c:\\",
+        "/users/",
+    ):
+        assert forbidden_fragment not in serialized_payload
+
+
+def test_execute_archive_export_to_local_root_sanitizes_copy_errors(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root-token-secret-auth-profile"
+    archive_root.write_text("Synthetic private root placeholder.", encoding="utf-8")
+    export_root = tmp_path / "export-root"
+    export_root.mkdir()
+
+    with pytest.raises(ValueError) as exc_info:
+        execute_archive_export_to_local_root(archive_root, export_root, "session-001")
+
+    error_text = str(exc_info.value)
+    assert error_text == "archive export could not be executed"
+    for unsafe_fragment in (
+        str(tmp_path),
+        "archive-root",
+        "export-root",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "Synthetic private",
+    ):
+        assert unsafe_fragment not in error_text
+
+
+def test_execute_archive_export_preserves_manifest_and_preflight_schema(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    export_root = tmp_path / "export-root"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    export_root.mkdir()
+    (session_dir / "transcript.jsonl").write_text("{}", encoding="utf-8")
+
+    execute_archive_export_to_local_root(archive_root, export_root, "session-001")
+    manifest = build_archive_export_manifest_from_root(archive_root, "session-001")
+    preflight = build_archive_export_preflight_summary_from_root(
+        archive_root,
+        "session-001",
+    )
+
+    assert archive_export_manifest_to_json_ready(manifest) == {
+        "session_id": "session-001",
+        "artifacts": [
+            {"kind": "transcript_jsonl", "filename": "transcript.jsonl"},
+        ],
+    }
+    assert set(archive_export_preflight_summary_to_json_ready(preflight)) == {
+        "session_id",
+        "session_dir",
+        "existing_count",
+        "missing_count",
+        "total_existing_size_bytes",
+        "artifacts",
+    }
+
+
+def test_execute_archive_export_to_local_root_rejects_source_symlink_escape(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    export_root = tmp_path / "export-root"
+    session_dir = archive_root / "session-001"
+    outside_root = tmp_path / "outside-root-token-secret-auth-profile"
+    session_dir.mkdir(parents=True)
+    outside_root.mkdir()
+    export_root.mkdir()
+    outside_file = outside_root / "events.jsonl"
+    outside_file.write_text("Synthetic outside event secret.", encoding="utf-8")
+    _make_symlink(outside_file, session_dir / "events.jsonl")
+
+    with pytest.raises(ValueError) as exc_info:
+        execute_archive_export_to_local_root(archive_root, export_root, "session-001")
+
+    assert str(exc_info.value) == "archive export could not be executed"
+    assert not (export_root / "session-001").exists()
+
+
+def test_execute_archive_export_to_local_root_rejects_destination_symlink_escape(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive-root"
+    export_root = tmp_path / "export-root"
+    session_dir = archive_root / "session-001"
+    outside_root = tmp_path / "outside-root-token-secret-auth-profile"
+    session_dir.mkdir(parents=True)
+    export_root.mkdir()
+    outside_root.mkdir()
+    (session_dir / "events.jsonl").write_text("{}", encoding="utf-8")
+    _make_symlink(
+        outside_root,
+        export_root / "session-001",
+        target_is_directory=True,
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        execute_archive_export_to_local_root(archive_root, export_root, "session-001")
+
+    assert str(exc_info.value) == "archive export could not be executed"
+    assert not (outside_root / "events.jsonl").exists()
+
+
 def test_archive_export_manifest_from_root_rejects_session_symlink_escape(
     tmp_path,
 ) -> None:
@@ -874,14 +1192,12 @@ def test_archive_export_manifest_is_immutable() -> None:
         manifest.artifacts[0].filename = "events.jsonl"
 
 
-def test_archive_export_module_has_no_execution_or_persistence_behavior() -> None:
+def test_archive_export_module_has_no_destructive_or_external_behavior() -> None:
     source = Path("src/async_scholar/archive_export.py").read_text(encoding="utf-8")
 
     forbidden_fragments = (
-        "open(",
         "read_text(",
         "write_text(",
-        "mkdir(",
         "iterdir(",
         "glob(",
         "rglob(",
@@ -891,6 +1207,8 @@ def test_archive_export_module_has_no_execution_or_persistence_behavior() -> Non
         "unlink(",
         "remove(",
         "rmdir(",
+        "rename(",
+        "replace(",
         "ZipFile",
         "zipfile",
         "tarfile",
@@ -914,7 +1232,7 @@ def test_archive_manifest_from_inventory_helper_has_no_filesystem_io() -> None:
     source = Path("src/async_scholar/archive_export.py").read_text(encoding="utf-8")
     helper_source = source[
         source.index("def build_archive_export_manifest_from_inventory") : source.index(
-            "\ndef archive_export_manifest_to_json_ready"
+            "\ndef build_archive_export_manifest_from_root"
         )
     ]
 
@@ -962,7 +1280,7 @@ def test_archive_manifest_from_root_helper_has_no_content_or_execution_behavior(
     source = Path("src/async_scholar/archive_export.py").read_text(encoding="utf-8")
     helper_source = source[
         source.index("def build_archive_export_manifest_from_root") : source.index(
-            "\ndef archive_export_manifest_to_json_ready"
+            "\ndef build_archive_export_preflight_summary_from_root"
         )
     ]
 
@@ -1006,7 +1324,7 @@ def test_archive_preflight_from_root_helper_has_no_content_or_execution_behavior
     helper_source = source[
         source.index(
             "def build_archive_export_preflight_summary_from_root"
-        ) : source.index("\ndef archive_export_manifest_to_json_ready")
+        ) : source.index("\ndef _copy_file_exclusive")
     ]
 
     forbidden_fragments = (
@@ -1041,6 +1359,56 @@ def test_archive_preflight_from_root_helper_has_no_content_or_execution_behavior
     )
     for fragment in forbidden_fragments:
         assert fragment not in helper_source
+
+
+def test_archive_export_execution_helper_has_no_destructive_or_external_behavior() -> (
+    None
+):
+    source = Path("src/async_scholar/archive_export.py").read_text(encoding="utf-8")
+    helper_source = source[
+        source.index("def _copy_file_exclusive") : source.index(
+            "\ndef archive_export_manifest_to_json_ready"
+        )
+    ]
+
+    forbidden_fragments = (
+        "read_text(",
+        "write_text(",
+        "iterdir(",
+        "glob(",
+        "rglob(",
+        "listdir(",
+        "scandir(",
+        "walk(",
+        "unlink(",
+        "remove(",
+        "rmdir(",
+        "rename(",
+        "replace(",
+        "parents=True",
+        "ZipFile",
+        "zipfile",
+        "tarfile",
+        "shutil",
+        "copyfile(",
+        "copy2(",
+        "sqlite3",
+        "requests",
+        "httpx",
+        "playwright",
+        "sounddevice",
+        "faster_whisper",
+        "nicegui",
+        "subprocess",
+        "threading",
+        "asyncio",
+        "Timer(",
+    )
+    for fragment in forbidden_fragments:
+        assert fragment not in helper_source
+    assert '.open("rb")' in helper_source
+    assert '.open("xb")' in helper_source
+    assert "parents=False" in helper_source
 
 
 def _make_symlink(
