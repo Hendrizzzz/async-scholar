@@ -23,8 +23,11 @@ COURSE_ID_MAX_LENGTH = 64
 OPTIONAL_TEXT_MAX_LENGTH = 120
 TIMEZONE_NAME_MAX_LENGTH = 64
 DURATION_MINUTES_MAX = 24 * 60
+SESSION_ID_MAX_LENGTH = 128
 SOURCE_KIND_VALUES = ("file", "mic")
 SCHEDULED_START_DECISION_KIND = "scheduled_start_due_decision"
+SCHEDULED_START_MANUAL_RESULT_KIND = "scheduled_start_manual_result"
+SCHEDULED_START_MANUAL_RESULT_ERROR = "scheduled start manual result could not be built"
 DAY_OF_WEEK_VALUES = (
     "monday",
     "tuesday",
@@ -36,15 +39,27 @@ DAY_OF_WEEK_VALUES = (
 )
 
 _COURSE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+_SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _LOCAL_START_TIME_PATTERN = re.compile(r"^\d{2}:\d{2}$")
 _DAY_OF_WEEK_SET = frozenset(DAY_OF_WEEK_VALUES)
 _SOURCE_KIND_SET = frozenset(SOURCE_KIND_VALUES)
+_WINDOWS_RESERVED_SESSION_NAMES = frozenset(
+    {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        *(f"COM{index}" for index in range(1, 10)),
+        *(f"LPT{index}" for index in range(1, 10)),
+    }
+)
 _MINUTES_PER_DAY = 24 * 60
 _MINUTES_PER_WEEK = 7 * _MINUTES_PER_DAY
 
 ScheduledStartPlanSummary = dict[str, str | int | bool | None]
 ScheduledStartClockSummary = dict[str, str]
 ScheduledStartDueDecisionSummary = dict[str, str | int | bool | None]
+ScheduledStartManualResultSummary = dict[str, str | int | bool | None]
 
 
 def _before_validator(*field_names: str) -> Any:
@@ -123,6 +138,29 @@ def _normalize_optional_local_time(value: Any, *, field_name: str) -> str | None
     if value is None:
         return None
     return _normalize_local_time_text(value, field_name=field_name)
+
+
+def _normalize_session_id(value: Any) -> str:
+    if type(value) is not str:
+        raise ValueError("session_id is invalid")
+    if value != value.strip() or not value:
+        raise ValueError("session_id is invalid")
+    if len(value) > SESSION_ID_MAX_LENGTH:
+        raise ValueError("session_id is invalid")
+    if _has_control_character(value):
+        raise ValueError("session_id is invalid")
+    if "/" in value or "\\" in value:
+        raise ValueError("session_id is invalid")
+    if ":" in value or "://" in value:
+        raise ValueError("session_id is invalid")
+    if ".." in value:
+        raise ValueError("session_id is invalid")
+    if _SESSION_ID_PATTERN.fullmatch(value) is None:
+        raise ValueError("session_id is invalid")
+    reserved_candidate = value.split(".", maxsplit=1)[0].upper()
+    if reserved_candidate in _WINDOWS_RESERVED_SESSION_NAMES:
+        raise ValueError("session_id is invalid")
+    return value
 
 
 def _normalize_selected_class_time_index(
@@ -427,6 +465,124 @@ class ScheduledStartDueDecision(BaseModel):
         return self.to_json_ready()
 
 
+class ScheduledStartManualResult(BaseModel):
+    """One-shot manual scheduler result metadata without side effects."""
+
+    result_kind: Literal["scheduled_start_manual_result"] = (
+        SCHEDULED_START_MANUAL_RESULT_KIND
+    )
+    status: Literal["due", "waiting", "disabled"]
+    session_id: str
+    course_id: str
+    source_kind: str
+    enabled: bool
+    clock_day_of_week: str
+    clock_local_time: str
+    scheduled_day_of_week: str
+    scheduled_local_start_time: str
+    due: bool
+    minutes_until_start: int | None
+    next_day_of_week: str | None
+    next_local_start_time: str | None
+
+    if _PYDANTIC_V2:
+        model_config = ConfigDict(
+            extra="forbid",
+            frozen=True,
+            hide_input_in_errors=True,
+        )
+    else:
+
+        class Config:
+            extra = "forbid"
+            frozen = True
+
+    @_before_validator("session_id")
+    def _normalize_result_session_id(cls, value: Any) -> str:
+        return _normalize_session_id(value)
+
+    @_before_validator("course_id")
+    def _normalize_course_id(cls, value: Any) -> str:
+        normalized = _clean_required_text(
+            value,
+            field_name="course_id",
+            max_length=COURSE_ID_MAX_LENGTH,
+        ).lower()
+        if _COURSE_ID_PATTERN.fullmatch(normalized) is None:
+            raise ValueError(
+                "course_id must use letters, numbers, hyphens, or underscores"
+            )
+        return normalized
+
+    @_before_validator("source_kind")
+    def _normalize_source_kind(cls, value: Any) -> str:
+        normalized = _clean_required_text(
+            value,
+            field_name="source_kind",
+            max_length=max(len(kind) for kind in SOURCE_KIND_VALUES),
+        ).lower()
+        if normalized not in _SOURCE_KIND_SET:
+            raise ValueError("source_kind must be file or mic")
+        return normalized
+
+    @_before_validator("enabled", "due")
+    def _normalize_boolean(cls, value: Any) -> bool:
+        if not isinstance(value, bool):
+            raise ValueError("result flags must be boolean")
+        return value
+
+    @_before_validator("clock_day_of_week", "scheduled_day_of_week")
+    def _normalize_result_day_of_week(cls, value: Any) -> str:
+        return _normalize_day_of_week_text(value, field_name="day_of_week")
+
+    @_before_validator("clock_local_time", "scheduled_local_start_time")
+    def _normalize_result_local_time(cls, value: Any) -> str:
+        return _normalize_local_time_text(value, field_name="local_time")
+
+    @_before_validator("minutes_until_start")
+    def _normalize_minutes_until_start(cls, value: Any) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError("minutes_until_start must be an integer")
+        if value < 0 or value > _MINUTES_PER_WEEK:
+            raise ValueError("minutes_until_start must be within one week")
+        return value
+
+    @_before_validator("next_day_of_week")
+    def _normalize_next_day_of_week(cls, value: Any) -> str | None:
+        return _normalize_optional_day_of_week(value, field_name="next_day_of_week")
+
+    @_before_validator("next_local_start_time")
+    def _normalize_next_local_start_time(cls, value: Any) -> str | None:
+        return _normalize_optional_local_time(
+            value,
+            field_name="next_local_start_time",
+        )
+
+    def to_json_ready(self) -> ScheduledStartManualResultSummary:
+        """Return deterministic one-shot scheduler metadata."""
+
+        return _scheduled_start_manual_result_to_json_ready(
+            _revalidate_scheduled_start_manual_result(self)
+        )
+
+    def to_safe_summary(self) -> ScheduledStartManualResultSummary:
+        """Return one-shot scheduler metadata suitable for local display."""
+
+        return self.to_json_ready()
+
+    def safe_summary(self) -> ScheduledStartManualResultSummary:
+        """Alias for callers that need a concise safe display payload."""
+
+        return self.to_json_ready()
+
+    def to_safe_export(self) -> ScheduledStartManualResultSummary:
+        """Return deterministic one-shot scheduler data."""
+
+        return self.to_json_ready()
+
+
 def _model_to_primitive(model: BaseModel) -> dict[str, Any]:
     if hasattr(model, "model_dump"):
         return model.model_dump()
@@ -447,6 +603,38 @@ def _revalidate_scheduled_start_clock(
         return ScheduledStartClock(**_model_to_primitive(clock))
     except (TypeError, ValidationError, ValueError):
         raise ValueError("scheduled start preflight input failed validation") from None
+
+
+def _revalidate_scheduled_start_manual_result(
+    result: ScheduledStartManualResult,
+) -> ScheduledStartManualResult:
+    if type(result) is not ScheduledStartManualResult:
+        raise ValueError(SCHEDULED_START_MANUAL_RESULT_ERROR)
+    try:
+        return ScheduledStartManualResult(**_model_to_primitive(result))
+    except (TypeError, ValidationError, ValueError):
+        raise ValueError(SCHEDULED_START_MANUAL_RESULT_ERROR) from None
+
+
+def _scheduled_start_manual_result_to_json_ready(
+    result: ScheduledStartManualResult,
+) -> ScheduledStartManualResultSummary:
+    return {
+        "result_kind": result.result_kind,
+        "status": result.status,
+        "session_id": result.session_id,
+        "course_id": result.course_id,
+        "source_kind": result.source_kind,
+        "enabled": result.enabled,
+        "clock_day_of_week": result.clock_day_of_week,
+        "clock_local_time": result.clock_local_time,
+        "scheduled_day_of_week": result.scheduled_day_of_week,
+        "scheduled_local_start_time": result.scheduled_local_start_time,
+        "due": result.due,
+        "minutes_until_start": result.minutes_until_start,
+        "next_day_of_week": result.next_day_of_week,
+        "next_local_start_time": result.next_local_start_time,
+    }
 
 
 def _local_minutes(day_of_week: str, local_time: str) -> int:
@@ -503,6 +691,55 @@ def build_scheduled_start_due_decision(
         minutes_until_start=decision_minutes,
         next_day_of_week=next_day_of_week,
         next_local_start_time=next_local_start_time,
+    )
+
+
+def build_scheduled_start_manual_result(
+    plan: ScheduledStartPlan,
+    clock: ScheduledStartClock,
+    session_id: str,
+) -> ScheduledStartManualResult:
+    """Build one-shot manual scheduler metadata from explicit local inputs."""
+
+    try:
+        if type(plan) is not ScheduledStartPlan:
+            raise ValueError(SCHEDULED_START_MANUAL_RESULT_ERROR)
+        if type(clock) is not ScheduledStartClock:
+            raise ValueError(SCHEDULED_START_MANUAL_RESULT_ERROR)
+        safe_session_id = _normalize_session_id(session_id)
+        decision = build_scheduled_start_due_decision(plan, clock)
+        return ScheduledStartManualResult(
+            status=decision.status,
+            session_id=safe_session_id,
+            course_id=decision.course_id,
+            source_kind=decision.source_kind,
+            enabled=decision.enabled,
+            clock_day_of_week=decision.clock_day_of_week,
+            clock_local_time=decision.clock_local_time,
+            scheduled_day_of_week=decision.scheduled_day_of_week,
+            scheduled_local_start_time=decision.scheduled_local_start_time,
+            due=decision.due,
+            minutes_until_start=decision.minutes_until_start,
+            next_day_of_week=decision.next_day_of_week,
+            next_local_start_time=decision.next_local_start_time,
+        )
+    except (TypeError, ValidationError, ValueError):
+        raise ValueError(SCHEDULED_START_MANUAL_RESULT_ERROR) from None
+
+
+def scheduled_start_manual_result_to_json_ready(
+    result: ScheduledStartManualResult,
+) -> ScheduledStartManualResultSummary:
+    return _scheduled_start_manual_result_to_json_ready(
+        _revalidate_scheduled_start_manual_result(result)
+    )
+
+
+def scheduled_start_manual_result_safe_summary(
+    result: ScheduledStartManualResult,
+) -> ScheduledStartManualResultSummary:
+    return _scheduled_start_manual_result_to_json_ready(
+        _revalidate_scheduled_start_manual_result(result)
     )
 
 

@@ -8,11 +8,16 @@ from pydantic import ValidationError
 from async_scholar import scheduled_start
 from async_scholar.schedule_config import ScheduleConfig
 from async_scholar.scheduled_start import (
+    SCHEDULED_START_MANUAL_RESULT_ERROR,
     ScheduledStartClock,
     ScheduledStartDueDecision,
+    ScheduledStartManualResult,
     ScheduledStartPlan,
     build_scheduled_start_due_decision,
+    build_scheduled_start_manual_result,
     build_scheduled_start_plan,
+    scheduled_start_manual_result_safe_summary,
+    scheduled_start_manual_result_to_json_ready,
 )
 
 
@@ -515,15 +520,295 @@ def test_due_decision_is_immutable() -> None:
         decision.due = False
 
 
+def test_manual_result_reports_due_metadata_without_private_plan_text() -> None:
+    plan = ScheduledStartPlan(
+        course_id="CS_101",
+        day_of_week="Monday",
+        local_start_time="09:00",
+        duration_minutes=75,
+        timezone_name="Asia/Manila token secret auth profile",
+        meeting_label="Private lecture token secret auth profile",
+        source_kind="file",
+    )
+    clock = ScheduledStartClock(day_of_week="monday", local_time="09:00")
+
+    result = build_scheduled_start_manual_result(plan, clock, "session-001")
+    payload = scheduled_start_manual_result_to_json_ready(result)
+
+    expected = {
+        "result_kind": "scheduled_start_manual_result",
+        "status": "due",
+        "session_id": "session-001",
+        "course_id": "cs_101",
+        "source_kind": "file",
+        "enabled": True,
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "scheduled_day_of_week": "monday",
+        "scheduled_local_start_time": "09:00",
+        "due": True,
+        "minutes_until_start": 0,
+        "next_day_of_week": "monday",
+        "next_local_start_time": "09:00",
+    }
+    assert result == ScheduledStartManualResult(**expected)
+    assert payload == expected
+    assert result.to_json_ready() == expected
+    assert result.safe_summary() == expected
+    assert result.to_safe_export() == expected
+    assert json.loads(json.dumps(payload, sort_keys=True)) == expected
+
+    output_text = json.dumps(payload, sort_keys=True).lower()
+    for forbidden_text in (
+        "meeting_label",
+        "timezone_name",
+        "private lecture",
+        "asia/manila",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "started",
+        "executed",
+        "notified",
+        "opened",
+        "recording",
+        "artifact",
+    ):
+        assert forbidden_text not in output_text
+
+
+def test_manual_result_reports_waiting_metadata() -> None:
+    plan = build_scheduled_start_plan(
+        _schedule_config(),
+        selected_class_time_index=0,
+        source_kind="file",
+    )
+    clock = ScheduledStartClock(day_of_week="monday", local_time="08:30")
+
+    payload = build_scheduled_start_manual_result(
+        plan,
+        clock,
+        "session-001",
+    ).to_json_ready()
+
+    assert payload["status"] == "waiting"
+    assert payload["due"] is False
+    assert payload["minutes_until_start"] == 30
+    assert payload["next_day_of_week"] == "monday"
+    assert payload["next_local_start_time"] == "09:00"
+
+
+def test_manual_result_reports_disabled_metadata() -> None:
+    plan = build_scheduled_start_plan(
+        _schedule_config(),
+        selected_class_time_index=0,
+        source_kind="file",
+        enabled=False,
+    )
+    clock = ScheduledStartClock(day_of_week="monday", local_time="09:00")
+
+    payload = build_scheduled_start_manual_result(
+        plan,
+        clock,
+        "session-001",
+    ).to_json_ready()
+
+    assert payload["status"] == "disabled"
+    assert payload["enabled"] is False
+    assert payload["due"] is False
+    assert payload["minutes_until_start"] is None
+    assert payload["next_day_of_week"] is None
+    assert payload["next_local_start_time"] is None
+
+
+@pytest.mark.parametrize(
+    "session_id",
+    [
+        "",
+        "   ",
+        ".hidden",
+        "../session",
+        "session/one",
+        "session\\one",
+        "C:session",
+        "\\\\server\\share",
+        "https://example.test/session",
+        "session\none",
+        "session one",
+        "CON",
+        "con.txt",
+        "LPT1.session",
+    ],
+)
+def test_manual_result_rejects_unsafe_session_ids(session_id: object) -> None:
+    plan = build_scheduled_start_plan(
+        _schedule_config(),
+        selected_class_time_index=0,
+        source_kind="file",
+    )
+    clock = ScheduledStartClock(day_of_week="monday", local_time="09:00")
+
+    with pytest.raises(ValueError) as exc_info:
+        build_scheduled_start_manual_result(plan, clock, session_id)
+
+    assert str(exc_info.value) == SCHEDULED_START_MANUAL_RESULT_ERROR
+
+
+def test_manual_result_rejects_invalid_input_types_with_fixed_error() -> None:
+    plan = build_scheduled_start_plan(
+        _schedule_config(),
+        selected_class_time_index=0,
+        source_kind="file",
+    )
+    clock = ScheduledStartClock(day_of_week="monday", local_time="09:00")
+
+    for args in (
+        ({"course_id": "cs101"}, clock, "session-001"),
+        (plan, {"day_of_week": "monday"}, "session-001"),
+    ):
+        with pytest.raises(ValueError) as exc_info:
+            build_scheduled_start_manual_result(*args)
+
+        assert str(exc_info.value) == SCHEDULED_START_MANUAL_RESULT_ERROR
+
+
+def test_manual_result_rejects_subclass_inputs_with_fixed_error() -> None:
+    class ScheduledStartPlanSubclass(ScheduledStartPlan):
+        pass
+
+    class ScheduledStartClockSubclass(ScheduledStartClock):
+        pass
+
+    plan = ScheduledStartPlanSubclass(
+        course_id="cs101",
+        day_of_week="monday",
+        local_start_time="09:00",
+        duration_minutes=60,
+        source_kind="file",
+    )
+    clock = ScheduledStartClock(day_of_week="monday", local_time="09:00")
+
+    with pytest.raises(ValueError) as exc_info:
+        build_scheduled_start_manual_result(plan, clock, "session-001")
+
+    assert str(exc_info.value) == SCHEDULED_START_MANUAL_RESULT_ERROR
+
+    exact_plan = ScheduledStartPlan(
+        course_id="cs101",
+        day_of_week="monday",
+        local_start_time="09:00",
+        duration_minutes=60,
+        source_kind="file",
+    )
+    subclass_clock = ScheduledStartClockSubclass(
+        day_of_week="monday",
+        local_time="09:00",
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        build_scheduled_start_manual_result(exact_plan, subclass_clock, "session-001")
+
+    assert str(exc_info.value) == SCHEDULED_START_MANUAL_RESULT_ERROR
+
+
+def test_manual_result_revalidates_constructed_inputs_without_raw_leakage() -> None:
+    if not hasattr(ScheduledStartClock, "model_construct"):
+        pytest.skip("Pydantic v2 model_construct is not available")
+
+    plan = build_scheduled_start_plan(
+        _schedule_config(),
+        selected_class_time_index=0,
+        source_kind="file",
+    )
+    unsafe_clock = ScheduledStartClock.model_construct(
+        day_of_week="monday",
+        local_time="C:/Users/student/secrets/.env",
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        build_scheduled_start_manual_result(plan, unsafe_clock, "session-001")
+
+    error_text = str(exc_info.value)
+    assert error_text == SCHEDULED_START_MANUAL_RESULT_ERROR
+    for forbidden_text in ("C:", "Users", "student", "secrets", ".env"):
+        assert forbidden_text not in error_text
+
+
+def test_manual_result_helpers_revalidate_constructed_result_without_leakage() -> None:
+    if not hasattr(ScheduledStartManualResult, "model_construct"):
+        pytest.skip("Pydantic v2 model_construct is not available")
+
+    unsafe_result = ScheduledStartManualResult.model_construct(
+        result_kind="scheduled_start_manual_result",
+        status="due",
+        session_id="C:/Users/student/session-token-secret-auth-profile",
+        course_id="cs101",
+        source_kind="file",
+        enabled=True,
+        clock_day_of_week="monday",
+        clock_local_time="09:00",
+        scheduled_day_of_week="monday",
+        scheduled_local_start_time="09:00",
+        due=True,
+        minutes_until_start=0,
+        next_day_of_week="monday",
+        next_local_start_time="09:00",
+    )
+
+    for helper in (
+        unsafe_result.to_json_ready,
+        unsafe_result.safe_summary,
+        lambda: scheduled_start_manual_result_to_json_ready(unsafe_result),
+        lambda: scheduled_start_manual_result_safe_summary(unsafe_result),
+    ):
+        with pytest.raises(ValueError) as exc_info:
+            helper()
+
+        error_text = str(exc_info.value)
+        assert error_text == SCHEDULED_START_MANUAL_RESULT_ERROR
+        for forbidden_text in ("C:", "Users", "student", "token", "secret", "auth"):
+            assert forbidden_text not in error_text
+
+
+def test_manual_result_rejects_extra_fields_and_is_immutable() -> None:
+    result = build_scheduled_start_manual_result(
+        build_scheduled_start_plan(
+            _schedule_config(),
+            selected_class_time_index=0,
+            source_kind="file",
+        ),
+        ScheduledStartClock(day_of_week="monday", local_time="09:00"),
+        "session-001",
+    )
+
+    with pytest.raises(ValidationError):
+        ScheduledStartManualResult(
+            **result.to_json_ready(),
+            started=True,
+        )
+    with pytest.raises((TypeError, ValidationError)):
+        result.due = False
+
+
 def test_scheduled_start_module_has_no_execution_or_private_behavior() -> None:
     source = Path(scheduled_start.__file__).read_text(encoding="utf-8")
 
     forbidden_tokens = [
         "sqlite",
         "jsonl",
+        "argparse",
+        "sys.argv",
+        "logging",
+        "print(",
+        "os.environ",
+        ".env",
+        "path",
         "open(",
         "read_text",
+        "read_bytes",
         "write_text",
+        "write_bytes",
         "playwright",
         "selenium",
         "nicegui",
@@ -535,11 +820,13 @@ def test_scheduled_start_module_has_no_execution_or_private_behavior() -> None:
         "threading",
         "subprocess",
         "multiprocessing",
+        "multiprocessing",
         "zoneinfo",
         "datetime",
         "timedelta",
         "sleep(",
         "timer",
+        "runner",
         "cron",
         "apscheduler",
         "webbrowser",
@@ -553,10 +840,15 @@ def test_scheduled_start_module_has_no_execution_or_private_behavior() -> None:
         "device_id",
         "meeting_url",
         "notification",
+        "notifier",
         "telegram",
         "desktop_notifier",
         "archive_export",
+        "archive_delete",
         "execute_archive_export",
+        "unlink",
+        "remove",
+        "rmtree",
         "recording_path",
         "transcript_path",
         "archive_path",
