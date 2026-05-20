@@ -8,6 +8,7 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 from async_scholar.fake_meeting import build_fake_meeting_fixture
+from async_scholar.fake_meeting_session import inspect_fake_meeting_session_html
 
 _SKIP_REASON = "managed Chromium unavailable for local synthetic smoke"
 
@@ -76,6 +77,16 @@ def test_local_synthetic_meeting_html_can_be_inspected_with_playwright() -> None
                     "Synthetic Instructor",
                     "Synthetic Learner",
                 ]
+                snapshot = inspect_fake_meeting_session_html(page.content())
+                assert snapshot.snapshot_kind == "synthetic_fake_meeting_session"
+                assert snapshot.fixture_id == "alpha_fixture"
+                assert snapshot.state == "live"
+                assert snapshot.caption_status == "ready"
+                assert snapshot.participant_count == 2
+                assert snapshot.participants == (
+                    "Synthetic Instructor",
+                    "Synthetic Learner",
+                )
             finally:
                 context.close()
         finally:
