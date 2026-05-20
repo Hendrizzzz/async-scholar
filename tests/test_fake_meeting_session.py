@@ -10,11 +10,13 @@ from async_scholar import fake_meeting_session
 from async_scholar.fake_meeting import build_fake_meeting_fixture
 from async_scholar.fake_meeting_session import (
     FAKE_MEETING_SESSION_ERROR,
+    FAKE_MEETING_SESSION_EVENT_ERROR,
     FAKE_MEETING_SESSION_HISTORY_ERROR,
     SAFE_FAKE_MEETING_SESSION_FIELDS,
     SAFE_FAKE_MEETING_SESSION_HISTORY_FIELDS,
     SESSION_HISTORY_MAX_SNAPSHOTS,
     FakeMeetingSessionSnapshot,
+    build_fake_meeting_session_awareness_event,
     build_fake_meeting_session_history_summary,
     fake_meeting_session_snapshot_safe_summary,
     fake_meeting_session_snapshot_to_json_ready,
@@ -457,3 +459,128 @@ def test_history_summary_output_contains_no_private_or_provider_terms() -> None:
         "data-async-scholar",
     ):
         assert forbidden not in summary_text
+
+
+def test_session_awareness_event_returns_safe_deterministic_fields() -> None:
+    snapshots = (
+        _session_snapshot(state="waiting", caption_status="ready"),
+        _session_snapshot(
+            state="live",
+            caption_status="active",
+            participants=(
+                "Synthetic Guest",
+                "Synthetic Instructor",
+                "Synthetic Learner",
+            ),
+        ),
+        _session_snapshot(state="ended", caption_status="disabled"),
+    )
+    event = build_fake_meeting_session_awareness_event(snapshots)
+
+    assert event.event_id == "synthetic-session-awareness-ended-disabled-2-3"
+    assert event.session_id == "synthetic-session-awareness"
+    assert event.event_type == "synthetic_session_awareness"
+    assert event.detected_at_seconds == 2.0
+    assert event.source_segment_ids == (
+        "synthetic-session-awareness-source-ended-disabled-2-3",
+    )
+    assert event.message == (
+        "Synthetic session ended; captions disabled; 2 participants observed."
+    )
+    assert event.confidence == 0.75
+
+
+@pytest.mark.parametrize(
+    "snapshots",
+    [
+        (),
+        [],
+        "not-a-history",
+        b"not-a-history",
+        {"snapshots": []},
+        (_session_snapshot(),) * (SESSION_HISTORY_MAX_SNAPSHOTS + 1),
+        (
+            _session_snapshot(fixture_id="alpha_fixture"),
+            _session_snapshot(fixture_id="beta_fixture"),
+        ),
+    ],
+)
+def test_session_awareness_event_rejects_invalid_history_with_fixed_error(
+    snapshots: object,
+) -> None:
+    with pytest.raises(ValueError) as exc_info:
+        build_fake_meeting_session_awareness_event(snapshots)
+
+    assert str(exc_info.value) == FAKE_MEETING_SESSION_EVENT_ERROR
+
+
+def test_session_awareness_event_revalidates_constructed_snapshot_without_leakage() -> (
+    None
+):
+    if not hasattr(FakeMeetingSessionSnapshot, "model_construct"):
+        pytest.skip("Pydantic v2 model_construct is not available")
+
+    unsafe_snapshot = FakeMeetingSessionSnapshot.model_construct(
+        snapshot_kind="synthetic_fake_meeting_session",
+        fixture_id="alpha_fixture",
+        state="live",
+        caption_status="ready",
+        participant_count=1,
+        participants=("C:/Users/student/token-secret-auth-profile",),
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        build_fake_meeting_session_awareness_event((unsafe_snapshot,))
+
+    error_text = str(exc_info.value)
+    assert error_text == FAKE_MEETING_SESSION_EVENT_ERROR
+    for forbidden in ("C:", "Users", "student", "token", "secret", "auth"):
+        assert forbidden not in error_text
+
+
+def test_session_awareness_event_output_contains_no_private_or_provider_terms() -> None:
+    event_text = json.dumps(
+        build_fake_meeting_session_awareness_event(
+            (
+                _session_snapshot(state="waiting", caption_status="ready"),
+                _session_snapshot(state="ended", caption_status="disabled"),
+            )
+        ).model_dump(),
+        sort_keys=True,
+    ).lower()
+
+    for forbidden in (
+        "alpha_fixture",
+        "synthetic instructor",
+        "synthetic learner",
+        "synthetic guest",
+        "fixture",
+        "google",
+        "meet." + "google",
+        "meeting_url",
+        "http" + "://",
+        "https" + "://",
+        "cookie",
+        "token",
+        "credential",
+        "password",
+        "auth",
+        "profile",
+        "." + "env",
+        "transcript",
+        "recording",
+        "audio",
+        "micro" + "phone",
+        "loop" + "back",
+        "playwright",
+        "browser",
+        "sched" + "uler",
+        "notifi" + "cation",
+        "archive" + "_export",
+        "archive" + "_delete",
+        "c:\\",
+        "/home/",
+        "<html",
+        "data-async-scholar",
+    ):
+        assert forbidden not in event_text

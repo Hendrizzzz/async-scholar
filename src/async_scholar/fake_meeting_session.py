@@ -16,6 +16,7 @@ from async_scholar.fake_meeting import (
     _normalize_fixture_id,
     _normalize_state,
 )
+from async_scholar.schemas import LectureEvent
 
 if VERSION.startswith("2."):
     from pydantic import ConfigDict, field_validator
@@ -29,9 +30,13 @@ else:
 
 FAKE_MEETING_SESSION_SNAPSHOT_KIND = "synthetic_fake_meeting_session"
 FAKE_MEETING_SESSION_HISTORY_KIND = "synthetic_fake_meeting_session_history"
+FAKE_MEETING_SESSION_AWARENESS_EVENT_TYPE = "synthetic_session_awareness"
 FAKE_MEETING_SESSION_ERROR = "fake meeting session snapshot could not be built"
 FAKE_MEETING_SESSION_HISTORY_ERROR = (
     "fake meeting session history summary could not be built"
+)
+FAKE_MEETING_SESSION_EVENT_ERROR = (
+    "fake meeting session awareness event could not be built"
 )
 HTML_INPUT_MAX_LENGTH = 12_000
 SESSION_HISTORY_MAX_SNAPSHOTS = 12
@@ -304,6 +309,32 @@ def _fake_meeting_session_history_to_safe_summary(
     }
 
 
+def _fake_meeting_session_history_to_awareness_event(
+    snapshots: tuple[FakeMeetingSessionSnapshot, ...],
+) -> LectureEvent:
+    summary = _fake_meeting_session_history_to_safe_summary(snapshots)
+    snapshot_count = int(summary["snapshot_count"])
+    final_state = str(summary["final_state"])
+    final_caption_status = str(summary["final_caption_status"])
+    ordered_counts = summary["ordered_participant_counts"]
+    final_count = int(ordered_counts[-1])
+    event_key = f"{final_state}-{final_caption_status}-{final_count}-{snapshot_count}"
+
+    return LectureEvent(
+        event_id=f"synthetic-session-awareness-{event_key}",
+        session_id="synthetic-session-awareness",
+        event_type=FAKE_MEETING_SESSION_AWARENESS_EVENT_TYPE,
+        detected_at_seconds=float(snapshot_count - 1),
+        source_segment_ids=(f"synthetic-session-awareness-source-{event_key}",),
+        message=(
+            f"Synthetic session {final_state}; "
+            f"captions {final_caption_status}; "
+            f"{final_count} participants observed."
+        ),
+        confidence=0.75,
+    )
+
+
 def _normalize_html_input(value: Any) -> str:
     if type(value) is not str:
         raise ValueError(FAKE_MEETING_SESSION_ERROR)
@@ -381,3 +412,15 @@ def build_fake_meeting_session_history_summary(
         return _fake_meeting_session_history_to_safe_summary(safe_snapshots)
     except (TypeError, ValidationError, ValueError):
         raise ValueError(FAKE_MEETING_SESSION_HISTORY_ERROR) from None
+
+
+def build_fake_meeting_session_awareness_event(
+    snapshots: object,
+) -> LectureEvent:
+    """Build one deterministic event from a synthetic session history."""
+
+    try:
+        safe_snapshots = _normalize_snapshot_history(snapshots)
+        return _fake_meeting_session_history_to_awareness_event(safe_snapshots)
+    except (TypeError, ValidationError, ValueError):
+        raise ValueError(FAKE_MEETING_SESSION_EVENT_ERROR) from None

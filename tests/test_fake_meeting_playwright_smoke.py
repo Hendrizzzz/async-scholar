@@ -10,6 +10,7 @@ from playwright.sync_api import sync_playwright
 
 from async_scholar.fake_meeting import build_fake_meeting_fixture
 from async_scholar.fake_meeting_session import (
+    build_fake_meeting_session_awareness_event,
     build_fake_meeting_session_history_summary,
     inspect_fake_meeting_session_html,
 )
@@ -275,7 +276,29 @@ def test_local_synthetic_meeting_history_keeps_only_safe_snapshots() -> None:
                     "Synthetic Learner",
                 )
 
-                serialized_history = json.dumps(summary, sort_keys=True)
+                event = build_fake_meeting_session_awareness_event(snapshots)
+                assert event.event_id == (
+                    "synthetic-session-awareness-ended-disabled-2-3"
+                )
+                assert event.session_id == "synthetic-session-awareness"
+                assert event.event_type == "synthetic_session_awareness"
+                assert event.detected_at_seconds == 2.0
+                assert event.source_segment_ids == (
+                    "synthetic-session-awareness-source-ended-disabled-2-3",
+                )
+                assert event.message == (
+                    "Synthetic session ended; captions disabled; "
+                    "2 participants observed."
+                )
+                assert event.confidence == 0.75
+
+                serialized_history = json.dumps(
+                    {
+                        "event": event.model_dump(),
+                        "summary": summary,
+                    },
+                    sort_keys=True,
+                )
                 for forbidden_fragment in _HISTORY_FORBIDDEN_FRAGMENTS:
                     assert forbidden_fragment.lower() not in serialized_history.lower()
             finally:
