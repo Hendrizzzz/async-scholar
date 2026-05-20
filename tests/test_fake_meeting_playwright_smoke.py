@@ -480,6 +480,137 @@ def test_local_synthetic_meeting_history_writes_safe_artifacts(tmp_path) -> None
             browser.close()
 
 
+def test_tmp_profile_synthetic_meeting_writes_only_safe_artifacts(tmp_path) -> None:
+    user_data_dir = tmp_path / "synthetic-user-data-artifacts"
+    artifact_root = tmp_path / "synthetic-artifacts"
+    artifact_root.mkdir()
+    resolved_tmp_path = tmp_path.resolve()
+    resolved_user_data_dir = user_data_dir.resolve()
+    resolved_artifact_root = artifact_root.resolve()
+    assert resolved_user_data_dir.is_relative_to(resolved_tmp_path)
+    assert resolved_artifact_root.is_relative_to(resolved_tmp_path)
+    assert not resolved_artifact_root.is_relative_to(resolved_user_data_dir)
+    assert not resolved_user_data_dir.is_relative_to(resolved_artifact_root)
+
+    fixture = build_fake_meeting_fixture(
+        fixture_id="temp_profile_artifact_fixture",
+        title="Synthetic Seminar",
+        state="waiting",
+        caption_status="ready",
+        participants=("Synthetic Learner", "Synthetic Instructor"),
+    )
+    html = fixture.to_html_document()
+
+    with sync_playwright() as playwright:
+        executable_path = _managed_chromium_executable_path(playwright)
+        try:
+            context = playwright.chromium.launch_persistent_context(
+                user_data_dir=str(user_data_dir),
+                executable_path=str(executable_path),
+                headless=True,
+            )
+        except PlaywrightError:
+            pytest.skip(_SKIP_REASON)
+
+        try:
+            page = context.pages[0] if context.pages else context.new_page()
+            page.set_content(html, wait_until="domcontentloaded")
+
+            snapshots = [_capture_synthetic_session_snapshot(page)]
+
+            _set_synthetic_session_state(
+                page,
+                state="live",
+                caption_status="active",
+                participants=(
+                    "Synthetic Guest",
+                    "Synthetic Instructor",
+                    "Synthetic Learner",
+                ),
+            )
+            snapshots.append(_capture_synthetic_session_snapshot(page))
+
+            _set_synthetic_session_state(
+                page,
+                state="ended",
+                caption_status="disabled",
+                participants=(
+                    "Synthetic Instructor",
+                    "Synthetic Learner",
+                ),
+            )
+            snapshots.append(_capture_synthetic_session_snapshot(page))
+
+            event = build_fake_meeting_session_awareness_event(snapshots)
+            alerts_path = write_alert_log([event], artifact_root)
+            reviewer_path = write_reviewer_markdown([event], [], artifact_root)
+            assert alerts_path.parent.resolve() == resolved_artifact_root
+            assert reviewer_path.parent.resolve() == resolved_artifact_root
+
+            alert_text = alerts_path.read_text(encoding="utf-8")
+            reviewer_text = reviewer_path.read_text(encoding="utf-8")
+            alert_payload = json.loads(alert_text)
+            assert alert_payload["event_type"] == "synthetic_session_awareness"
+            assert alert_payload["message"] == "Synthetic session awareness recorded."
+            assert alert_payload["severity"] == "normal"
+            assert alert_payload["status"] == "pending"
+            assert alert_payload["requires_confirmation"] is True
+            assert alert_payload["dispatch_results"] == [
+                {
+                    "provider": "file",
+                    "severity": "normal",
+                    "status": "sent",
+                    "requires_confirmation": True,
+                }
+            ]
+            assert alert_payload["retry_log_decisions"] == []
+            assert "source_segment_ids" not in alert_payload
+
+            assert "## Synthetic Session Awareness" in reviewer_text
+            assert "- Event: Synthetic session awareness recorded." in reviewer_text
+            assert "- Evidence: Synthetic session metadata only." in reviewer_text
+            assert "Source segment IDs" not in reviewer_text
+            assert "Source snippets" not in reviewer_text
+            assert "Missing transcript segment" not in reviewer_text
+
+            artifact_text = "\n".join((alert_text, reviewer_text))
+            for forbidden_fragment in (
+                event.event_id,
+                event.session_id,
+                event.source_segment_ids[0],
+                event.message,
+                "temp_profile_artifact_fixture",
+                "Synthetic Guest",
+                "Synthetic Instructor",
+                "Synthetic Learner",
+                "<html",
+                "<body",
+                "data-async-scholar",
+                "http" + "://",
+                "https" + "://",
+                "meet." + "goo" + "gle",
+                "goo" + "gle",
+                "pro" + "file",
+                "au" + "th",
+                "coo" + "kie",
+                "storage",
+                "C:/Users",
+                "C:" + "\\Users",
+                "." + "env",
+                "au" + "dio",
+                "mic",
+                "cam" + "era",
+                "loop" + "back",
+                "sched" + "uler",
+                "notifi" + "cation",
+                "archive" + "_export",
+                "archive" + "_delete",
+            ):
+                assert forbidden_fragment.lower() not in artifact_text.lower()
+        finally:
+            context.close()
+
+
 def test_local_synthetic_meeting_page_exposes_bounded_transitions() -> None:
     fixture = build_fake_meeting_fixture(
         fixture_id="transition_fixture",
