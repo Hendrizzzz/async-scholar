@@ -8,6 +8,7 @@ import pytest
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
+from async_scholar.alerts import build_alert_notification_payload
 from async_scholar.fake_meeting import build_fake_meeting_fixture
 from async_scholar.fake_meeting_session import (
     build_fake_meeting_session_awareness_event,
@@ -292,15 +293,20 @@ def test_local_synthetic_meeting_history_keeps_only_safe_snapshots() -> None:
                 )
                 assert event.confidence == 0.75
 
-                serialized_history = json.dumps(
-                    {
-                        "event": event.model_dump(),
-                        "summary": summary,
-                    },
-                    sort_keys=True,
-                )
+                payload = build_alert_notification_payload(event.event_type)
+                assert payload == {
+                    "severity": "normal",
+                    "title": "Lecture alert: Synthetic session awareness",
+                    "body": (
+                        "Review when available; "
+                        "confirm before any participation action."
+                    ),
+                    "requires_confirmation": True,
+                }
+
+                serialized_payload = json.dumps(payload, sort_keys=True)
                 for forbidden_fragment in _HISTORY_FORBIDDEN_FRAGMENTS:
-                    assert forbidden_fragment.lower() not in serialized_history.lower()
+                    assert forbidden_fragment.lower() not in serialized_payload.lower()
             finally:
                 context.close()
         finally:

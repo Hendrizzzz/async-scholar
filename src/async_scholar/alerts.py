@@ -35,6 +35,7 @@ _EVENT_LABELS = {
     "task_prompt": "Task instruction",
     "deadline_mention": "Deadline mention",
     "dismissal_cue": "Class wrap-up",
+    "synthetic_session_awareness": "Synthetic session awareness",
 }
 _UNKNOWN_EVENT_LABEL = "Lecture event"
 

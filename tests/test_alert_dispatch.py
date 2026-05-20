@@ -393,6 +393,73 @@ def test_dispatch_alert_does_not_leak_suspicious_event_content() -> None:
         assert leaked_string not in serialized_payload
 
 
+def test_dispatch_alert_routes_synthetic_session_awareness_to_safe_payload() -> None:
+    captured_payloads: list[object] = []
+
+    def dispatcher(payload: object) -> dict[str, str]:
+        captured_payloads.append(payload)
+        return {"status": "sent", "raw_response": "provider details stay private"}
+
+    event = LectureEvent(
+        event_id="synthetic-session-awareness-ended-disabled-2-3",
+        session_id="synthetic-session-awareness",
+        event_type="synthetic_session_awareness",
+        detected_at_seconds=2.0,
+        source_segment_ids=("synthetic-session-awareness-source-ended-disabled-2-3",),
+        message=(
+            "Synthetic session ended; captions disabled; 2 participants observed."
+        ),
+    )
+
+    results = dispatch_alert(
+        event,
+        provider_names=["fake"],
+        dispatchers={"fake": dispatcher},
+    )
+
+    assert captured_payloads == [
+        {
+            "severity": "normal",
+            "title": "Lecture alert: Synthetic session awareness",
+            "body": "Review when available; confirm before any participation action.",
+            "requires_confirmation": True,
+        }
+    ]
+    assert results == [
+        {
+            "provider": "fake",
+            "severity": "normal",
+            "status": "sent",
+            "requires_confirmation": True,
+        }
+    ]
+    serialized_payload = json.dumps(captured_payloads)
+    serialized_results = json.dumps(results)
+    for leaked_string in (
+        event.event_id,
+        event.session_id,
+        event.source_segment_ids[0],
+        event.message,
+        "fixture",
+        "participant",
+        "Synthetic Instructor",
+        "Synthetic Learner",
+        "<html",
+        "google",
+        "http" + "://",
+        "https" + "://",
+        "cookie",
+        "storage",
+        "auth",
+        "token",
+        "C:\\",
+        "transcript",
+        "audio",
+    ):
+        assert leaked_string not in serialized_payload
+        assert leaked_string not in serialized_results
+
+
 @pytest.mark.parametrize(
     "error_kind",
     [

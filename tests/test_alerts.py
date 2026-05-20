@@ -21,6 +21,7 @@ from async_scholar.alerts import (
         ("direct_question", "normal"),
         ("task_prompt", "normal"),
         ("deadline_mention", "normal"),
+        ("synthetic_session_awareness", "normal"),
         ("dismissal_cue", "low"),
     ],
 )
@@ -88,6 +89,41 @@ def test_build_alert_notification_payload_for_unknown_event_is_generic() -> None
     assert "segment-123" not in payload_text
     assert "C:\\private\\lecture.wav" not in payload_text
     assert "secret" not in payload_text
+
+
+def test_build_alert_notification_payload_for_synthetic_session_awareness_is_safe() -> (
+    None
+):
+    payload = build_alert_notification_payload("synthetic_session_awareness")
+
+    assert payload == {
+        "severity": "normal",
+        "title": "Lecture alert: Synthetic session awareness",
+        "body": "Review when available; confirm before any participation action.",
+        "requires_confirmation": True,
+    }
+    payload_text = f"{payload['title']} {payload['body']}"
+    for forbidden in (
+        "event_id",
+        "session_id",
+        "source_segment",
+        "fixture_id",
+        "participant",
+        "Synthetic Instructor",
+        "Synthetic Learner",
+        "<html",
+        "google",
+        "http" + "://",
+        "https" + "://",
+        "cookie",
+        "storage",
+        "auth",
+        "token",
+        "C:\\",
+        "transcript",
+        "audio",
+    ):
+        assert forbidden not in payload_text
 
 
 @pytest.mark.parametrize(
