@@ -209,6 +209,53 @@ def test_local_synthetic_meeting_html_can_be_inspected_with_playwright() -> None
             browser.close()
 
 
+def test_local_synthetic_meeting_uses_only_tmp_user_data_dir(tmp_path) -> None:
+    user_data_dir = tmp_path / "synthetic-user-data"
+    resolved_tmp_path = tmp_path.resolve()
+    resolved_user_data_dir = user_data_dir.resolve()
+    assert resolved_user_data_dir.is_relative_to(resolved_tmp_path)
+    assert resolved_user_data_dir != resolved_tmp_path
+
+    fixture = build_fake_meeting_fixture(
+        fixture_id="temp_profile_fixture",
+        title="Synthetic Seminar",
+        state="live",
+        caption_status="ready",
+        participants=("Synthetic Learner", "Synthetic Instructor"),
+    )
+    html = fixture.to_html_document()
+
+    with sync_playwright() as playwright:
+        executable_path = _managed_chromium_executable_path(playwright)
+        try:
+            context = playwright.chromium.launch_persistent_context(
+                user_data_dir=str(user_data_dir),
+                executable_path=str(executable_path),
+                headless=True,
+            )
+        except PlaywrightError:
+            pytest.skip(_SKIP_REASON)
+
+        try:
+            page = context.pages[0] if context.pages else context.new_page()
+            page.set_content(html, wait_until="domcontentloaded")
+
+            snapshot = _capture_synthetic_session_snapshot(page)
+            assert snapshot.snapshot_kind == "synthetic_fake_meeting_session"
+            assert snapshot.fixture_id == "temp_profile_fixture"
+            assert snapshot.state == "live"
+            assert snapshot.caption_status == "ready"
+            assert snapshot.participant_count == 2
+            assert snapshot.participants == (
+                "Synthetic Instructor",
+                "Synthetic Learner",
+            )
+            assert user_data_dir.exists()
+            assert user_data_dir.resolve().is_relative_to(resolved_tmp_path)
+        finally:
+            context.close()
+
+
 def test_local_synthetic_meeting_history_keeps_only_safe_snapshots() -> None:
     fixture = build_fake_meeting_fixture(
         fixture_id="history_fixture",
