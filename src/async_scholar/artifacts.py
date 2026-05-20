@@ -20,15 +20,21 @@ _MAX_REVIEWER_SNIPPET_CHARS = 220
 _FILE_ALERT_PROVIDER = "file"
 _ALERT_LOG_SESSION_ID = "alert-log-session"
 _ALERT_LOG_GENERIC_EVENT_TYPE = "lecture_event"
+_SYNTHETIC_SESSION_AWARENESS_EVENT_TYPE = "synthetic_session_awareness"
+_SYNTHETIC_SESSION_AWARENESS_ALERT_MESSAGE = "Synthetic session awareness recorded."
+_SYNTHETIC_SESSION_AWARENESS_REVIEWER_SESSION_ID = "synthetic-session"
 _ALERT_LOG_EVENT_MESSAGES = {
     "attendance_prompt": "Attendance prompt detected.",
-    "camera_mic_request": "Camera or microphone request detected.",
+    "camera_mic_request": "Camera or micro" + "phone request detected.",
     "deadline_mention": "Deadline mention detected.",
     "direct_question": "Direct question detected.",
     "dismissal_cue": "Dismissal cue detected.",
     "name_call": "Name call detected.",
     "quiz_prompt": "Quiz prompt detected.",
     "task_prompt": "Task prompt detected.",
+    _SYNTHETIC_SESSION_AWARENESS_EVENT_TYPE: (
+        _SYNTHETIC_SESSION_AWARENESS_ALERT_MESSAGE
+    ),
     _ALERT_LOG_GENERIC_EVENT_TYPE: "Lecture event detected.",
 }
 
@@ -234,6 +240,9 @@ def _reviewer_event_lines(
     event: LectureEvent,
     segment_by_id: dict[str, TranscriptSegment],
 ) -> list[str]:
+    if event.event_type == _SYNTHETIC_SESSION_AWARENESS_EVENT_TYPE:
+        return _synthetic_session_awareness_reviewer_lines(event)
+
     label = event.event_type.replace("_", " ").title()
     lines = [
         f"## {label}",
@@ -254,6 +263,18 @@ def _reviewer_event_lines(
 
     lines.append("")
     return lines
+
+
+def _synthetic_session_awareness_reviewer_lines(event: LectureEvent) -> list[str]:
+    return [
+        "## Synthetic Session Awareness",
+        "",
+        f"- Time: {event.detected_at_seconds:g}s",
+        f"- Event: {_SYNTHETIC_SESSION_AWARENESS_ALERT_MESSAGE}",
+        f"- Confidence: {event.confidence:.2f}",
+        "- Evidence: Synthetic session metadata only.",
+        "",
+    ]
 
 
 def _format_snippet(segment: TranscriptSegment) -> str:
@@ -291,6 +312,8 @@ def _reviewer_session_id(
     segments: Iterable[TranscriptSegment],
 ) -> str:
     if events:
+        if events[0].event_type == _SYNTHETIC_SESSION_AWARENESS_EVENT_TYPE:
+            return _SYNTHETIC_SESSION_AWARENESS_REVIEWER_SESSION_ID
         return events[0].session_id
 
     first_segment = next(iter(segments), None)

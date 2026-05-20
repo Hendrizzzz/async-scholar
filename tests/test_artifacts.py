@@ -15,6 +15,10 @@ from async_scholar.artifacts import (
     write_transcript_jsonl,
     write_transcript_markdown,
 )
+from async_scholar.fake_meeting_session import (
+    FakeMeetingSessionSnapshot,
+    build_fake_meeting_session_awareness_event,
+)
 from async_scholar.schemas import LectureEvent, TranscriptSegment
 
 
@@ -205,6 +209,63 @@ def test_write_alert_log_dispatch_result_omits_private_event_content(tmp_path) -
     assert "segment-secret" not in serialized_results
 
 
+def test_write_alert_log_handles_synthetic_session_awareness_safely(
+    tmp_path,
+) -> None:
+    event = _synthetic_session_awareness_event()
+
+    alerts_path = write_alert_log(
+        [event],
+        tmp_path,
+        created_at=datetime(2026, 5, 20, 0, 0, tzinfo=UTC),
+    )
+
+    log_text = alerts_path.read_text(encoding="utf-8")
+    payload = json.loads(log_text)
+    assert payload["alert_id"] == "alert-log-alert-0001"
+    assert payload["event_id"] == "alert-log-event-0001"
+    assert payload["session_id"] == "alert-log-session"
+    assert payload["event_type"] == "synthetic_session_awareness"
+    assert payload["message"] == "Synthetic session awareness recorded."
+    assert payload["severity"] == "normal"
+    assert payload["dispatch_results"] == [
+        {
+            "provider": "file",
+            "severity": "normal",
+            "status": "sent",
+            "requires_confirmation": True,
+        }
+    ]
+    assert payload["retry_log_decisions"] == []
+    assert payload["requires_confirmation"] is True
+    assert payload["status"] == "pending"
+    assert "source_segment_ids" not in payload
+
+    for leaked_string in [
+        event.event_id,
+        event.session_id,
+        event.source_segment_ids[0],
+        event.message,
+        "artifact_fixture",
+        "Synthetic Instructor",
+        "Synthetic Learner",
+        "<html",
+        "http://",
+        "https://",
+        "cookie",
+        "storage",
+        "auth",
+        "profile",
+        "audio",
+        "microphone",
+        "loopback",
+        "scheduled_start",
+        "archive_export",
+        "archive_delete",
+    ]:
+        assert leaked_string not in log_text
+
+
 def test_write_alert_log_records_sanitized_retry_log_decisions(
     tmp_path,
     monkeypatch,
@@ -346,6 +407,48 @@ def test_write_reviewer_markdown_uses_only_detected_event_snippets(tmp_path) -> 
     assert "This unrelated sentence should not appear" not in reviewer
 
 
+def test_write_reviewer_markdown_handles_synthetic_session_awareness_safely(
+    tmp_path,
+) -> None:
+    event = _synthetic_session_awareness_event()
+
+    reviewer_path = write_reviewer_markdown([event], [], tmp_path)
+
+    reviewer = reviewer_path.read_text(encoding="utf-8")
+    assert "Session: `synthetic-session`" in reviewer
+    assert "Detected events: 1" in reviewer
+    assert "## Synthetic Session Awareness" in reviewer
+    assert "- Event: Synthetic session awareness recorded." in reviewer
+    assert "- Evidence: Synthetic session metadata only." in reviewer
+    assert "Missing transcript segment" not in reviewer
+    assert "Source segment IDs" not in reviewer
+    assert "Source snippets" not in reviewer
+
+    for leaked_string in [
+        event.event_id,
+        event.session_id,
+        event.source_segment_ids[0],
+        event.message,
+        "artifact_fixture",
+        "Synthetic Instructor",
+        "Synthetic Learner",
+        "<html",
+        "http://",
+        "https://",
+        "cookie",
+        "storage",
+        "auth",
+        "profile",
+        "audio",
+        "microphone",
+        "loopback",
+        "scheduled_start",
+        "archive_export",
+        "archive_delete",
+    ]:
+        assert leaked_string not in reviewer
+
+
 def test_write_transcript_jsonl_writes_one_segment_per_line(tmp_path) -> None:
     segments = [
         _segment(
@@ -444,6 +547,26 @@ def _event() -> LectureEvent:
         message="Attendance prompt detected.",
         confidence=0.95,
     )
+
+
+def _synthetic_session_awareness_event() -> LectureEvent:
+    snapshots = (
+        FakeMeetingSessionSnapshot(
+            fixture_id="artifact_fixture",
+            state="waiting",
+            caption_status="ready",
+            participant_count=2,
+            participants=("Synthetic Instructor", "Synthetic Learner"),
+        ),
+        FakeMeetingSessionSnapshot(
+            fixture_id="artifact_fixture",
+            state="ended",
+            caption_status="disabled",
+            participant_count=2,
+            participants=("Synthetic Instructor", "Synthetic Learner"),
+        ),
+    )
+    return build_fake_meeting_session_awareness_event(snapshots)
 
 
 def _segment(*, segment_id: str, text: str) -> TranscriptSegment:
