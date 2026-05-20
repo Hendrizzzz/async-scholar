@@ -9,7 +9,10 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 from async_scholar.fake_meeting import build_fake_meeting_fixture
-from async_scholar.fake_meeting_session import inspect_fake_meeting_session_html
+from async_scholar.fake_meeting_session import (
+    build_fake_meeting_session_history_summary,
+    inspect_fake_meeting_session_html,
+)
 
 _SKIP_REASON = "managed Chromium unavailable for local synthetic smoke"
 _HISTORY_FORBIDDEN_FRAGMENTS = (
@@ -33,11 +36,9 @@ _HISTORY_FORBIDDEN_FRAGMENTS = (
     "archive" + "_export",
     "archive" + "_delete",
     "C:/Users",
-    "C:\\Users",
+    "C:" + "\\Users",
     "." + "env",
 )
-
-SyntheticSnapshotHistoryEntry = dict[str, int | str | tuple[str, ...]]
 
 
 def _assert_synthetic_session_snapshot(
@@ -59,23 +60,13 @@ def _assert_synthetic_session_snapshot(
     assert snapshot.participants == participants
 
 
-def _capture_synthetic_session_history_entry(
+def _capture_synthetic_session_snapshot(
     page: Any,
-    *,
-    order: int,
-) -> SyntheticSnapshotHistoryEntry:
+):
     snapshot = inspect_fake_meeting_session_html(page.content())
 
     assert page.url == "about:blank"
-    return {
-        "caption_status": snapshot.caption_status,
-        "fixture_id": snapshot.fixture_id,
-        "order": order,
-        "participant_count": snapshot.participant_count,
-        "participants": snapshot.participants,
-        "snapshot_kind": snapshot.snapshot_kind,
-        "state": snapshot.state,
-    }
+    return snapshot
 
 
 def _set_synthetic_session_state(
@@ -233,9 +224,7 @@ def test_local_synthetic_meeting_history_keeps_only_safe_snapshots() -> None:
                 page = context.new_page()
                 page.set_content(html, wait_until="domcontentloaded")
 
-                history = [
-                    _capture_synthetic_session_history_entry(page, order=0),
-                ]
+                snapshots = [_capture_synthetic_session_snapshot(page)]
 
                 _set_synthetic_session_state(
                     page,
@@ -247,7 +236,7 @@ def test_local_synthetic_meeting_history_keeps_only_safe_snapshots() -> None:
                         "Synthetic Learner",
                     ),
                 )
-                history.append(_capture_synthetic_session_history_entry(page, order=1))
+                snapshots.append(_capture_synthetic_session_snapshot(page))
 
                 _set_synthetic_session_state(
                     page,
@@ -258,35 +247,35 @@ def test_local_synthetic_meeting_history_keeps_only_safe_snapshots() -> None:
                         "Synthetic Learner",
                     ),
                 )
-                history.append(_capture_synthetic_session_history_entry(page, order=2))
+                snapshots.append(_capture_synthetic_session_snapshot(page))
 
-                assert len(history) == 3
-                assert [entry["order"] for entry in history] == [0, 1, 2]
-                assert [entry["state"] for entry in history] == [
+                summary = build_fake_meeting_session_history_summary(snapshots)
+                assert (
+                    summary["history_kind"] == "synthetic_fake_meeting_session_history"
+                )
+                assert summary["fixture_id"] == "history_fixture"
+                assert summary["snapshot_count"] == 3
+                assert summary["ordered_states"] == (
                     "waiting",
                     "live",
                     "ended",
-                ]
-                assert [entry["caption_status"] for entry in history] == [
+                )
+                assert summary["ordered_caption_statuses"] == (
                     "ready",
                     "active",
                     "disabled",
-                ]
-                assert [entry["participant_count"] for entry in history] == [2, 3, 2]
-                assert history[-1] == {
-                    "caption_status": "disabled",
-                    "fixture_id": "history_fixture",
-                    "order": 2,
-                    "participant_count": 2,
-                    "participants": (
-                        "Synthetic Instructor",
-                        "Synthetic Learner",
-                    ),
-                    "snapshot_kind": "synthetic_fake_meeting_session",
-                    "state": "ended",
-                }
+                )
+                assert summary["ordered_participant_counts"] == (2, 3, 2)
+                assert summary["final_state"] == "ended"
+                assert summary["final_caption_status"] == "disabled"
+                assert summary["max_participant_count"] == 3
+                assert summary["participants"] == (
+                    "Synthetic Guest",
+                    "Synthetic Instructor",
+                    "Synthetic Learner",
+                )
 
-                serialized_history = json.dumps(history, sort_keys=True)
+                serialized_history = json.dumps(summary, sort_keys=True)
                 for forbidden_fragment in _HISTORY_FORBIDDEN_FRAGMENTS:
                     assert forbidden_fragment.lower() not in serialized_history.lower()
             finally:

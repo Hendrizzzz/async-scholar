@@ -28,14 +28,31 @@ else:
 
 
 FAKE_MEETING_SESSION_SNAPSHOT_KIND = "synthetic_fake_meeting_session"
+FAKE_MEETING_SESSION_HISTORY_KIND = "synthetic_fake_meeting_session_history"
 FAKE_MEETING_SESSION_ERROR = "fake meeting session snapshot could not be built"
+FAKE_MEETING_SESSION_HISTORY_ERROR = (
+    "fake meeting session history summary could not be built"
+)
 HTML_INPUT_MAX_LENGTH = 12_000
+SESSION_HISTORY_MAX_SNAPSHOTS = 12
 SAFE_FAKE_MEETING_SESSION_FIELDS = (
     "snapshot_kind",
     "fixture_id",
     "state",
     "caption_status",
     "participant_count",
+    "participants",
+)
+SAFE_FAKE_MEETING_SESSION_HISTORY_FIELDS = (
+    "history_kind",
+    "fixture_id",
+    "snapshot_count",
+    "ordered_states",
+    "ordered_caption_statuses",
+    "ordered_participant_counts",
+    "final_state",
+    "final_caption_status",
+    "max_participant_count",
     "participants",
 )
 _ACTIVE_ELEMENT_NAMES = frozenset(
@@ -56,6 +73,10 @@ _ACTIVE_ELEMENT_NAMES = frozenset(
 )
 
 FakeMeetingSessionSnapshotSummary = dict[str, str | int | tuple[str, ...]]
+FakeMeetingSessionHistorySummary = dict[
+    str,
+    int | str | tuple[int, ...] | tuple[str, ...],
+]
 
 
 def _before_validator(*field_names: str) -> Any:
@@ -240,6 +261,49 @@ def _fake_meeting_session_snapshot_to_json_ready(
     }
 
 
+def _normalize_snapshot_history(value: Any) -> tuple[FakeMeetingSessionSnapshot, ...]:
+    if isinstance(value, (str, bytes)) or not isinstance(value, (list, tuple)):
+        raise ValueError(FAKE_MEETING_SESSION_HISTORY_ERROR)
+    if not value or len(value) > SESSION_HISTORY_MAX_SNAPSHOTS:
+        raise ValueError(FAKE_MEETING_SESSION_HISTORY_ERROR)
+
+    snapshots = tuple(_revalidate_fake_meeting_session_snapshot(item) for item in value)
+    fixture_id = snapshots[0].fixture_id
+    if any(snapshot.fixture_id != fixture_id for snapshot in snapshots):
+        raise ValueError(FAKE_MEETING_SESSION_HISTORY_ERROR)
+    return snapshots
+
+
+def _fake_meeting_session_history_to_safe_summary(
+    snapshots: tuple[FakeMeetingSessionSnapshot, ...],
+) -> FakeMeetingSessionHistorySummary:
+    participants = tuple(
+        sorted(
+            {
+                participant
+                for snapshot in snapshots
+                for participant in snapshot.participants
+            }
+        )
+    )
+    participant_counts = tuple(snapshot.participant_count for snapshot in snapshots)
+
+    return {
+        "history_kind": FAKE_MEETING_SESSION_HISTORY_KIND,
+        "fixture_id": snapshots[0].fixture_id,
+        "snapshot_count": len(snapshots),
+        "ordered_states": tuple(snapshot.state for snapshot in snapshots),
+        "ordered_caption_statuses": tuple(
+            snapshot.caption_status for snapshot in snapshots
+        ),
+        "ordered_participant_counts": participant_counts,
+        "final_state": snapshots[-1].state,
+        "final_caption_status": snapshots[-1].caption_status,
+        "max_participant_count": max(participant_counts),
+        "participants": participants,
+    }
+
+
 def _normalize_html_input(value: Any) -> str:
     if type(value) is not str:
         raise ValueError(FAKE_MEETING_SESSION_ERROR)
@@ -305,3 +369,15 @@ def fake_meeting_session_snapshot_safe_summary(
     return _fake_meeting_session_snapshot_to_json_ready(
         _revalidate_fake_meeting_session_snapshot(snapshot)
     )
+
+
+def build_fake_meeting_session_history_summary(
+    snapshots: object,
+) -> FakeMeetingSessionHistorySummary:
+    """Return a bounded safe summary for synthetic session snapshots."""
+
+    try:
+        safe_snapshots = _normalize_snapshot_history(snapshots)
+        return _fake_meeting_session_history_to_safe_summary(safe_snapshots)
+    except (TypeError, ValidationError, ValueError):
+        raise ValueError(FAKE_MEETING_SESSION_HISTORY_ERROR) from None
