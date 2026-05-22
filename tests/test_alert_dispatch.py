@@ -393,6 +393,74 @@ def test_dispatch_alert_does_not_leak_suspicious_event_content() -> None:
         assert leaked_string not in serialized_payload
 
 
+def test_dispatch_alert_keeps_synthetic_participation_prompt_confirmation_gated() -> (
+    None
+):
+    captured_payloads: list[object] = []
+
+    def dispatcher(payload: object) -> dict[str, str]:
+        captured_payloads.append(payload)
+        return {
+            "status": "sent",
+            "raw_response": "fake provider response should stay private",
+        }
+
+    event = LectureEvent(
+        event_id="synthetic-policy-event-1",
+        session_id="synthetic-policy-session-1",
+        event_type="attendance_prompt",
+        detected_at_seconds=4.0,
+        source_segment_ids=["synthetic-policy-source-1"],
+        message=(
+            "Synthetic policy check: send I am here, answer the quiz, "
+            "use fake browser profile cookie FAKE_TOKEN_VALUE "
+            "C:\\synthetic\\not-real.wav meet.google.test transcript audio."
+        ),
+    )
+
+    results = dispatch_alert(
+        event,
+        provider_names=["fake"],
+        dispatchers={"fake": dispatcher},
+    )
+
+    assert captured_payloads == [
+        {
+            "severity": "urgent",
+            "title": "Urgent: Attendance check",
+            "body": "Review now; confirm before any participation action.",
+            "requires_confirmation": True,
+        }
+    ]
+    assert results == [
+        {
+            "provider": "fake",
+            "severity": "urgent",
+            "status": "sent",
+            "requires_confirmation": True,
+        }
+    ]
+    serialized_payload = json.dumps(captured_payloads)
+    serialized_results = json.dumps(results)
+    for leaked_string in (
+        event.event_id,
+        event.session_id,
+        event.source_segment_ids[0],
+        event.message,
+        "I am here",
+        "answer the quiz",
+        "browser profile",
+        "cookie",
+        "FAKE_TOKEN_VALUE",
+        "C:\\synthetic\\not-real.wav",
+        "meet.google.test",
+        "transcript",
+        "audio",
+    ):
+        assert leaked_string not in serialized_payload
+        assert leaked_string not in serialized_results
+
+
 def test_dispatch_alert_routes_synthetic_session_awareness_to_safe_payload() -> None:
     captured_payloads: list[object] = []
 
