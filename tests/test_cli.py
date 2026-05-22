@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import subprocess
 import sys
@@ -23,6 +24,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "--version" in result.stdout
     assert "crash-recovery-preflight" in result.stdout
     assert "archive-export-preflight" in result.stdout
+    assert "archive-export-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -599,11 +601,339 @@ def test_archive_export_preflight_command_delegates_to_existing_helpers(
     }
 
 
-def test_archive_export_preflight_source_does_not_call_execution_surfaces() -> None:
+def test_archive_export_local_help_does_not_execute_export(
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.archive_export"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-export-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar archive-export-local" in result.stdout
+    assert "--archive-root" in result.stdout
+    assert "--export-root" in result.stdout
+    assert module_name not in sys.modules
+
+
+def test_archive_export_local_requires_explicit_roots() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-export-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "archive export could not be executed\n"
+
+
+def test_archive_export_local_sanitizes_parse_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-export-local",
+            "session-001",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--archive-root",
+            ".",
+            "--export-root",
+            ".",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "archive export could not be executed\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_archive_export_local_sanitizes_misordered_archive_root_failure() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--archive-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "archive-export-local",
+            "session-001",
+            "--export-root",
+            ".",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "archive export could not be executed\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_archive_export_local_sanitizes_misordered_export_root_failure() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--export-root=C:\\Users\\student\\token-secret-auth-profile",
+            "fixture-demo",
+            "tests/fixtures/transcripts/attendance_roll_call.jsonl",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "archive export could not be executed\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_archive_export_local_command_prints_safe_json_and_copies_allowed_files(
+    tmp_path,
+) -> None:
+    archive_root = tmp_path / "archive"
+    export_root = tmp_path / "export"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    export_root.mkdir()
+    transcript_text = "Synthetic transcript token secret auth profile payload."
+    event_text = "Synthetic event private payload."
+    alert_text = "Synthetic alert private payload."
+    reviewer_text = "Synthetic reviewer private payload."
+    (session_dir / "transcript.jsonl").write_text(
+        transcript_text,
+        encoding="utf-8",
+    )
+    (session_dir / "events.jsonl").write_text(event_text, encoding="utf-8")
+    (session_dir / "alerts.log").write_text(alert_text, encoding="utf-8")
+    (session_dir / "reviewer.md").write_text(reviewer_text, encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-export-local",
+            "session-001",
+            "--archive-root",
+            str(archive_root),
+            "--export-root",
+            str(export_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.count("\n") == 1
+    payload = json.loads(result.stdout)
+    assert payload["session_id"] == "session-001"
+    assert payload["session_dir"] == "session-001"
+    assert payload["export_dir"] == "session-001"
+    assert payload["artifact_count"] == 4
+    assert payload["total_exported_size_bytes"] == sum(
+        len(text.encode("utf-8"))
+        for text in (transcript_text, event_text, alert_text, reviewer_text)
+    )
+    assert [artifact["filename"] for artifact in payload["artifacts"]] == [
+        "transcript.jsonl",
+        "events.jsonl",
+        "alerts.log",
+        "reviewer.md",
+    ]
+    assert all(artifact["status"] == "exported" for artifact in payload["artifacts"])
+    exported_session_dir = export_root / "session-001"
+    for filename in (
+        "transcript.jsonl",
+        "events.jsonl",
+        "alerts.log",
+        "reviewer.md",
+    ):
+        assert (exported_session_dir / filename).is_file()
+
+    combined_output = f"{result.stdout}\n{result.stderr}".lower()
+    for forbidden_fragment in (
+        str(tmp_path).lower(),
+        "synthetic transcript",
+        "synthetic event",
+        "synthetic alert",
+        "synthetic reviewer",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "payload",
+        "scheduler",
+        "traceback",
+        "gate d",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def test_archive_export_local_command_sanitizes_failures(tmp_path) -> None:
+    archive_root = tmp_path / "archive"
+    unsafe_export_root = tmp_path / "export-token-secret-auth-profile"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    unsafe_export_root.write_text(
+        "Synthetic private export placeholder.",
+        encoding="utf-8",
+    )
+    (session_dir / "events.jsonl").write_text("{}", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-export-local",
+            "session-001",
+            "--archive-root",
+            str(archive_root),
+            "--export-root",
+            str(unsafe_export_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "archive export could not be executed\n"
+    for forbidden_fragment in (
+        str(tmp_path),
+        "export-token",
+        "secret",
+        "auth",
+        "profile",
+        "Synthetic private",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_archive_export_local_command_delegates_to_existing_helpers(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    module_name = "async_scholar.archive_export"
+    fake_module = types.ModuleType(module_name)
+    fake_result = object()
+
+    def fake_execute(archive_root: Path, export_root: Path, session_id: str) -> object:
+        received["archive_root"] = archive_root
+        received["export_root"] = export_root
+        received["session_id"] = session_id
+        return fake_result
+
+    def fake_summary(export_result: object) -> dict[str, object]:
+        received["export_result"] = export_result
+        return {"artifact_count": 0, "session_id": "session-001"}
+
+    fake_module.execute_archive_export_to_local_root = fake_execute
+    fake_module.archive_export_execution_result_safe_summary = fake_summary
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(
+        [
+            "archive-export-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+            "--export-root",
+            "export-root",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert json.loads(captured.out) == {
+        "artifact_count": 0,
+        "session_id": "session-001",
+    }
+    assert captured.err == ""
+    assert received == {
+        "archive_root": Path("archive-root"),
+        "export_root": Path("export-root"),
+        "session_id": "session-001",
+        "export_result": fake_result,
+    }
+
+
+def test_archive_export_preflight_handler_does_not_execute_export() -> None:
+    source = inspect.getsource(cli._run_archive_export_preflight_command)
+
+    assert "execute_archive_export_to_local_root" not in source
+    assert "archive_export_execution_result_safe_summary" not in source
+
+
+def test_archive_export_cli_source_does_not_call_forbidden_surfaces() -> None:
     source = Path("src/async_scholar/__main__.py").read_text(encoding="utf-8")
 
     for forbidden_fragment in (
-        "execute_archive_export_to_local_root",
+        "archive_delete",
         "unlink",
         "remove",
         "rmdir",
@@ -616,7 +946,11 @@ def test_archive_export_preflight_source_does_not_call_execution_surfaces() -> N
         "playwright",
         "sounddevice",
         "faster_whisper",
-        "webbrowser",
+        "telegram",
+        "desktop_notifier",
+        "Timer(",
+        "threading",
+        "asyncio",
         "google",
     ):
         assert forbidden_fragment not in source

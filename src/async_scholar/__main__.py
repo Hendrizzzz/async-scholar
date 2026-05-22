@@ -12,6 +12,7 @@ _CRASH_RECOVERY_PREFLIGHT_CLI_ERROR = (
     "crash recovery session preflight could not be built"
 )
 _ARCHIVE_EXPORT_PREFLIGHT_CLI_ERROR = "archive export preflight could not be built"
+_ARCHIVE_EXPORT_CLI_ERROR = "archive export could not be executed"
 
 
 class _FixedMessageArgumentParser(argparse.ArgumentParser):
@@ -76,6 +77,17 @@ def build_parser() -> argparse.ArgumentParser:
     _add_archive_export_preflight_arguments(archive_export_preflight)
     archive_export_preflight.set_defaults(handler=_run_archive_export_preflight_command)
 
+    archive_export_local = subparsers.add_parser(
+        "archive-export-local",
+        help="copy allowlisted archive artifacts to an explicit local export root",
+        description=(
+            "Copy allowlisted archive artifacts for one explicit local session "
+            "archive root to one explicit existing local export root."
+        ),
+    )
+    _add_archive_export_local_arguments(archive_export_local)
+    archive_export_local.set_defaults(handler=_run_archive_export_local_command)
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -97,6 +109,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if argv[:1] == ["archive-export-preflight"]:
         return _run_archive_export_preflight_argv(argv[1:])
+    if argv[:1] == ["archive-export-local"]:
+        return _run_archive_export_local_argv(argv[1:])
+    if "archive-export-local" in argv or any(
+        arg == "--export-root" or arg.startswith("--export-root=") for arg in argv
+    ):
+        print(_ARCHIVE_EXPORT_CLI_ERROR, file=sys.stderr)
+        return 2
     if "archive-export-preflight" in argv or any(
         arg == "--archive-root" or arg.startswith("--archive-root=") for arg in argv
     ):
@@ -138,6 +157,27 @@ def _add_archive_export_preflight_arguments(
         type=Path,
         required=True,
         help="explicit root directory containing session archive directories",
+    )
+
+
+def _add_archive_export_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe session identifier to export",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit root directory containing session archive directories",
+    )
+    parser.add_argument(
+        "--export-root",
+        type=Path,
+        required=True,
+        help="explicit existing local root directory for copied export artifacts",
     )
 
 
@@ -221,6 +261,41 @@ def _run_archive_export_preflight_command(args: argparse.Namespace) -> int:
         payload = archive_export_preflight_summary_safe_summary(preflight)
     except ValueError:
         print(_ARCHIVE_EXPORT_PREFLIGHT_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _run_archive_export_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar archive-export-local",
+        description=(
+            "Copy allowlisted archive artifacts for one explicit local session "
+            "archive root to one explicit existing local export root."
+        ),
+        fixed_error_message=_ARCHIVE_EXPORT_CLI_ERROR,
+    )
+    _add_archive_export_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_archive_export_local_command(args)
+
+
+def _run_archive_export_local_command(args: argparse.Namespace) -> int:
+    from async_scholar.archive_export import (
+        archive_export_execution_result_safe_summary,
+        execute_archive_export_to_local_root,
+    )
+
+    try:
+        export_result = execute_archive_export_to_local_root(
+            args.archive_root,
+            args.export_root,
+            args.session_id,
+        )
+        payload = archive_export_execution_result_safe_summary(export_result)
+    except ValueError:
+        print(_ARCHIVE_EXPORT_CLI_ERROR, file=sys.stderr)
         return 1
 
     print(json.dumps(payload, sort_keys=True))

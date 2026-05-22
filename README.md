@@ -76,6 +76,18 @@ This command returns a metadata-only JSON summary for allowlisted session
 artifacts. It does not copy, export, delete, schedule, deliver, monitor, or read
 artifact contents.
 
+Copy allowlisted archive artifacts for one explicit local session into an
+explicit existing local export root:
+
+```powershell
+New-Item -ItemType Directory -Path data\archive-export-smoke
+uv run python -m async_scholar archive-export-local fixture_attendance_roll_call --archive-root data\sessions --export-root data\archive-export-smoke
+```
+
+This command copies only allowlisted local archive artifacts into the selected
+export root and prints a metadata-only JSON summary. It does not delete, move,
+upload, schedule, notify, browse, monitor, or read or print artifact contents.
+
 Show the bounded microphone recording diagnostic options:
 
 ```powershell
