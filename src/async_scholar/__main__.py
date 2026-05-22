@@ -14,6 +14,7 @@ _CRASH_RECOVERY_PREFLIGHT_CLI_ERROR = (
 _ARCHIVE_EXPORT_PREFLIGHT_CLI_ERROR = "archive export preflight could not be built"
 _ARCHIVE_EXPORT_CLI_ERROR = "archive export could not be executed"
 _ARCHIVE_EXPORT_VERIFY_CLI_ERROR = "archive export verification could not be built"
+_ARCHIVE_DELETE_DRY_RUN_CLI_ERROR = "archive delete dry run could not be built"
 
 
 class _FixedMessageArgumentParser(argparse.ArgumentParser):
@@ -100,6 +101,19 @@ def build_parser() -> argparse.ArgumentParser:
     _add_archive_export_verify_local_arguments(archive_export_verify)
     archive_export_verify.set_defaults(handler=_run_archive_export_verify_local_command)
 
+    archive_delete_dry_run = subparsers.add_parser(
+        "archive-delete-dry-run-local",
+        help="summarize a local archive delete dry run using metadata only",
+        description=(
+            "Summarize a read-only local archive delete dry run for one "
+            "explicit session archive root."
+        ),
+    )
+    _add_archive_delete_dry_run_local_arguments(archive_delete_dry_run)
+    archive_delete_dry_run.set_defaults(
+        handler=_run_archive_delete_dry_run_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -118,6 +132,11 @@ def main(argv: list[str] | None = None) -> int:
         arg == "--sessions-root" or arg.startswith("--sessions-root=") for arg in argv
     ):
         print(_CRASH_RECOVERY_PREFLIGHT_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["archive-delete-dry-run-local"]:
+        return _run_archive_delete_dry_run_local_argv(argv[1:])
+    if "archive-delete-dry-run-local" in argv:
+        print(_ARCHIVE_DELETE_DRY_RUN_CLI_ERROR, file=sys.stderr)
         return 2
     if argv[:1] == ["archive-export-preflight"]:
         return _run_archive_export_preflight_argv(argv[1:])
@@ -216,6 +235,21 @@ def _add_archive_export_verify_local_arguments(
         type=Path,
         required=True,
         help="explicit existing local root directory containing exported artifacts",
+    )
+
+
+def _add_archive_delete_dry_run_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe session identifier to inspect",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit root directory containing session archive directories",
     )
 
 
@@ -369,6 +403,41 @@ def _run_archive_export_verify_local_command(args: argparse.Namespace) -> int:
         payload = archive_export_verification_summary_safe_summary(verification)
     except ValueError:
         print(_ARCHIVE_EXPORT_VERIFY_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _run_archive_delete_dry_run_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar archive-delete-dry-run-local",
+        description=(
+            "Summarize a read-only local archive delete dry run for one "
+            "explicit session archive root."
+        ),
+        fixed_error_message=_ARCHIVE_DELETE_DRY_RUN_CLI_ERROR,
+    )
+    _add_archive_delete_dry_run_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_archive_delete_dry_run_local_command(args)
+
+
+def _run_archive_delete_dry_run_local_command(args: argparse.Namespace) -> int:
+    from async_scholar.archive_delete_dry_run_result import (
+        ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR,
+        build_archive_delete_dry_run_local_result,
+        export_archive_delete_dry_run_local_result,
+    )
+
+    try:
+        dry_run = build_archive_delete_dry_run_local_result(
+            args.archive_root,
+            args.session_id,
+        )
+        payload = export_archive_delete_dry_run_local_result(dry_run)
+    except ValueError:
+        print(ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR, file=sys.stderr)
         return 1
 
     print(json.dumps(payload, sort_keys=True))

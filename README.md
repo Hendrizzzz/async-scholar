@@ -99,6 +99,18 @@ archive root and export root, then prints a metadata-only JSON summary. It does
 not copy, move, delete, upload, schedule, notify, browse, monitor, or read or
 print artifact contents.
 
+Preview a read-only local archive delete dry run for one explicit local session:
+
+```powershell
+uv run python -m async_scholar archive-delete-dry-run-local fixture_attendance_roll_call --archive-root data\sessions
+```
+
+This command inspects only allowlisted artifact presence and sizes, then prints
+a content-free metadata JSON summary with `dry_run_only=true` and
+`deletion_performed=false`. It does not delete, move, copy, clean, upload,
+schedule, notify, browse, monitor, or read or print artifact contents; real
+deletion remains blocked.
+
 Show the bounded microphone recording diagnostic options:
 
 ```powershell

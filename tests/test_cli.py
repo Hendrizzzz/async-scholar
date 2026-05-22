@@ -26,6 +26,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "archive-export-preflight" in result.stdout
     assert "archive-export-local" in result.stdout
     assert "archive-export-verify-local" in result.stdout
+    assert "archive-delete-dry-run-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -1199,6 +1200,276 @@ def test_archive_export_verify_local_command_delegates_to_existing_helpers(
     }
 
 
+def test_archive_delete_dry_run_local_help_does_not_build_dry_run(
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.archive_delete_dry_run_result"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-delete-dry-run-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar archive-delete-dry-run-local" in result.stdout
+    assert "--archive-root" in result.stdout
+    assert "dry run" in result.stdout
+    assert module_name not in sys.modules
+
+
+def test_archive_delete_dry_run_local_requires_explicit_archive_root() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-delete-dry-run-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "archive delete dry run could not be built\n"
+
+
+def test_archive_delete_dry_run_local_sanitizes_parse_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-delete-dry-run-local",
+            "session-001",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--archive-root",
+            ".",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "archive delete dry run could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_archive_delete_dry_run_local_sanitizes_misordered_archive_root_failure() -> (
+    None
+):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--archive-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "archive-delete-dry-run-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "archive delete dry run could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_archive_delete_dry_run_local_command_prints_safe_json(tmp_path) -> None:
+    archive_root = tmp_path / "archive-token-secret-auth-profile"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    event_text = "Synthetic event token secret auth profile payload."
+    reviewer_text = "Synthetic reviewer private payload."
+    (session_dir / "events.jsonl").write_text(event_text, encoding="utf-8")
+    (session_dir / "reviewer.md").write_text(reviewer_text, encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-delete-dry-run-local",
+            "session-001",
+            "--archive-root",
+            str(archive_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.count("\n") == 1
+    payload = json.loads(result.stdout)
+    assert payload["session_id"] == "session-001"
+    assert payload["session_dir"] == "session-001"
+    assert payload["result_kind"] == "archive_delete_dry_run_result"
+    assert payload["status"] == "dry_run_completed"
+    assert payload["dry_run_only"] is True
+    assert payload["deletion_performed"] is False
+    assert payload["artifact_count"] == 7
+    assert payload["existing_artifact_count"] == 2
+    assert payload["total_existing_size_bytes"] == sum(
+        len(text.encode("utf-8")) for text in (event_text, reviewer_text)
+    )
+    assert [artifact["filename"] for artifact in payload["artifacts"]] == [
+        "transcript.jsonl",
+        "transcript.md",
+        "events.jsonl",
+        "alerts.log",
+        "reviewer.md",
+        "runtime.jsonl",
+        "benchmark-report.json",
+    ]
+    assert payload["artifacts"][2]["exists"] is True
+    assert payload["artifacts"][2]["size_bytes"] == len(event_text.encode("utf-8"))
+    assert payload["artifacts"][4]["exists"] is True
+    assert payload["artifacts"][4]["size_bytes"] == len(reviewer_text.encode("utf-8"))
+    assert all(artifact["status"] == "not_deleted" for artifact in payload["artifacts"])
+
+    combined_output = f"{result.stdout}\n{result.stderr}".lower()
+    for forbidden_fragment in (
+        str(tmp_path).lower(),
+        "archive-token",
+        "synthetic event",
+        "synthetic reviewer",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "payload",
+        "traceback",
+        "gate d",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def test_archive_delete_dry_run_local_command_sanitizes_failures(tmp_path) -> None:
+    unsafe_root = tmp_path / "archive-token-secret-auth-profile"
+    unsafe_root.write_text("Synthetic private archive placeholder.", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-delete-dry-run-local",
+            "session-001",
+            "--archive-root",
+            str(unsafe_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "archive delete dry run could not be built\n"
+    for forbidden_fragment in (
+        str(tmp_path),
+        "archive-token",
+        "secret",
+        "auth",
+        "profile",
+        "Synthetic private",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_archive_delete_dry_run_local_command_delegates_to_existing_helpers(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    module_name = "async_scholar.archive_delete_dry_run_result"
+    fake_module = types.ModuleType(module_name)
+    fake_dry_run = object()
+
+    def fake_build(archive_root: Path, session_id: str) -> object:
+        received["archive_root"] = archive_root
+        received["session_id"] = session_id
+        return fake_dry_run
+
+    def fake_export(dry_run: object) -> dict[str, object]:
+        received["dry_run"] = dry_run
+        return {
+            "deletion_performed": False,
+            "dry_run_only": True,
+            "session_id": "session-001",
+        }
+
+    fake_module.ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR = (
+        "archive delete dry run could not be built"
+    )
+    fake_module.build_archive_delete_dry_run_local_result = fake_build
+    fake_module.export_archive_delete_dry_run_local_result = fake_export
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(
+        [
+            "archive-delete-dry-run-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert json.loads(captured.out) == {
+        "deletion_performed": False,
+        "dry_run_only": True,
+        "session_id": "session-001",
+    }
+    assert captured.err == ""
+    assert received == {
+        "archive_root": Path("archive-root"),
+        "session_id": "session-001",
+        "dry_run": fake_dry_run,
+    }
+
+
 def test_archive_export_preflight_handler_does_not_execute_export() -> None:
     source = inspect.getsource(cli._run_archive_export_preflight_command)
 
@@ -1214,14 +1485,43 @@ def test_archive_export_verify_local_handler_does_not_execute_export() -> None:
     assert "archive_export_verification_summary_safe_summary" in source
 
 
+def test_archive_delete_dry_run_local_handler_does_not_execute_delete_or_export() -> (
+    None
+):
+    source = inspect.getsource(cli._run_archive_delete_dry_run_local_command)
+
+    assert "build_archive_delete_dry_run_local_result" in source
+    assert "export_archive_delete_dry_run_local_result" in source
+    for forbidden_fragment in (
+        "execute_archive_export_to_local_root",
+        "archive_export_execution_result_safe_summary",
+        "unlink",
+        "remove",
+        "rmdir",
+        "rmtree",
+        "shutil",
+        "requests",
+        "httpx",
+        "playwright",
+        "sounddevice",
+        "telegram",
+        "desktop_notifier",
+        "Timer(",
+        "threading",
+        "asyncio",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_archive_export_cli_source_does_not_call_forbidden_surfaces() -> None:
     source = Path("src/async_scholar/__main__.py").read_text(encoding="utf-8")
 
     for forbidden_fragment in (
-        "archive_delete",
-        "unlink",
-        "remove",
-        "rmdir",
+        "archive_delete_confirmation",
+        "execute_archive_delete",
+        ".unlink(",
+        ".remove(",
+        ".rmdir(",
         "rmtree",
         "shutil",
         "ZipFile",

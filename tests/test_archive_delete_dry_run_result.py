@@ -25,13 +25,22 @@ from async_scholar.archive_delete_dry_run import (
 from async_scholar.archive_delete_dry_run_result import (
     ARCHIVE_DELETE_DRY_RUN_ARTIFACT_ACTION,
     ARCHIVE_DELETE_DRY_RUN_ARTIFACT_STATUS,
+    ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR,
     ARCHIVE_DELETE_DRY_RUN_RESULT_KIND,
     ARCHIVE_DELETE_DRY_RUN_RESULT_STATUS,
+    ArchiveDeleteDryRunLocalArtifact,
+    ArchiveDeleteDryRunLocalResult,
     ArchiveDeleteDryRunResult,
     ArchiveDeleteDryRunResultArtifact,
+    build_archive_delete_dry_run_local_result,
     build_archive_delete_dry_run_result,
+    export_archive_delete_dry_run_local_result,
     export_archive_delete_dry_run_result,
     summarize_archive_delete_dry_run_result,
+)
+from async_scholar.archive_export import (
+    ALLOWED_ARCHIVE_ARTIFACT_FILENAMES,
+    ArchiveArtifactKind,
 )
 
 
@@ -360,6 +369,8 @@ def test_artifact_rejects_arbitrary_action_or_status(
         "\\\\server\\share\\session-001",
         "https://example.test/session-001",
         "session-\n001",
+        "CON",
+        "LPT1.session",
     ],
 )
 def test_result_rejects_unsafe_session_ids(session_id: str) -> None:
@@ -603,6 +614,309 @@ def test_models_are_immutable() -> None:
         result.artifacts[0].filename = "events.jsonl"
 
 
+def test_build_local_dry_run_result_returns_safe_metadata(tmp_path: Path) -> None:
+    archive_root = tmp_path / "archive-token-secret-auth-profile"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    event_text = "Synthetic event token secret auth profile payload."
+    reviewer_text = "Synthetic reviewer private payload."
+    (session_dir / "events.jsonl").write_text(event_text, encoding="utf-8")
+    (session_dir / "reviewer.md").write_text(reviewer_text, encoding="utf-8")
+
+    result = build_archive_delete_dry_run_local_result(
+        archive_root,
+        "session-001",
+    )
+    payload = export_archive_delete_dry_run_local_result(result)
+
+    assert result.session_id == "session-001"
+    assert result.session_dir == "session-001"
+    assert result.result_kind == ARCHIVE_DELETE_DRY_RUN_RESULT_KIND
+    assert result.status == ARCHIVE_DELETE_DRY_RUN_RESULT_STATUS
+    assert result.dry_run_only is True
+    assert result.deletion_performed is False
+    assert result.artifact_count == len(ALLOWED_ARCHIVE_ARTIFACT_FILENAMES)
+    assert result.existing_artifact_count == 2
+    assert result.total_existing_size_bytes == len(
+        event_text.encode("utf-8"),
+    ) + len(reviewer_text.encode("utf-8"))
+    assert [artifact.filename for artifact in result.artifacts] == list(
+        ALLOWED_ARCHIVE_ARTIFACT_FILENAMES,
+    )
+    assert payload["session_id"] == "session-001"
+    assert payload["session_dir"] == "session-001"
+    assert payload["dry_run_only"] is True
+    assert payload["deletion_performed"] is False
+    assert payload["artifact_count"] == len(ALLOWED_ARCHIVE_ARTIFACT_FILENAMES)
+    assert payload["existing_artifact_count"] == 2
+    assert payload["total_existing_size_bytes"] == result.total_existing_size_bytes
+    assert [artifact["filename"] for artifact in payload["artifacts"]] == list(
+        ALLOWED_ARCHIVE_ARTIFACT_FILENAMES,
+    )
+    assert payload["artifacts"][2] == {
+        "kind": "events_jsonl",
+        "filename": "events.jsonl",
+        "exists": True,
+        "size_bytes": len(event_text.encode("utf-8")),
+        "action": "would_delete",
+        "status": "not_deleted",
+    }
+    assert payload["artifacts"][4] == {
+        "kind": "reviewer_markdown",
+        "filename": "reviewer.md",
+        "exists": True,
+        "size_bytes": len(reviewer_text.encode("utf-8")),
+        "action": "would_delete",
+        "status": "not_deleted",
+    }
+    for artifact in payload["artifacts"]:
+        if artifact["exists"] is False:
+            assert "size_bytes" not in artifact
+        assert artifact["action"] == "would_delete"
+        assert artifact["status"] == "not_deleted"
+
+    exported_text = json.dumps(payload).lower()
+    for forbidden_fragment in (
+        str(tmp_path).lower(),
+        "archive-token",
+        "synthetic event",
+        "synthetic reviewer",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "payload",
+        "c:\\",
+        "/users",
+        "traceback",
+    ):
+        assert forbidden_fragment not in exported_text
+
+
+def test_local_dry_run_reports_missing_session_as_empty(tmp_path: Path) -> None:
+    result = build_archive_delete_dry_run_local_result(tmp_path, "session-001")
+    payload = export_archive_delete_dry_run_local_result(result)
+
+    assert payload["session_id"] == "session-001"
+    assert payload["session_dir"] == "session-001"
+    assert payload["dry_run_only"] is True
+    assert payload["deletion_performed"] is False
+    assert payload["artifact_count"] == len(ALLOWED_ARCHIVE_ARTIFACT_FILENAMES)
+    assert payload["existing_artifact_count"] == 0
+    assert payload["total_existing_size_bytes"] == 0
+    assert [artifact["filename"] for artifact in payload["artifacts"]] == list(
+        ALLOWED_ARCHIVE_ARTIFACT_FILENAMES,
+    )
+    assert all(artifact["exists"] is False for artifact in payload["artifacts"])
+    assert all("size_bytes" not in artifact for artifact in payload["artifacts"])
+
+
+@pytest.mark.parametrize(
+    "session_id",
+    [
+        "",
+        " ",
+        " session-001",
+        "session-001 ",
+        "session..001",
+        "../session-001",
+        "session/001",
+        "session\\001",
+        "C:\\Users\\student\\session-001",
+        "\\\\server\\share\\session-001",
+        "https://example.test/session-001",
+        "session-\n001",
+        "CON",
+        "LPT1.session",
+    ],
+)
+def test_local_dry_run_rejects_unsafe_session_ids(
+    tmp_path: Path,
+    session_id: str,
+) -> None:
+    with pytest.raises(ValueError, match=f"^{ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR}$"):
+        build_archive_delete_dry_run_local_result(tmp_path, session_id)
+
+
+def test_local_dry_run_rejects_missing_or_non_directory_root(tmp_path: Path) -> None:
+    missing_root = tmp_path / "missing-token-secret-auth-profile"
+    file_root = tmp_path / "file-token-secret-auth-profile"
+    file_root.write_text("Synthetic private root placeholder.", encoding="utf-8")
+
+    for archive_root in (missing_root, file_root):
+        with pytest.raises(ValueError) as exc_info:
+            build_archive_delete_dry_run_local_result(archive_root, "session-001")
+
+        assert str(exc_info.value) == ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR
+        for forbidden_fragment in (
+            str(tmp_path),
+            "token",
+            "secret",
+            "auth",
+            "profile",
+            "Synthetic private",
+            "Traceback",
+        ):
+            assert forbidden_fragment not in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "archive_root",
+    [
+        "\\\\server\\share\\token-secret-auth-profile",
+        "//server/share/token-secret-auth-profile",
+    ],
+)
+def test_local_dry_run_rejects_unc_roots_before_metadata_probes(
+    monkeypatch: pytest.MonkeyPatch,
+    archive_root: str,
+) -> None:
+    probe_calls: list[str] = []
+
+    def fail_if_probe_runs(self: Path) -> bool:
+        probe_calls.append(str(self))
+        raise AssertionError("network roots must be rejected before metadata probes")
+
+    monkeypatch.setattr(Path, "exists", fail_if_probe_runs)
+    monkeypatch.setattr(Path, "is_dir", fail_if_probe_runs)
+    monkeypatch.setattr(Path, "is_file", fail_if_probe_runs)
+    monkeypatch.setattr(Path, "is_symlink", fail_if_probe_runs)
+
+    with pytest.raises(ValueError) as exc_info:
+        build_archive_delete_dry_run_local_result(archive_root, "session-001")
+
+    assert str(exc_info.value) == ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR
+    assert probe_calls == []
+    for forbidden_fragment in (
+        "server",
+        "share",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in str(exc_info.value)
+
+
+def test_local_dry_run_rejects_root_symlink(tmp_path: Path) -> None:
+    real_root = tmp_path / "real-root"
+    symlink_root = tmp_path / "root-symlink"
+    real_root.mkdir()
+    _symlink_to(real_root, symlink_root, target_is_directory=True)
+
+    with pytest.raises(ValueError, match=f"^{ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR}$"):
+        build_archive_delete_dry_run_local_result(symlink_root, "session-001")
+
+
+def test_local_dry_run_rejects_session_symlink(tmp_path: Path) -> None:
+    real_session = tmp_path / "real-session"
+    real_session.mkdir()
+    _symlink_to(real_session, tmp_path / "session-001", target_is_directory=True)
+
+    with pytest.raises(ValueError, match=f"^{ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR}$"):
+        build_archive_delete_dry_run_local_result(tmp_path, "session-001")
+
+
+def test_local_dry_run_rejects_artifact_symlink_escape(tmp_path: Path) -> None:
+    session_dir = tmp_path / "session-001"
+    outside_file = tmp_path / "outside-token-secret-auth-profile.jsonl"
+    session_dir.mkdir()
+    outside_file.write_text("Synthetic private outside file.", encoding="utf-8")
+    _symlink_to(outside_file, session_dir / "events.jsonl")
+
+    with pytest.raises(ValueError, match=f"^{ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR}$"):
+        build_archive_delete_dry_run_local_result(tmp_path, "session-001")
+
+
+def test_local_dry_run_rejects_artifact_directory(tmp_path: Path) -> None:
+    session_dir = tmp_path / "session-001"
+    session_dir.mkdir()
+    (session_dir / "events.jsonl").mkdir()
+
+    with pytest.raises(ValueError, match=f"^{ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR}$"):
+        build_archive_delete_dry_run_local_result(tmp_path, "session-001")
+
+
+def test_local_dry_run_model_rejects_mismatched_metadata() -> None:
+    with pytest.raises(ValidationError):
+        ArchiveDeleteDryRunLocalArtifact(
+            kind=ArchiveArtifactKind.EVENTS_JSONL,
+            filename="reviewer.md",
+            exists=True,
+            size_bytes=1,
+        )
+
+    valid_artifacts = tuple(
+        ArchiveDeleteDryRunLocalArtifact(
+            kind=kind,
+            filename=filename,
+            exists=False,
+        )
+        for kind, filename in [
+            (ArchiveArtifactKind.EVENTS_JSONL, "events.jsonl"),
+            (ArchiveArtifactKind.TRANSCRIPT_JSONL, "transcript.jsonl"),
+        ]
+    )
+    with pytest.raises(ValidationError):
+        ArchiveDeleteDryRunLocalResult(
+            session_id="session-001",
+            session_dir="session-001",
+            artifact_count=len(valid_artifacts),
+            existing_artifact_count=0,
+            total_existing_size_bytes=0,
+            artifacts=valid_artifacts,
+        )
+
+
+def test_local_dry_run_export_rejects_non_result_and_revalidates() -> None:
+    class LocalResultSubclass(ArchiveDeleteDryRunLocalResult):
+        pass
+
+    valid_result = build_archive_delete_dry_run_local_result(Path.cwd(), "session-001")
+    subclassed_result = LocalResultSubclass.model_validate(valid_result.model_dump())
+    for value in (None, {}, [], "result", object(), subclassed_result):
+        with pytest.raises(TypeError):
+            export_archive_delete_dry_run_local_result(value)  # type: ignore[arg-type]
+
+    tampered_result = ArchiveDeleteDryRunLocalResult.model_construct(
+        session_id="session-001",
+        session_dir="session-001",
+        result_kind=ARCHIVE_DELETE_DRY_RUN_RESULT_KIND,
+        status=ARCHIVE_DELETE_DRY_RUN_RESULT_STATUS,
+        dry_run_only=True,
+        deletion_performed=True,
+        artifact_count=1,
+        existing_artifact_count=0,
+        total_existing_size_bytes=0,
+        artifacts=(
+            ArchiveDeleteDryRunLocalArtifact.model_construct(
+                kind=ArchiveArtifactKind.TRANSCRIPT_JSONL,
+                filename="transcript.jsonl",
+                exists=False,
+                size_bytes=None,
+                action="would_delete",
+                status="not_deleted",
+            ),
+        ),
+    )
+
+    with pytest.raises(ValidationError):
+        export_archive_delete_dry_run_local_result(tampered_result)
+
+
+def _symlink_to(
+    target: Path,
+    link: Path,
+    *,
+    target_is_directory: bool = False,
+) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlink creation unavailable: {exc}")
+
+
 def test_source_has_no_execution_or_persistence_behavior() -> None:
     source_path = (
         Path(__file__).resolve().parents[1]
@@ -617,7 +931,6 @@ def test_source_has_no_execution_or_persistence_behavior() -> None:
         "asyncio",
         "httpx",
         "os",
-        "pathlib",
         "requests",
         "shutil",
         "socket",
@@ -644,6 +957,8 @@ def test_source_has_no_execution_or_persistence_behavior() -> None:
         "remove",
         "rmdir",
         "mkdir",
+        "iterdir",
+        "glob",
         "read_text",
         "read_bytes",
         "write_text",
