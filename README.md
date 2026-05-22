@@ -65,6 +65,17 @@ This command returns a metadata-only JSON summary for allowlisted session
 artifacts. It does not repair, clean up, delete, copy, export, schedule, or
 deliver anything, and it does not read artifact contents.
 
+Show read-only archive export preflight metadata for one explicit local session
+archive root:
+
+```powershell
+uv run python -m async_scholar archive-export-preflight fixture_attendance_roll_call --archive-root data\sessions
+```
+
+This command returns a metadata-only JSON summary for allowlisted session
+artifacts. It does not copy, export, delete, schedule, deliver, monitor, or read
+artifact contents.
+
 Show the bounded microphone recording diagnostic options:
 
 ```powershell

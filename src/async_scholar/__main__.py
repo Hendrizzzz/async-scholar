@@ -11,11 +11,16 @@ from async_scholar.demo import run_fixture_demo
 _CRASH_RECOVERY_PREFLIGHT_CLI_ERROR = (
     "crash recovery session preflight could not be built"
 )
+_ARCHIVE_EXPORT_PREFLIGHT_CLI_ERROR = "archive export preflight could not be built"
 
 
 class _FixedMessageArgumentParser(argparse.ArgumentParser):
+    def __init__(self, *args: object, fixed_error_message: str, **kwargs: object):
+        super().__init__(*args, **kwargs)
+        self._fixed_error_message = fixed_error_message
+
     def error(self, message: str) -> None:
-        self.exit(2, f"{_CRASH_RECOVERY_PREFLIGHT_CLI_ERROR}\n")
+        self.exit(2, f"{self._fixed_error_message}\n")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -60,6 +65,17 @@ def build_parser() -> argparse.ArgumentParser:
     _add_crash_recovery_preflight_arguments(recovery_preflight)
     recovery_preflight.set_defaults(handler=_run_crash_recovery_preflight_command)
 
+    archive_export_preflight = subparsers.add_parser(
+        "archive-export-preflight",
+        help="summarize read-only archive export metadata for a session",
+        description=(
+            "Summarize read-only archive export metadata for one explicit "
+            "session archive root."
+        ),
+    )
+    _add_archive_export_preflight_arguments(archive_export_preflight)
+    archive_export_preflight.set_defaults(handler=_run_archive_export_preflight_command)
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -78,6 +94,13 @@ def main(argv: list[str] | None = None) -> int:
         arg == "--sessions-root" or arg.startswith("--sessions-root=") for arg in argv
     ):
         print(_CRASH_RECOVERY_PREFLIGHT_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["archive-export-preflight"]:
+        return _run_archive_export_preflight_argv(argv[1:])
+    if "archive-export-preflight" in argv or any(
+        arg == "--archive-root" or arg.startswith("--archive-root=") for arg in argv
+    ):
+        print(_ARCHIVE_EXPORT_PREFLIGHT_CLI_ERROR, file=sys.stderr)
         return 2
 
     parser = build_parser()
@@ -100,6 +123,21 @@ def _add_crash_recovery_preflight_arguments(
         type=Path,
         required=True,
         help="explicit root directory containing session artifact directories",
+    )
+
+
+def _add_archive_export_preflight_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe session identifier to inspect",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit root directory containing session archive directories",
     )
 
 
@@ -127,6 +165,7 @@ def _run_crash_recovery_preflight_argv(argv: list[str]) -> int:
         description=(
             "Summarize read-only crash-recovery metadata for one explicit session root."
         ),
+        fixed_error_message=_CRASH_RECOVERY_PREFLIGHT_CLI_ERROR,
     )
     _add_crash_recovery_preflight_arguments(parser)
     args = parser.parse_args(argv)
@@ -148,6 +187,40 @@ def _run_crash_recovery_preflight_command(args: argparse.Namespace) -> int:
         payload = crash_recovery_session_preflight_safe_summary(preflight)
     except ValueError:
         print(CRASH_RECOVERY_PREFLIGHT_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _run_archive_export_preflight_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar archive-export-preflight",
+        description=(
+            "Summarize read-only archive export metadata for one explicit "
+            "session archive root."
+        ),
+        fixed_error_message=_ARCHIVE_EXPORT_PREFLIGHT_CLI_ERROR,
+    )
+    _add_archive_export_preflight_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_archive_export_preflight_command(args)
+
+
+def _run_archive_export_preflight_command(args: argparse.Namespace) -> int:
+    from async_scholar.archive_export import (
+        archive_export_preflight_summary_safe_summary,
+        build_archive_export_preflight_summary_from_root,
+    )
+
+    try:
+        preflight = build_archive_export_preflight_summary_from_root(
+            args.archive_root,
+            args.session_id,
+        )
+        payload = archive_export_preflight_summary_safe_summary(preflight)
+    except ValueError:
+        print(_ARCHIVE_EXPORT_PREFLIGHT_CLI_ERROR, file=sys.stderr)
         return 1
 
     print(json.dumps(payload, sort_keys=True))
