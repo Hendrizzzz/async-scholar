@@ -27,6 +27,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "archive-export-local" in result.stdout
     assert "archive-export-verify-local" in result.stdout
     assert "archive-delete-dry-run-local" in result.stdout
+    assert "scheduled-start-preview-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -1470,6 +1471,453 @@ def test_archive_delete_dry_run_local_command_delegates_to_existing_helpers(
     }
 
 
+def test_scheduled_start_preview_local_help_stays_lazy(
+    monkeypatch,
+) -> None:
+    schedule_config_module = "async_scholar.schedule_config"
+    scheduled_start_module = "async_scholar.scheduled_start"
+    monkeypatch.delitem(sys.modules, schedule_config_module, raising=False)
+    monkeypatch.delitem(sys.modules, scheduled_start_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-preview-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar scheduled-start-preview-local" in result.stdout
+    assert "--course-id" in result.stdout
+    assert "--clock-local-time" in result.stdout
+    assert "non-executing" in result.stdout
+    assert schedule_config_module not in sys.modules
+    assert scheduled_start_module not in sys.modules
+
+
+def test_scheduled_start_preview_local_requires_explicit_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-preview-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "scheduled start preview could not be built\n"
+
+
+def test_scheduled_start_preview_local_sanitizes_parse_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-preview-local",
+            "session-001",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--course-id",
+            "cs101",
+            "--day-of-week",
+            "monday",
+            "--local-start-time",
+            "09:00",
+            "--duration-minutes",
+            "75",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "scheduled start preview could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_scheduled_start_preview_local_sanitizes_misordered_parse_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--course-id",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "scheduled-start-preview-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "scheduled start preview could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_scheduled_start_preview_local_command_prints_due_safe_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-preview-local",
+            "session-001",
+            "--course-id",
+            "cs101",
+            "--day-of-week",
+            "monday",
+            "--local-start-time",
+            "09:00",
+            "--duration-minutes",
+            "75",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.count("\n") == 1
+    payload = json.loads(result.stdout)
+    assert payload == {
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "course_id": "cs101",
+        "due": True,
+        "enabled": True,
+        "minutes_until_start": 0,
+        "next_day_of_week": "monday",
+        "next_local_start_time": "09:00",
+        "result_kind": "scheduled_start_manual_result",
+        "scheduled_day_of_week": "monday",
+        "scheduled_local_start_time": "09:00",
+        "session_id": "session-001",
+        "source_kind": "file",
+        "status": "due",
+    }
+    _assert_scheduled_start_preview_output_is_safe(result.stdout, result.stderr)
+
+
+def test_scheduled_start_preview_local_command_prints_waiting_safe_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-preview-local",
+            "session-001",
+            "--course-id",
+            "cs101",
+            "--day-of-week",
+            "monday",
+            "--local-start-time",
+            "09:00",
+            "--duration-minutes",
+            "75",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "08:30",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "waiting"
+    assert payload["due"] is False
+    assert payload["enabled"] is True
+    assert payload["minutes_until_start"] == 30
+    assert payload["next_day_of_week"] == "monday"
+    assert payload["next_local_start_time"] == "09:00"
+    _assert_scheduled_start_preview_output_is_safe(result.stdout, result.stderr)
+
+
+def test_scheduled_start_preview_local_command_prints_disabled_safe_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-preview-local",
+            "session-001",
+            "--course-id",
+            "cs101",
+            "--day-of-week",
+            "monday",
+            "--local-start-time",
+            "09:00",
+            "--duration-minutes",
+            "75",
+            "--source-kind",
+            "mic",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--disabled",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "disabled"
+    assert payload["source_kind"] == "mic"
+    assert payload["enabled"] is False
+    assert payload["due"] is False
+    assert payload["minutes_until_start"] is None
+    assert payload["next_day_of_week"] is None
+    assert payload["next_local_start_time"] is None
+    _assert_scheduled_start_preview_output_is_safe(result.stdout, result.stderr)
+
+
+def test_scheduled_start_preview_local_command_sanitizes_build_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-preview-local",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--course-id",
+            "cs101",
+            "--day-of-week",
+            "monday",
+            "--local-start-time",
+            "09:00",
+            "--duration-minutes",
+            "75",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "scheduled start preview could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "ValidationError",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_scheduled_start_preview_local_command_delegates_to_existing_helpers(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    schedule_config_module = "async_scholar.schedule_config"
+    scheduled_start_module = "async_scholar.scheduled_start"
+    fake_schedule_config_module = types.ModuleType(schedule_config_module)
+    fake_scheduled_start_module = types.ModuleType(scheduled_start_module)
+    fake_config = object()
+    fake_plan = object()
+    fake_clock = object()
+    fake_preview = object()
+
+    class FakeScheduleConfig:
+        def __new__(cls, **kwargs: object) -> object:
+            received["schedule_config_kwargs"] = kwargs
+            return fake_config
+
+    def fake_build_plan(
+        schedule_config: object,
+        selected_class_time_index: int,
+        source_kind: str,
+        *,
+        enabled: bool,
+    ) -> object:
+        received["plan_config"] = schedule_config
+        received["selected_class_time_index"] = selected_class_time_index
+        received["source_kind"] = source_kind
+        received["enabled"] = enabled
+        return fake_plan
+
+    class FakeClock:
+        def __new__(cls, **kwargs: object) -> object:
+            received["clock_kwargs"] = kwargs
+            return fake_clock
+
+    def fake_build_manual_result(
+        plan: object,
+        clock: object,
+        session_id: str,
+    ) -> object:
+        received["manual_plan"] = plan
+        received["manual_clock"] = clock
+        received["session_id"] = session_id
+        return fake_preview
+
+    def fake_summary(preview: object) -> dict[str, object]:
+        received["preview"] = preview
+        return {"session_id": "session-001", "status": "due"}
+
+    fake_schedule_config_module.ScheduleConfig = FakeScheduleConfig
+    fake_scheduled_start_module.ScheduledStartClock = FakeClock
+    fake_scheduled_start_module.build_scheduled_start_plan = fake_build_plan
+    fake_scheduled_start_module.build_scheduled_start_manual_result = (
+        fake_build_manual_result
+    )
+    fake_scheduled_start_module.scheduled_start_manual_result_safe_summary = (
+        fake_summary
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        schedule_config_module,
+        fake_schedule_config_module,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        scheduled_start_module,
+        fake_scheduled_start_module,
+    )
+
+    exit_code = cli.main(
+        [
+            "scheduled-start-preview-local",
+            "session-001",
+            "--course-id",
+            "cs101",
+            "--day-of-week",
+            "monday",
+            "--local-start-time",
+            "09:00",
+            "--duration-minutes",
+            "75",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert json.loads(captured.out) == {"session_id": "session-001", "status": "due"}
+    assert captured.err == ""
+    assert received == {
+        "schedule_config_kwargs": {
+            "course_id": "cs101",
+            "class_times": [
+                {
+                    "day_of_week": "monday",
+                    "local_start_time": "09:00",
+                    "duration_minutes": 75,
+                }
+            ],
+        },
+        "plan_config": fake_config,
+        "selected_class_time_index": 0,
+        "source_kind": "file",
+        "enabled": True,
+        "clock_kwargs": {"day_of_week": "monday", "local_time": "09:00"},
+        "manual_plan": fake_plan,
+        "manual_clock": fake_clock,
+        "session_id": "session-001",
+        "preview": fake_preview,
+    }
+
+
+def _assert_scheduled_start_preview_output_is_safe(
+    stdout: str,
+    stderr: str,
+) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "meeting",
+        "timezone",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        "token",
+        "secret",
+        "auth",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "traceback",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
 def test_archive_export_preflight_handler_does_not_execute_export() -> None:
     source = inspect.getsource(cli._run_archive_export_preflight_command)
 
@@ -1509,6 +1957,42 @@ def test_archive_delete_dry_run_local_handler_does_not_execute_delete_or_export(
         "Timer(",
         "threading",
         "asyncio",
+    ):
+        assert forbidden_fragment not in source
+
+
+def test_scheduled_start_preview_local_handler_does_not_execute_scheduler() -> None:
+    source = inspect.getsource(cli._run_scheduled_start_preview_local_command)
+
+    assert "ScheduleConfig" in source
+    assert "build_scheduled_start_plan" in source
+    assert "ScheduledStartClock" in source
+    assert "build_scheduled_start_manual_result" in source
+    assert "scheduled_start_manual_result_safe_summary" in source
+    for forbidden_fragment in (
+        "datetime",
+        "now(",
+        "utcnow",
+        "sleep",
+        "Timer(",
+        "threading",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "sounddevice",
+        "telegram",
+        "desktop_notifier",
+        "execute_archive",
+        "archive_export",
+        ".open(",
+        ".read_text(",
+        ".write_text(",
+        ".mkdir(",
+        ".unlink(",
+        ".remove(",
+        ".rmdir(",
     ):
         assert forbidden_fragment not in source
 

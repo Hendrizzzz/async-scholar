@@ -55,6 +55,19 @@ data/sessions/fixture_attendance_roll_call/alerts.log
 data/sessions/fixture_attendance_roll_call/reviewer.md
 ```
 
+Preview a scheduled start decision without starting a scheduler:
+
+```powershell
+uv run python -m async_scholar scheduled-start-preview-local session-001 --course-id cs101 --day-of-week monday --local-start-time 09:00 --duration-minutes 75 --source-kind file --clock-day-of-week monday --clock-local-time 09:00
+```
+
+This command uses only explicit CLI metadata and an explicit local clock, then
+prints one metadata-only JSON preview. It does not read schedule files, infer the
+current time, start timers or background workers, launch a scheduler, open a
+browser, access audio, send notifications, read or write artifacts, or approve
+Gate D / Product Promise Alpha behavior. Real scheduler execution and live
+delivery remain blocked.
+
 Show read-only crash recovery preflight metadata for one explicit local session root:
 
 ```powershell

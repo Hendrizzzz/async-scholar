@@ -15,6 +15,7 @@ _ARCHIVE_EXPORT_PREFLIGHT_CLI_ERROR = "archive export preflight could not be bui
 _ARCHIVE_EXPORT_CLI_ERROR = "archive export could not be executed"
 _ARCHIVE_EXPORT_VERIFY_CLI_ERROR = "archive export verification could not be built"
 _ARCHIVE_DELETE_DRY_RUN_CLI_ERROR = "archive delete dry run could not be built"
+_SCHEDULED_START_PREVIEW_CLI_ERROR = "scheduled start preview could not be built"
 
 
 class _FixedMessageArgumentParser(argparse.ArgumentParser):
@@ -114,6 +115,19 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_archive_delete_dry_run_local_command
     )
 
+    scheduled_start_preview = subparsers.add_parser(
+        "scheduled-start-preview-local",
+        help="preview scheduled-start metadata without executing",
+        description=(
+            "Preview one non-executing scheduled-start decision from explicit "
+            "local metadata and an explicit local clock."
+        ),
+    )
+    _add_scheduled_start_preview_local_arguments(scheduled_start_preview)
+    scheduled_start_preview.set_defaults(
+        handler=_run_scheduled_start_preview_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -137,6 +151,28 @@ def main(argv: list[str] | None = None) -> int:
         return _run_archive_delete_dry_run_local_argv(argv[1:])
     if "archive-delete-dry-run-local" in argv:
         print(_ARCHIVE_DELETE_DRY_RUN_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["scheduled-start-preview-local"]:
+        return _run_scheduled_start_preview_local_argv(argv[1:])
+    if "scheduled-start-preview-local" in argv or any(
+        arg == "--course-id"
+        or arg.startswith("--course-id=")
+        or arg == "--day-of-week"
+        or arg.startswith("--day-of-week=")
+        or arg == "--local-start-time"
+        or arg.startswith("--local-start-time=")
+        or arg == "--duration-minutes"
+        or arg.startswith("--duration-minutes=")
+        or arg == "--source-kind"
+        or arg.startswith("--source-kind=")
+        or arg == "--clock-day-of-week"
+        or arg.startswith("--clock-day-of-week=")
+        or arg == "--clock-local-time"
+        or arg.startswith("--clock-local-time=")
+        or arg == "--disabled"
+        for arg in argv
+    ):
+        print(_SCHEDULED_START_PREVIEW_CLI_ERROR, file=sys.stderr)
         return 2
     if argv[:1] == ["archive-export-preflight"]:
         return _run_archive_export_preflight_argv(argv[1:])
@@ -250,6 +286,57 @@ def _add_archive_delete_dry_run_local_arguments(
         type=Path,
         required=True,
         help="explicit root directory containing session archive directories",
+    )
+
+
+def _add_scheduled_start_preview_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe local session identifier to preview",
+    )
+    parser.add_argument(
+        "--course-id",
+        required=True,
+        help="safe course identifier for the preview",
+    )
+    parser.add_argument(
+        "--day-of-week",
+        required=True,
+        help="scheduled weekday name",
+    )
+    parser.add_argument(
+        "--local-start-time",
+        required=True,
+        help="scheduled local start time in HH:MM",
+    )
+    parser.add_argument(
+        "--duration-minutes",
+        required=True,
+        type=int,
+        help="scheduled class duration in minutes",
+    )
+    parser.add_argument(
+        "--source-kind",
+        required=True,
+        choices=("file", "mic"),
+        help="local source kind to preview",
+    )
+    parser.add_argument(
+        "--clock-day-of-week",
+        required=True,
+        help="explicit local clock weekday name",
+    )
+    parser.add_argument(
+        "--clock-local-time",
+        required=True,
+        help="explicit local clock time in HH:MM",
+    )
+    parser.add_argument(
+        "--disabled",
+        action="store_true",
+        help="preview the schedule as disabled",
     )
 
 
@@ -438,6 +525,64 @@ def _run_archive_delete_dry_run_local_command(args: argparse.Namespace) -> int:
         payload = export_archive_delete_dry_run_local_result(dry_run)
     except ValueError:
         print(ARCHIVE_DELETE_DRY_RUN_LOCAL_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _run_scheduled_start_preview_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar scheduled-start-preview-local",
+        description=(
+            "Preview one non-executing scheduled-start decision from explicit "
+            "local metadata and an explicit local clock."
+        ),
+        fixed_error_message=_SCHEDULED_START_PREVIEW_CLI_ERROR,
+    )
+    _add_scheduled_start_preview_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_scheduled_start_preview_local_command(args)
+
+
+def _run_scheduled_start_preview_local_command(args: argparse.Namespace) -> int:
+    from async_scholar.schedule_config import ScheduleConfig
+    from async_scholar.scheduled_start import (
+        ScheduledStartClock,
+        build_scheduled_start_manual_result,
+        build_scheduled_start_plan,
+        scheduled_start_manual_result_safe_summary,
+    )
+
+    try:
+        schedule_config = ScheduleConfig(
+            course_id=args.course_id,
+            class_times=[
+                {
+                    "day_of_week": args.day_of_week,
+                    "local_start_time": args.local_start_time,
+                    "duration_minutes": args.duration_minutes,
+                }
+            ],
+        )
+        plan = build_scheduled_start_plan(
+            schedule_config,
+            selected_class_time_index=0,
+            source_kind=args.source_kind,
+            enabled=not args.disabled,
+        )
+        clock = ScheduledStartClock(
+            day_of_week=args.clock_day_of_week,
+            local_time=args.clock_local_time,
+        )
+        preview = build_scheduled_start_manual_result(
+            plan,
+            clock,
+            args.session_id,
+        )
+        payload = scheduled_start_manual_result_safe_summary(preview)
+    except ValueError:
+        print(_SCHEDULED_START_PREVIEW_CLI_ERROR, file=sys.stderr)
         return 1
 
     print(json.dumps(payload, sort_keys=True))
