@@ -25,6 +25,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "crash-recovery-preflight" in result.stdout
     assert "archive-export-preflight" in result.stdout
     assert "archive-export-local" in result.stdout
+    assert "archive-export-verify-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -922,11 +923,295 @@ def test_archive_export_local_command_delegates_to_existing_helpers(
     }
 
 
+def test_archive_export_verify_local_help_does_not_build_verification(
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.archive_export"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-export-verify-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar archive-export-verify-local" in result.stdout
+    assert "--archive-root" in result.stdout
+    assert "--export-root" in result.stdout
+    assert module_name not in sys.modules
+
+
+def test_archive_export_verify_local_requires_explicit_roots() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-export-verify-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "archive export verification could not be built\n"
+
+
+def test_archive_export_verify_local_sanitizes_parse_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-export-verify-local",
+            "session-001",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--archive-root",
+            ".",
+            "--export-root",
+            ".",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "archive export verification could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_archive_export_verify_local_sanitizes_misordered_parse_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--archive-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "archive-export-verify-local",
+            "session-001",
+            "--export-root",
+            ".",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "archive export verification could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_archive_export_verify_local_command_prints_safe_json(tmp_path) -> None:
+    archive_root = tmp_path / "archive-token-secret-auth-profile"
+    export_root = tmp_path / "export-token-secret-auth-profile"
+    session_dir = archive_root / "session-001"
+    exported_session_dir = export_root / "session-001"
+    session_dir.mkdir(parents=True)
+    exported_session_dir.mkdir(parents=True)
+    event_text = "Synthetic event token secret auth profile payload."
+    reviewer_text = "Synthetic reviewer private payload."
+    (session_dir / "events.jsonl").write_text(event_text, encoding="utf-8")
+    (session_dir / "reviewer.md").write_text(reviewer_text, encoding="utf-8")
+    (exported_session_dir / "events.jsonl").write_text(event_text, encoding="utf-8")
+    (exported_session_dir / "reviewer.md").write_text(
+        reviewer_text,
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-export-verify-local",
+            "session-001",
+            "--archive-root",
+            str(archive_root),
+            "--export-root",
+            str(export_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.count("\n") == 1
+    payload = json.loads(result.stdout)
+    assert payload["session_id"] == "session-001"
+    assert payload["session_dir"] == "session-001"
+    assert payload["export_dir"] == "session-001"
+    assert payload["expected_count"] == 2
+    assert payload["verified_count"] == 2
+    assert payload["all_verified"] is True
+    assert [artifact["filename"] for artifact in payload["artifacts"]] == [
+        "transcript.jsonl",
+        "transcript.md",
+        "events.jsonl",
+        "alerts.log",
+        "reviewer.md",
+        "runtime.jsonl",
+        "benchmark-report.json",
+    ]
+    assert payload["artifacts"][2]["status"] == "verified"
+    assert payload["artifacts"][4]["status"] == "verified"
+
+    combined_output = f"{result.stdout}\n{result.stderr}".lower()
+    for forbidden_fragment in (
+        str(tmp_path).lower(),
+        "archive-token",
+        "export-token",
+        "synthetic event",
+        "synthetic reviewer",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "payload",
+        "traceback",
+        "gate d",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def test_archive_export_verify_local_command_sanitizes_failures(tmp_path) -> None:
+    archive_root = tmp_path / "archive-token-secret-auth-profile"
+    export_root = tmp_path / "export-token-secret-auth-profile"
+    archive_root.write_text("Synthetic private archive placeholder.", encoding="utf-8")
+    export_root.mkdir()
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "archive-export-verify-local",
+            "session-001",
+            "--archive-root",
+            str(archive_root),
+            "--export-root",
+            str(export_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "archive export verification could not be built\n"
+    for forbidden_fragment in (
+        str(tmp_path),
+        "archive-token",
+        "export-token",
+        "secret",
+        "auth",
+        "profile",
+        "Synthetic private",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_archive_export_verify_local_command_delegates_to_existing_helpers(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    module_name = "async_scholar.archive_export"
+    fake_module = types.ModuleType(module_name)
+    fake_verification = object()
+
+    def fake_build(archive_root: Path, export_root: Path, session_id: str) -> object:
+        received["archive_root"] = archive_root
+        received["export_root"] = export_root
+        received["session_id"] = session_id
+        return fake_verification
+
+    def fake_summary(verification: object) -> dict[str, object]:
+        received["verification"] = verification
+        return {"all_verified": True, "session_id": "session-001"}
+
+    fake_module.build_archive_export_verification_summary_from_roots = fake_build
+    fake_module.archive_export_verification_summary_safe_summary = fake_summary
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(
+        [
+            "archive-export-verify-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+            "--export-root",
+            "export-root",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert json.loads(captured.out) == {
+        "all_verified": True,
+        "session_id": "session-001",
+    }
+    assert captured.err == ""
+    assert received == {
+        "archive_root": Path("archive-root"),
+        "export_root": Path("export-root"),
+        "session_id": "session-001",
+        "verification": fake_verification,
+    }
+
+
 def test_archive_export_preflight_handler_does_not_execute_export() -> None:
     source = inspect.getsource(cli._run_archive_export_preflight_command)
 
     assert "execute_archive_export_to_local_root" not in source
     assert "archive_export_execution_result_safe_summary" not in source
+
+
+def test_archive_export_verify_local_handler_does_not_execute_export() -> None:
+    source = inspect.getsource(cli._run_archive_export_verify_local_command)
+
+    assert "execute_archive_export_to_local_root" not in source
+    assert "archive_export_execution_result_safe_summary" not in source
+    assert "archive_export_verification_summary_safe_summary" in source
 
 
 def test_archive_export_cli_source_does_not_call_forbidden_surfaces() -> None:

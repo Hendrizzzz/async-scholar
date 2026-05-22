@@ -88,6 +88,17 @@ This command copies only allowlisted local archive artifacts into the selected
 export root and prints a metadata-only JSON summary. It does not delete, move,
 upload, schedule, notify, browse, monitor, or read or print artifact contents.
 
+Verify one explicit local archive export using metadata only:
+
+```powershell
+uv run python -m async_scholar archive-export-verify-local fixture_attendance_roll_call --archive-root data\sessions --export-root data\archive-export-smoke
+```
+
+This command compares allowlisted artifact presence and sizes between the
+archive root and export root, then prints a metadata-only JSON summary. It does
+not copy, move, delete, upload, schedule, notify, browse, monitor, or read or
+print artifact contents.
+
 Show the bounded microphone recording diagnostic options:
 
 ```powershell

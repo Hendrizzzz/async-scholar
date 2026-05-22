@@ -58,6 +58,15 @@ _WINDOWS_RESERVED_SESSION_NAMES = frozenset(
     }
 )
 ARCHIVE_EXPORT_ARTIFACT_STATUS: Literal["exported"] = "exported"
+ARCHIVE_EXPORT_VERIFICATION_ERROR = "archive export verification could not be built"
+
+
+class ArchiveExportVerificationStatus(StrEnum):
+    VERIFIED = "verified"
+    MISSING_EXPORT = "missing_export"
+    SIZE_MISMATCH = "size_mismatch"
+    NOT_EXPECTED = "not_expected"
+    UNEXPECTED_EXPORT = "unexpected_export"
 
 
 def _contains_control_character(value: str) -> bool:
@@ -441,6 +450,171 @@ class ArchiveExportExecutionResult(BaseModel):
         return self.to_json_ready()
 
 
+class ArchiveExportVerificationArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: ArchiveArtifactKind
+    filename: StrictStr
+    expected_exists: StrictBool
+    exported_exists: StrictBool
+    expected_size_bytes: StrictInt | None = None
+    exported_size_bytes: StrictInt | None = None
+    status: ArchiveExportVerificationStatus
+
+    @field_validator("filename")
+    @classmethod
+    def _filename_is_safe(cls, value: str) -> str:
+        return _validate_safe_filename(value)
+
+    @field_validator("expected_size_bytes", "exported_size_bytes")
+    @classmethod
+    def _size_is_non_negative(cls, value: int | None) -> int | None:
+        if value is not None and value < 0:
+            raise ValueError("size_bytes must be non-negative")
+        return value
+
+    @model_validator(mode="after")
+    def _metadata_is_consistent(self) -> ArchiveExportVerificationArtifact:
+        expected_filename = ARCHIVE_ARTIFACT_FILENAMES_BY_KIND[self.kind]
+        if self.filename != expected_filename:
+            raise ValueError("archive artifact kind and filename do not match")
+        if self.expected_exists and self.expected_size_bytes is None:
+            raise ValueError("expected artifacts must include expected_size_bytes")
+        if not self.expected_exists and self.expected_size_bytes is not None:
+            raise ValueError("missing expected artifacts must not include size")
+        if self.exported_exists and self.exported_size_bytes is None:
+            raise ValueError("exported artifacts must include exported_size_bytes")
+        if not self.exported_exists and self.exported_size_bytes is not None:
+            raise ValueError("missing exported artifacts must not include size")
+
+        expected_status = _archive_export_verification_status(
+            expected_exists=self.expected_exists,
+            exported_exists=self.exported_exists,
+            expected_size_bytes=self.expected_size_bytes,
+            exported_size_bytes=self.exported_size_bytes,
+        )
+        if self.status != expected_status:
+            raise ValueError("verification status must match artifact metadata")
+        return self
+
+    def to_json_ready(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "kind": self.kind.value,
+            "filename": self.filename,
+            "expected_exists": self.expected_exists,
+            "exported_exists": self.exported_exists,
+            "status": self.status.value,
+        }
+        if self.expected_size_bytes is not None:
+            payload["expected_size_bytes"] = self.expected_size_bytes
+        if self.exported_size_bytes is not None:
+            payload["exported_size_bytes"] = self.exported_size_bytes
+        return payload
+
+
+class ArchiveExportVerificationSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    session_id: StrictStr
+    session_dir: StrictStr
+    export_dir: StrictStr
+    expected_count: StrictInt = Field(ge=0)
+    verified_count: StrictInt = Field(ge=0)
+    missing_export_count: StrictInt = Field(ge=0)
+    size_mismatch_count: StrictInt = Field(ge=0)
+    unexpected_export_count: StrictInt = Field(ge=0)
+    not_expected_count: StrictInt = Field(ge=0)
+    all_verified: StrictBool
+    artifacts: tuple[ArchiveExportVerificationArtifact, ...] = Field(min_length=1)
+
+    @field_validator("session_id", "session_dir", "export_dir")
+    @classmethod
+    def _session_directory_is_safe(cls, value: str) -> str:
+        return _validate_safe_session_directory_name(value)
+
+    @model_validator(mode="after")
+    def _metadata_is_consistent(self) -> ArchiveExportVerificationSummary:
+        if self.session_dir != self.session_id:
+            raise ValueError("session_dir must match the safe session_id")
+        if self.export_dir != self.session_id:
+            raise ValueError("export_dir must match the safe session_id")
+
+        expected_kinds = tuple(ARCHIVE_ARTIFACT_FILENAMES_BY_KIND)
+        artifact_kinds = tuple(artifact.kind for artifact in self.artifacts)
+        if artifact_kinds != expected_kinds:
+            raise ValueError("verification artifacts must match the archive allowlist")
+
+        expected_count = sum(
+            1 for artifact in self.artifacts if artifact.expected_exists
+        )
+        verified_count = sum(
+            1
+            for artifact in self.artifacts
+            if artifact.status == ArchiveExportVerificationStatus.VERIFIED
+        )
+        missing_export_count = sum(
+            1
+            for artifact in self.artifacts
+            if artifact.status == ArchiveExportVerificationStatus.MISSING_EXPORT
+        )
+        size_mismatch_count = sum(
+            1
+            for artifact in self.artifacts
+            if artifact.status == ArchiveExportVerificationStatus.SIZE_MISMATCH
+        )
+        unexpected_export_count = sum(
+            1
+            for artifact in self.artifacts
+            if artifact.status == ArchiveExportVerificationStatus.UNEXPECTED_EXPORT
+        )
+        not_expected_count = sum(
+            1
+            for artifact in self.artifacts
+            if artifact.status == ArchiveExportVerificationStatus.NOT_EXPECTED
+        )
+        all_verified = (
+            expected_count > 0
+            and verified_count == expected_count
+            and missing_export_count == 0
+            and size_mismatch_count == 0
+            and unexpected_export_count == 0
+        )
+
+        if self.expected_count != expected_count:
+            raise ValueError("expected_count must match artifacts")
+        if self.verified_count != verified_count:
+            raise ValueError("verified_count must match artifacts")
+        if self.missing_export_count != missing_export_count:
+            raise ValueError("missing_export_count must match artifacts")
+        if self.size_mismatch_count != size_mismatch_count:
+            raise ValueError("size_mismatch_count must match artifacts")
+        if self.unexpected_export_count != unexpected_export_count:
+            raise ValueError("unexpected_export_count must match artifacts")
+        if self.not_expected_count != not_expected_count:
+            raise ValueError("not_expected_count must match artifacts")
+        if self.all_verified != all_verified:
+            raise ValueError("all_verified must match verification metadata")
+        return self
+
+    def to_json_ready(self) -> dict[str, object]:
+        return {
+            "session_id": self.session_id,
+            "session_dir": self.session_dir,
+            "export_dir": self.export_dir,
+            "expected_count": self.expected_count,
+            "verified_count": self.verified_count,
+            "missing_export_count": self.missing_export_count,
+            "size_mismatch_count": self.size_mismatch_count,
+            "unexpected_export_count": self.unexpected_export_count,
+            "not_expected_count": self.not_expected_count,
+            "all_verified": self.all_verified,
+            "artifacts": [artifact.to_json_ready() for artifact in self.artifacts],
+        }
+
+    def safe_summary(self) -> dict[str, object]:
+        return self.to_json_ready()
+
+
 def _artifact_entry_from_filename(filename: str) -> ArchiveArtifactEntry:
     if not isinstance(filename, str):
         raise TypeError("archive artifact filenames must be strings")
@@ -666,6 +840,213 @@ def build_archive_export_preflight_summary_from_root(
         ) from None
 
 
+def _archive_export_verification_status(
+    *,
+    expected_exists: bool,
+    exported_exists: bool,
+    expected_size_bytes: int | None,
+    exported_size_bytes: int | None,
+) -> ArchiveExportVerificationStatus:
+    if expected_exists and not exported_exists:
+        return ArchiveExportVerificationStatus.MISSING_EXPORT
+    if not expected_exists and exported_exists:
+        return ArchiveExportVerificationStatus.UNEXPECTED_EXPORT
+    if not expected_exists and not exported_exists:
+        return ArchiveExportVerificationStatus.NOT_EXPECTED
+    if expected_size_bytes != exported_size_bytes:
+        return ArchiveExportVerificationStatus.SIZE_MISMATCH
+    return ArchiveExportVerificationStatus.VERIFIED
+
+
+def _resolve_existing_archive_root_for_verification(archive_root: str | Path) -> Path:
+    candidate_root = Path(archive_root)
+    resolved_root = _resolve_archive_root(archive_root)
+    if (
+        not candidate_root.exists()
+        or not candidate_root.is_dir()
+        or candidate_root.is_symlink()
+    ):
+        raise ValueError("archive_root must be an explicit existing directory")
+    return resolved_root
+
+
+def _resolve_existing_export_root_for_verification(export_root: str | Path) -> Path:
+    candidate_root = Path(export_root)
+    resolved_root = _resolve_existing_export_root(export_root)
+    if candidate_root.is_symlink():
+        raise ValueError("export_root must not be a symlink")
+    return resolved_root
+
+
+def _resolve_verification_session_dir(root: Path, session_id: str) -> Path:
+    session_dir = root / session_id
+    if session_dir.is_symlink():
+        raise ValueError("verification session directory must not be a symlink")
+    if session_dir.exists() and not session_dir.is_dir():
+        raise ValueError("verification session path must be a directory")
+    resolved_session_dir = session_dir.resolve(strict=False)
+    _require_path_inside(
+        resolved_session_dir,
+        root,
+        "verification session directory must stay inside root",
+    )
+    return resolved_session_dir
+
+
+def _verification_artifact_metadata_from_path(
+    *,
+    resolved_root: Path,
+    resolved_session_dir: Path,
+    filename: str,
+) -> tuple[bool, int | None]:
+    artifact_path = resolved_session_dir / filename
+    if artifact_path.is_symlink():
+        raise ValueError("verification artifact must not be a symlink")
+
+    resolved_artifact_path = artifact_path.resolve(strict=False)
+    _require_path_inside(
+        resolved_artifact_path,
+        resolved_root,
+        "verification artifact path must stay inside root",
+    )
+    _require_path_inside(
+        resolved_artifact_path,
+        resolved_session_dir,
+        "verification artifact path must stay inside the session directory",
+    )
+
+    if not artifact_path.is_file():
+        return False, None
+
+    return True, artifact_path.stat().st_size
+
+
+def _archive_export_verification_artifact(
+    *,
+    resolved_archive_root: Path,
+    resolved_archive_session_dir: Path,
+    resolved_export_root: Path,
+    resolved_export_session_dir: Path,
+    kind: ArchiveArtifactKind,
+    filename: str,
+) -> ArchiveExportVerificationArtifact:
+    expected_exists, expected_size_bytes = _verification_artifact_metadata_from_path(
+        resolved_root=resolved_archive_root,
+        resolved_session_dir=resolved_archive_session_dir,
+        filename=filename,
+    )
+    exported_exists, exported_size_bytes = _verification_artifact_metadata_from_path(
+        resolved_root=resolved_export_root,
+        resolved_session_dir=resolved_export_session_dir,
+        filename=filename,
+    )
+    return ArchiveExportVerificationArtifact(
+        kind=kind,
+        filename=filename,
+        expected_exists=expected_exists,
+        expected_size_bytes=expected_size_bytes,
+        exported_exists=exported_exists,
+        exported_size_bytes=exported_size_bytes,
+        status=_archive_export_verification_status(
+            expected_exists=expected_exists,
+            exported_exists=exported_exists,
+            expected_size_bytes=expected_size_bytes,
+            exported_size_bytes=exported_size_bytes,
+        ),
+    )
+
+
+def build_archive_export_verification_summary_from_roots(
+    archive_root: str | Path,
+    export_root: str | Path,
+    session_id: str,
+) -> ArchiveExportVerificationSummary:
+    try:
+        safe_session_id = _validate_safe_session_directory_name(session_id)
+        resolved_archive_root = _resolve_existing_archive_root_for_verification(
+            archive_root,
+        )
+        resolved_export_root = _resolve_existing_export_root_for_verification(
+            export_root,
+        )
+        _require_path_outside(
+            resolved_export_root,
+            resolved_archive_root,
+            "export_root must stay outside the archive root",
+        )
+
+        resolved_archive_session_dir = _resolve_verification_session_dir(
+            resolved_archive_root,
+            safe_session_id,
+        )
+        resolved_export_session_dir = _resolve_verification_session_dir(
+            resolved_export_root,
+            safe_session_id,
+        )
+        _require_path_outside(
+            resolved_export_session_dir,
+            resolved_archive_root,
+            "export session directory must stay outside the archive root",
+        )
+
+        artifacts = tuple(
+            _archive_export_verification_artifact(
+                resolved_archive_root=resolved_archive_root,
+                resolved_archive_session_dir=resolved_archive_session_dir,
+                resolved_export_root=resolved_export_root,
+                resolved_export_session_dir=resolved_export_session_dir,
+                kind=kind,
+                filename=filename,
+            )
+            for kind, filename in ARCHIVE_ARTIFACT_FILENAMES_BY_KIND.items()
+        )
+        return ArchiveExportVerificationSummary(
+            session_id=safe_session_id,
+            session_dir=safe_session_id,
+            export_dir=safe_session_id,
+            expected_count=sum(1 for artifact in artifacts if artifact.expected_exists),
+            verified_count=sum(
+                1
+                for artifact in artifacts
+                if artifact.status == ArchiveExportVerificationStatus.VERIFIED
+            ),
+            missing_export_count=sum(
+                1
+                for artifact in artifacts
+                if artifact.status == ArchiveExportVerificationStatus.MISSING_EXPORT
+            ),
+            size_mismatch_count=sum(
+                1
+                for artifact in artifacts
+                if artifact.status == ArchiveExportVerificationStatus.SIZE_MISMATCH
+            ),
+            unexpected_export_count=sum(
+                1
+                for artifact in artifacts
+                if artifact.status == ArchiveExportVerificationStatus.UNEXPECTED_EXPORT
+            ),
+            not_expected_count=sum(
+                1
+                for artifact in artifacts
+                if artifact.status == ArchiveExportVerificationStatus.NOT_EXPECTED
+            ),
+            all_verified=(
+                any(artifact.expected_exists for artifact in artifacts)
+                and all(
+                    artifact.status
+                    in {
+                        ArchiveExportVerificationStatus.VERIFIED,
+                        ArchiveExportVerificationStatus.NOT_EXPECTED,
+                    }
+                    for artifact in artifacts
+                )
+            ),
+            artifacts=artifacts,
+        )
+    except (OSError, RuntimeError, TypeError, ValidationError, ValueError):
+        raise ValueError(ARCHIVE_EXPORT_VERIFICATION_ERROR) from None
+
+
 def _copy_file_exclusive(source_path: Path, destination_path: Path) -> None:
     with (
         source_path.open("rb") as source_file,
@@ -884,3 +1265,15 @@ def archive_export_execution_result_safe_summary(
     result: ArchiveExportExecutionResult,
 ) -> dict[str, object]:
     return result.safe_summary()
+
+
+def archive_export_verification_summary_to_json_ready(
+    summary: ArchiveExportVerificationSummary,
+) -> dict[str, object]:
+    return summary.to_json_ready()
+
+
+def archive_export_verification_summary_safe_summary(
+    summary: ArchiveExportVerificationSummary,
+) -> dict[str, object]:
+    return summary.safe_summary()
