@@ -31,6 +31,9 @@ _SCHEDULED_START_DUE_LIST_FROM_STORE_CLI_ERROR = (
 _SESSION_STOP_PREVIEW_FROM_STORE_CLI_ERROR = (
     "stored session stop preview could not be built"
 )
+_SESSION_WINDOW_PLAN_FROM_STORE_CLI_ERROR = (
+    "stored session window plan could not be built"
+)
 _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
@@ -86,6 +89,26 @@ _STORED_SESSION_STOP_PREVIEW_KEYS = (
     "selected_class_time_index",
     "scheduled_day_of_week",
     "scheduled_local_start_time",
+    "stop_after_minutes",
+    "enabled",
+)
+_STORED_SESSION_WINDOW_PLAN_KEYS = (
+    "status",
+    "session_id",
+    "source_kind",
+    "clock_day_of_week",
+    "clock_local_time",
+    "course_count",
+    "due_count",
+    "courses",
+)
+_STORED_SESSION_WINDOW_PLAN_COURSE_KEYS = (
+    "course_id",
+    "selected_class_time_index",
+    "scheduled_day_of_week",
+    "scheduled_local_start_time",
+    "due",
+    "minutes_until_start",
     "stop_after_minutes",
     "enabled",
 )
@@ -288,6 +311,19 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_session_stop_preview_from_store_local_command
     )
 
+    session_window_plan = subparsers.add_parser(
+        "session-window-plan-from-store-local",
+        help="plan due stored session windows without executing",
+        description=(
+            "Build due non-executing session-window metadata from an explicit "
+            "read-only local schedule store and explicit local clock."
+        ),
+    )
+    _add_session_window_plan_from_store_local_arguments(session_window_plan)
+    session_window_plan.set_defaults(
+        handler=_run_session_window_plan_from_store_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -322,6 +358,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_scheduled_start_due_list_from_store_local_argv(argv[1:])
     if argv[:1] == ["session-stop-preview-from-store-local"]:
         return _run_session_stop_preview_from_store_local_argv(argv[1:])
+    if argv[:1] == ["session-window-plan-from-store-local"]:
+        return _run_session_window_plan_from_store_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-save-local"]:
         return _run_course_schedule_save_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
@@ -354,6 +392,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if "session-stop-preview-from-store-local" in argv:
         print(_SESSION_STOP_PREVIEW_FROM_STORE_CLI_ERROR, file=sys.stderr)
+        return 2
+    if "session-window-plan-from-store-local" in argv:
+        print(_SESSION_WINDOW_PLAN_FROM_STORE_CLI_ERROR, file=sys.stderr)
         return 2
     if "scheduled-start-preview-from-store-local" in argv or any(
         arg == "--class-time-index" or arg.startswith("--class-time-index=")
@@ -773,6 +814,42 @@ def _add_session_stop_preview_from_store_local_arguments(
         "--disabled",
         action="store_true",
         help="preview the stored session stop as disabled",
+    )
+
+
+def _add_session_window_plan_from_store_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe local session identifier for the session window plan",
+    )
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit existing local SQLite course schedule database",
+    )
+    parser.add_argument(
+        "--source-kind",
+        required=True,
+        choices=("file", "mic"),
+        help="local source kind to plan",
+    )
+    parser.add_argument(
+        "--clock-day-of-week",
+        required=True,
+        help="explicit local clock weekday name",
+    )
+    parser.add_argument(
+        "--clock-local-time",
+        required=True,
+        help="explicit local clock time in HH:MM",
+    )
+    parser.add_argument(
+        "--disabled",
+        action="store_true",
+        help="return disabled session-window metadata without due courses",
     )
 
 
@@ -1403,6 +1480,68 @@ def _stored_session_stop_preview_safe_summary(
     payload: dict[str, object],
 ) -> dict[str, object]:
     return {key: payload[key] for key in _STORED_SESSION_STOP_PREVIEW_KEYS}
+
+
+def _run_session_window_plan_from_store_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-plan-from-store-local",
+        description=(
+            "Build due non-executing session-window metadata from an explicit "
+            "read-only local schedule store and explicit local clock."
+        ),
+        fixed_error_message=_SESSION_WINDOW_PLAN_FROM_STORE_CLI_ERROR,
+    )
+    _add_session_window_plan_from_store_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_plan_from_store_local_command(args)
+
+
+def _run_session_window_plan_from_store_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.schedule_store import list_course_schedule_session_window_inputs
+    from async_scholar.scheduled_start import ScheduledStartClock
+    from async_scholar.session_window import build_stored_session_window_plan_summary
+
+    try:
+        clock = ScheduledStartClock(
+            day_of_week=args.clock_day_of_week,
+            local_time=args.clock_local_time,
+        )
+        payload = _stored_session_window_plan_safe_summary(
+            build_stored_session_window_plan_summary(
+                list_course_schedule_session_window_inputs(args.db_path),
+                clock,
+                args.session_id,
+                args.source_kind,
+                enabled=not args.disabled,
+            )
+        )
+    except (KeyError, TypeError, ValueError):
+        print(_SESSION_WINDOW_PLAN_FROM_STORE_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _stored_session_window_plan_safe_summary(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    courses = payload["courses"]
+    if not isinstance(courses, list):
+        raise ValueError(_SESSION_WINDOW_PLAN_FROM_STORE_CLI_ERROR)
+    safe_payload = {key: payload[key] for key in _STORED_SESSION_WINDOW_PLAN_KEYS}
+    safe_payload["courses"] = [
+        _stored_session_window_plan_course_safe_summary(course) for course in courses
+    ]
+    return safe_payload
+
+
+def _stored_session_window_plan_course_safe_summary(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    return {key: payload[key] for key in _STORED_SESSION_WINDOW_PLAN_COURSE_KEYS}
 
 
 def _run_mic_recording_diagnostic_command(argv: list[str]) -> int:

@@ -20,6 +20,9 @@ COURSE_SCHEDULE_DUE_LIST_ERROR = "course schedule due list could not be built"
 COURSE_SCHEDULE_SESSION_STOP_PREVIEW_ERROR = (
     "course schedule session stop preview could not be built"
 )
+COURSE_SCHEDULE_SESSION_WINDOW_PLAN_ERROR = (
+    "course schedule session window plan could not be built"
+)
 
 _COURSES_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS courses (
@@ -316,6 +319,34 @@ def load_course_schedule_session_stop_input(
         raise ValueError(COURSE_SCHEDULE_SESSION_STOP_PREVIEW_ERROR) from None
 
 
+def list_course_schedule_session_window_inputs(
+    db_path: str | Path,
+) -> dict[str, object]:
+    """List only stored class-window fields needed by session-window plans."""
+
+    try:
+        safe_db_path = _validate_existing_db_path(db_path)
+        read_only_uri = f"{safe_db_path.resolve(strict=True).as_uri()}?mode=ro"
+        with sqlite3.connect(read_only_uri, uri=True) as connection:
+            connection.row_factory = sqlite3.Row
+            _configure_connection(connection)
+            courses = _fetch_course_schedule_session_window_inputs(connection)
+    except (
+        OSError,
+        RuntimeError,
+        TypeError,
+        ValidationError,
+        sqlite3.Error,
+        ValueError,
+    ):
+        raise ValueError(COURSE_SCHEDULE_SESSION_WINDOW_PLAN_ERROR) from None
+
+    return {
+        "course_count": len(courses),
+        "courses": courses,
+    }
+
+
 def _validate_db_path(db_path: str | Path) -> Path:
     if not isinstance(db_path, (str, Path)):
         raise ValueError("db_path must be an explicit local path")
@@ -557,6 +588,74 @@ def _fetch_course_schedule_session_stop_input(
         "scheduled_local_start_time": scheduled_local_start_time,
         "stop_after_minutes": stop_after_minutes,
     }
+
+
+def _fetch_course_schedule_session_window_inputs(
+    connection: sqlite3.Connection,
+) -> list[dict[str, object]]:
+    rows = connection.execute(
+        """
+        SELECT
+            courses.course_id AS course_id,
+            class_times.position AS selected_class_time_index,
+            class_times.day_of_week AS scheduled_day_of_week,
+            class_times.local_start_time AS scheduled_local_start_time,
+            class_times.duration_minutes AS stop_after_minutes
+        FROM courses
+        LEFT JOIN class_times ON class_times.course_id = courses.course_id
+        ORDER BY courses.course_id, class_times.position
+        """
+    ).fetchall()
+
+    courses: list[dict[str, object]] = []
+    current_course_id: str | None = None
+    current_course: dict[str, object] | None = None
+    for row in rows:
+        course_id = _normalize_course_id(row["course_id"])
+        selected_class_time_index = row["selected_class_time_index"]
+        scheduled_day_of_week = row["scheduled_day_of_week"]
+        scheduled_local_start_time = row["scheduled_local_start_time"]
+        stop_after_minutes = row["stop_after_minutes"]
+        if selected_class_time_index is None:
+            raise ValueError("course schedule has no class times")
+        selected_class_time_index = _normalize_class_time_index(
+            selected_class_time_index
+        )
+        if not isinstance(scheduled_day_of_week, str) or not isinstance(
+            scheduled_local_start_time,
+            str,
+        ):
+            raise ValueError("course schedule has invalid class time")
+        if (
+            isinstance(stop_after_minutes, bool)
+            or not isinstance(stop_after_minutes, int)
+            or stop_after_minutes <= 0
+        ):
+            raise ValueError("course schedule has invalid class time")
+
+        if course_id != current_course_id:
+            current_course_id = course_id
+            current_course = {
+                "course_id": course_id,
+                "class_times": [],
+            }
+            courses.append(current_course)
+
+        if current_course is None:
+            raise ValueError("course schedule could not be grouped")
+        class_times = current_course["class_times"]
+        if not isinstance(class_times, list):
+            raise ValueError("course schedule could not be grouped")
+        class_times.append(
+            {
+                "selected_class_time_index": selected_class_time_index,
+                "scheduled_day_of_week": scheduled_day_of_week,
+                "scheduled_local_start_time": scheduled_local_start_time,
+                "stop_after_minutes": stop_after_minutes,
+            }
+        )
+
+    return courses
 
 
 def _normalize_class_time_index(selected_class_time_index: int) -> int:
