@@ -15,6 +15,7 @@ COURSE_SCHEDULE_STORE_ERROR = "course schedule store could not be built"
 COURSE_SCHEDULE_SAVE_ERROR = "course schedule could not be saved"
 COURSE_SCHEDULE_LOAD_ERROR = "course schedule could not be loaded"
 COURSE_SCHEDULE_SUMMARY_ERROR = "course schedule summary could not be built"
+COURSE_SCHEDULE_LIST_ERROR = "course schedule list could not be built"
 
 _COURSES_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS courses (
@@ -226,6 +227,32 @@ def load_course_schedule_safe_summary(
         raise ValueError(COURSE_SCHEDULE_SUMMARY_ERROR) from None
 
 
+def list_course_schedule_safe_summaries(db_path: str | Path) -> dict[str, object]:
+    """List stored course schedule metadata without creating or modifying the store."""
+
+    try:
+        safe_db_path = _validate_existing_db_path(db_path)
+        read_only_uri = f"{safe_db_path.resolve(strict=True).as_uri()}?mode=ro"
+        with sqlite3.connect(read_only_uri, uri=True) as connection:
+            connection.row_factory = sqlite3.Row
+            _configure_connection(connection)
+            courses = _fetch_course_schedule_safe_summaries(connection)
+    except (
+        OSError,
+        RuntimeError,
+        TypeError,
+        ValidationError,
+        sqlite3.Error,
+        ValueError,
+    ):
+        raise ValueError(COURSE_SCHEDULE_LIST_ERROR) from None
+
+    return {
+        "course_count": len(courses),
+        "courses": courses,
+    }
+
+
 def _validate_db_path(db_path: str | Path) -> Path:
     if not isinstance(db_path, (str, Path)):
         raise ValueError("db_path must be an explicit local path")
@@ -326,6 +353,36 @@ def _fetch_stored_course_schedule(
         course_metadata=course_metadata,
         schedule_config=schedule_config,
     )
+
+
+def _fetch_course_schedule_safe_summaries(
+    connection: sqlite3.Connection,
+) -> list[dict[str, object]]:
+    rows = connection.execute(
+        """
+        SELECT
+            courses.course_id AS course_id,
+            COUNT(class_times.position) AS class_time_count
+        FROM courses
+        LEFT JOIN class_times ON class_times.course_id = courses.course_id
+        GROUP BY courses.course_id
+        ORDER BY courses.course_id
+        """
+    ).fetchall()
+
+    courses: list[dict[str, object]] = []
+    for row in rows:
+        course_id = _normalize_course_id(row["course_id"])
+        class_time_count = row["class_time_count"]
+        if not isinstance(class_time_count, int) or class_time_count < 1:
+            raise ValueError("course schedule has no class times")
+        courses.append(
+            {
+                "course_id": course_id,
+                "class_time_count": class_time_count,
+            }
+        )
+    return courses
 
 
 def _configure_connection(connection: sqlite3.Connection) -> None:

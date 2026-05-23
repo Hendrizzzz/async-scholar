@@ -18,6 +18,7 @@ _ARCHIVE_DELETE_DRY_RUN_CLI_ERROR = "archive delete dry run could not be built"
 _SCHEDULED_START_PREVIEW_CLI_ERROR = "scheduled start preview could not be built"
 _COURSE_SCHEDULE_SAVE_CLI_ERROR = "course schedule save could not be built"
 _COURSE_SCHEDULE_SUMMARY_CLI_ERROR = "course schedule summary could not be built"
+_COURSE_SCHEDULE_LIST_CLI_ERROR = "course schedule list could not be built"
 _SCHEDULED_START_PREVIEW_FROM_STORE_CLI_ERROR = (
     "stored scheduled start preview could not be built"
 )
@@ -179,6 +180,17 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_course_schedule_summary_local_command
     )
 
+    course_schedule_list = subparsers.add_parser(
+        "course-schedule-list-local",
+        help="list stored local course schedules using metadata only",
+        description=(
+            "List stored local course schedule metadata from an explicit "
+            "read-only SQLite database path."
+        ),
+    )
+    _add_course_schedule_list_local_arguments(course_schedule_list)
+    course_schedule_list.set_defaults(handler=_run_course_schedule_list_local_command)
+
     course_schedule_save = subparsers.add_parser(
         "course-schedule-save-local",
         help="save a local course schedule from explicit metadata",
@@ -250,6 +262,11 @@ def main(argv: list[str] | None = None) -> int:
         return _run_course_schedule_save_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
         return _run_course_schedule_summary_local_argv(argv[1:])
+    if argv[:1] == ["course-schedule-list-local"]:
+        return _run_course_schedule_list_local_argv(argv[1:])
+    if "course-schedule-list-local" in argv:
+        print(_COURSE_SCHEDULE_LIST_CLI_ERROR, file=sys.stderr)
+        return 2
     if "course-schedule-save-local" in argv or any(
         arg == "--class-time"
         or arg.startswith("--class-time=")
@@ -478,6 +495,17 @@ def _add_course_schedule_summary_local_arguments(
         "--course-id",
         required=True,
         help="safe course identifier to summarize",
+    )
+
+
+def _add_course_schedule_list_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit existing local SQLite course schedule database",
     )
 
 
@@ -889,6 +917,48 @@ def _run_course_schedule_summary_local_command(args: argparse.Namespace) -> int:
 
     print(json.dumps(payload, sort_keys=True))
     return 0
+
+
+def _run_course_schedule_list_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar course-schedule-list-local",
+        description=(
+            "List stored local course schedule metadata from an explicit "
+            "read-only SQLite database path."
+        ),
+        fixed_error_message=_COURSE_SCHEDULE_LIST_CLI_ERROR,
+    )
+    _add_course_schedule_list_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_course_schedule_list_local_command(args)
+
+
+def _run_course_schedule_list_local_command(args: argparse.Namespace) -> int:
+    from async_scholar.schedule_store import (
+        COURSE_SCHEDULE_LIST_ERROR,
+        list_course_schedule_safe_summaries,
+    )
+
+    try:
+        payload = _course_schedule_list_safe_summary(
+            list_course_schedule_safe_summaries(args.db_path)
+        )
+    except (KeyError, TypeError, ValueError):
+        print(COURSE_SCHEDULE_LIST_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _course_schedule_list_safe_summary(payload: dict[str, object]) -> dict[str, object]:
+    courses = payload["courses"]
+    if not isinstance(courses, list):
+        raise ValueError(_COURSE_SCHEDULE_LIST_CLI_ERROR)
+    return {
+        "course_count": payload["course_count"],
+        "courses": [_course_schedule_safe_summary(course) for course in courses],
+    }
 
 
 def _run_course_schedule_save_local_argv(argv: list[str]) -> int:

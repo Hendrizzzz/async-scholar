@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import sqlite3
 from pathlib import Path
 
@@ -10,12 +11,14 @@ from async_scholar import schedule_store
 from async_scholar.course_metadata import CourseMetadata
 from async_scholar.schedule_config import ScheduleConfig
 from async_scholar.schedule_store import (
+    COURSE_SCHEDULE_LIST_ERROR,
     COURSE_SCHEDULE_LOAD_ERROR,
     COURSE_SCHEDULE_SAVE_ERROR,
     COURSE_SCHEDULE_STORE_ERROR,
     COURSE_SCHEDULE_SUMMARY_ERROR,
     StoredCourseSchedule,
     initialize_course_schedule_store,
+    list_course_schedule_safe_summaries,
     load_course_schedule,
     load_course_schedule_read_only,
     load_course_schedule_safe_summary,
@@ -179,6 +182,72 @@ def test_load_course_schedule_read_only_uses_read_only_uri_and_validates_rows(
     assert str(connection_call["database"]).endswith("?mode=ro")
 
 
+def test_list_course_schedule_safe_summaries_is_read_only_sorted_and_redacted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    save_course_schedule(
+        db_path,
+        _course_metadata("math101"),
+        _schedule_config("math101", second_time=False),
+    )
+    save_course_schedule(db_path, _course_metadata("cs101"), _schedule_config())
+    real_connect = schedule_store.sqlite3.connect
+    connection_call: dict[str, object] = {}
+
+    def checking_connect(database: object, *args: object, **kwargs: object) -> object:
+        connection_call["database"] = str(database)
+        connection_call["uri"] = kwargs.get("uri")
+        return real_connect(database, *args, **kwargs)
+
+    monkeypatch.setattr(schedule_store.sqlite3, "connect", checking_connect)
+
+    summary = list_course_schedule_safe_summaries(db_path)
+
+    assert summary == {
+        "course_count": 2,
+        "courses": [
+            {"course_id": "cs101", "class_time_count": 2},
+            {"course_id": "math101", "class_time_count": 1},
+        ],
+    }
+    assert connection_call["uri"] is True
+    assert str(connection_call["database"]).endswith("?mode=ro")
+    public_text = str(summary).lower()
+    for forbidden_fragment in (
+        "meeting",
+        "meet.example",
+        "token",
+        "private",
+        "confidential",
+        "instructor",
+        "dr.",
+        "lecture",
+        "lab",
+        "timezone",
+        "duration",
+        "auth",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+    ):
+        assert forbidden_fragment not in public_text
+
+
+def test_list_course_schedule_safe_summaries_allows_empty_existing_store(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    initialize_course_schedule_store(db_path)
+
+    summary = list_course_schedule_safe_summaries(db_path)
+
+    assert summary == {"course_count": 0, "courses": []}
+
+
 def test_load_course_schedule_safe_summary_rejects_missing_db_without_creating(
     tmp_path: Path,
 ) -> None:
@@ -188,6 +257,28 @@ def test_load_course_schedule_safe_summary_rejects_missing_db_without_creating(
         load_course_schedule_safe_summary(db_path, "cs101")
 
     assert str(exc_info.value) == COURSE_SCHEDULE_SUMMARY_ERROR
+    assert not db_path.exists()
+    for forbidden_fragment in (
+        str(tmp_path).lower(),
+        "missing-token",
+        "secret",
+        "auth",
+        "profile",
+        "sqlite",
+        "traceback",
+    ):
+        assert forbidden_fragment not in str(exc_info.value).lower()
+
+
+def test_list_course_schedule_safe_summaries_rejects_missing_db_without_creating(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "missing-token-secret-auth-profile.sqlite"
+
+    with pytest.raises(ValueError) as exc_info:
+        list_course_schedule_safe_summaries(db_path)
+
+    assert str(exc_info.value) == COURSE_SCHEDULE_LIST_ERROR
     assert not db_path.exists()
     for forbidden_fragment in (
         str(tmp_path).lower(),
@@ -239,6 +330,74 @@ def test_load_course_schedule_safe_summary_sanitizes_malformed_store(
     assert str(exc_info.value) == COURSE_SCHEDULE_SUMMARY_ERROR
     for forbidden_fragment in (
         str(tmp_path).lower(),
+        "class_times",
+        "select",
+        "sqlite",
+        "traceback",
+    ):
+        assert forbidden_fragment not in str(exc_info.value).lower()
+
+
+def test_list_course_schedule_safe_summaries_sanitizes_malformed_store(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE courses (
+                course_id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                instructor_name TEXT,
+                meeting_url TEXT,
+                meeting_label TEXT
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE class_times (
+                course_id TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                day_of_week TEXT NOT NULL,
+                local_start_time TEXT NOT NULL,
+                duration_minutes INTEGER NOT NULL,
+                timezone_name TEXT,
+                meeting_label TEXT,
+                PRIMARY KEY (course_id, position)
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO courses (
+                course_id,
+                title,
+                instructor_name,
+                meeting_url,
+                meeting_label
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "cs101",
+                "Confidential Systems",
+                "Dr. Private",
+                _private_meeting_url(),
+                "Private lecture",
+            ),
+        )
+
+    with pytest.raises(ValueError) as exc_info:
+        list_course_schedule_safe_summaries(db_path)
+
+    assert str(exc_info.value) == COURSE_SCHEDULE_LIST_ERROR
+    for forbidden_fragment in (
+        str(tmp_path).lower(),
+        "confidential",
+        "private",
+        "meet.example",
+        "token",
         "class_times",
         "select",
         "sqlite",
@@ -425,13 +584,58 @@ def test_store_rejects_unsafe_db_paths_before_metadata_probes(
         "\\\\server\\share\\token-secret-auth-profile.sqlite",
         "//server/share/token-secret-auth-profile.sqlite",
         "file:token-secret-auth-profile.sqlite",
+        "https://example.test/token-secret-auth-profile.sqlite",
         ":memory:",
+        "",
+        "   ",
+        "schedule\nsecret.sqlite",
     ):
         with pytest.raises(ValueError) as exc_info:
             initialize_course_schedule_store(db_path)
 
         assert str(exc_info.value) == COURSE_SCHEDULE_STORE_ERROR
         assert probe_calls == []
+
+        with pytest.raises(ValueError) as list_exc_info:
+            list_course_schedule_safe_summaries(db_path)
+
+        assert str(list_exc_info.value) == COURSE_SCHEDULE_LIST_ERROR
+        assert probe_calls == []
+
+
+def test_list_course_schedule_safe_summaries_rejects_directory_and_symlink_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory_path = tmp_path / "token-secret-auth-profile-dir"
+    directory_path.mkdir()
+
+    with pytest.raises(ValueError) as dir_exc_info:
+        list_course_schedule_safe_summaries(directory_path)
+
+    assert str(dir_exc_info.value) == COURSE_SCHEDULE_LIST_ERROR
+    for forbidden_fragment in (
+        str(tmp_path).lower(),
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "traceback",
+    ):
+        assert forbidden_fragment not in str(dir_exc_info.value).lower()
+
+    def fake_connect(*args: object, **kwargs: object) -> object:
+        raise AssertionError("symlink DB paths must be rejected before connect")
+
+    monkeypatch.setattr(schedule_store.sqlite3, "connect", fake_connect)
+    monkeypatch.setattr(Path, "exists", lambda self: True)
+    monkeypatch.setattr(Path, "is_dir", lambda self: False)
+    monkeypatch.setattr(Path, "is_symlink", lambda self: True)
+
+    with pytest.raises(ValueError) as symlink_exc_info:
+        list_course_schedule_safe_summaries("token-secret-auth-profile.sqlite")
+
+    assert str(symlink_exc_info.value) == COURSE_SCHEDULE_LIST_ERROR
 
 
 def test_store_sanitizes_sqlite_and_path_failures(
@@ -589,3 +793,53 @@ def test_schedule_store_source_has_no_forbidden_execution_surfaces() -> None:
     ]
     for forbidden_token in forbidden_tokens:
         assert forbidden_token not in source
+
+
+def test_list_course_schedule_safe_summaries_source_stays_read_only() -> None:
+    source = "\n".join(
+        [
+            inspect.getsource(schedule_store.list_course_schedule_safe_summaries),
+            inspect.getsource(schedule_store._fetch_course_schedule_safe_summaries),
+        ]
+    ).lower()
+
+    assert "mode=ro" in source
+    assert "select" in source
+    for forbidden_fragment in (
+        "load_course_schedule(",
+        "save_course_schedule",
+        "initialize_course_schedule_store",
+        "_create_schema",
+        "create table",
+        "insert into",
+        "update ",
+        "delete from",
+        "drop table",
+        "datetime",
+        "now(",
+        "sleep",
+        "timer",
+        "threading",
+        "asyncio",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "selenium",
+        "sounddevice",
+        "faster_whisper",
+        "telegram",
+        "desktop_notifier",
+        "execute_archive",
+        "archive_export",
+        ".open(",
+        ".read_text(",
+        ".write_text(",
+        ".mkdir(",
+        ".unlink(",
+        ".remove(",
+        ".rmdir(",
+        "rmtree",
+    ):
+        assert forbidden_fragment not in source
