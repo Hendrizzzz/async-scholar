@@ -52,6 +52,9 @@ _SESSION_WINDOW_CONFIRMATION_RESPONSE_FROM_STORE_CLI_ERROR = (
 _SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR = (
     "stored session window start authorization could not be built"
 )
+_SESSION_WINDOW_EXECUTION_PREFLIGHT_FROM_STORE_CLI_ERROR = (
+    "stored session window execution preflight could not be built"
+)
 _SESSION_WINDOW_START_RECEIPT_FROM_STORE_CLI_ERROR = (
     "stored session window start receipt could not be built"
 )
@@ -667,6 +670,22 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_session_window_start_authorization_from_store_local_command
     )
 
+    session_window_execution_preflight = subparsers.add_parser(
+        "session-window-execution-preflight-from-store-local",
+        help="preflight a one-shot stored session-window execution without running it",
+        description=(
+            "Build read-only one-shot session-window execution preflight metadata "
+            "from an explicit read-only local schedule store, archive root, local "
+            "clock, and same-invocation fixed confirmation response."
+        ),
+    )
+    _add_session_window_execution_preflight_from_store_local_arguments(
+        session_window_execution_preflight
+    )
+    session_window_execution_preflight.set_defaults(
+        handler=_run_session_window_execution_preflight_from_store_local_command
+    )
+
     session_window_start_receipt = subparsers.add_parser(
         "session-window-start-receipt-from-store-local",
         help="record an authorized stored session-window start receipt",
@@ -907,6 +926,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_session_window_confirmation_response_from_store_local_argv(argv[1:])
     if argv[:1] == ["session-window-start-authorization-from-store-local"]:
         return _run_session_window_start_authorization_from_store_local_argv(argv[1:])
+    if argv[:1] == ["session-window-execution-preflight-from-store-local"]:
+        return _run_session_window_execution_preflight_from_store_local_argv(argv[1:])
     if argv[:1] == ["session-window-start-receipt-from-store-local"]:
         return _run_session_window_start_receipt_from_store_local_argv(argv[1:])
     if argv[:1] == ["session-window-stop-receipt-from-store-local"]:
@@ -1006,6 +1027,12 @@ def main(argv: list[str] | None = None) -> int:
     if "session-window-start-authorization-from-store-local" in argv:
         print(
             _SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 2
+    if "session-window-execution-preflight-from-store-local" in argv:
+        print(
+            _SESSION_WINDOW_EXECUTION_PREFLIGHT_FROM_STORE_CLI_ERROR,
             file=sys.stderr,
         )
         return 2
@@ -1807,6 +1834,54 @@ def _add_session_window_start_authorization_from_store_local_arguments(
         "--disabled",
         action="store_true",
         help="return disabled session-window authorization metadata without starts",
+    )
+
+
+def _add_session_window_execution_preflight_from_store_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe local session identifier for the execution preflight",
+    )
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit existing local SQLite course schedule database",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit archive root containing the safe session directory",
+    )
+    parser.add_argument(
+        "--source-kind",
+        required=True,
+        choices=("file", "mic"),
+        help="local source kind to preflight",
+    )
+    parser.add_argument(
+        "--clock-day-of-week",
+        required=True,
+        help="explicit local clock weekday name",
+    )
+    parser.add_argument(
+        "--clock-local-time",
+        required=True,
+        help="explicit local clock time in HH:MM",
+    )
+    parser.add_argument(
+        "--confirmation-response",
+        required=True,
+        choices=("confirmed", "declined"),
+        help="same-invocation fixed user confirmation response token",
+    )
+    parser.add_argument(
+        "--disabled",
+        action="store_true",
+        help="return disabled session-window execution metadata without starts",
     )
 
 
@@ -3312,6 +3387,56 @@ def _stored_session_window_start_authorization_course_safe_summary(
     if safe_payload["confirmation_response"] != confirmation_response:
         raise ValueError(_SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR)
     return safe_payload
+
+
+def _run_session_window_execution_preflight_from_store_local_argv(
+    argv: list[str],
+) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-execution-preflight-from-store-local",
+        description=(
+            "Build read-only one-shot session-window execution preflight metadata "
+            "from an explicit read-only local schedule store, archive root, local "
+            "clock, and same-invocation fixed confirmation response."
+        ),
+        fixed_error_message=_SESSION_WINDOW_EXECUTION_PREFLIGHT_FROM_STORE_CLI_ERROR,
+    )
+    _add_session_window_execution_preflight_from_store_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_execution_preflight_from_store_local_command(args)
+
+
+def _run_session_window_execution_preflight_from_store_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.scheduled_start import ScheduledStartClock
+    from async_scholar.session_window_execution_preflight import (
+        build_stored_session_window_execution_preflight_from_store,
+    )
+
+    try:
+        clock = ScheduledStartClock(
+            day_of_week=args.clock_day_of_week,
+            local_time=args.clock_local_time,
+        )
+        payload = build_stored_session_window_execution_preflight_from_store(
+            args.db_path,
+            args.archive_root,
+            args.session_id,
+            args.source_kind,
+            clock,
+            args.confirmation_response,
+            enabled=not args.disabled,
+        )
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError):
+        print(
+            _SESSION_WINDOW_EXECUTION_PREFLIGHT_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
 
 
 def _run_session_window_start_receipt_from_store_local_argv(
