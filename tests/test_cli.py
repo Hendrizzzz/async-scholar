@@ -90,6 +90,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "session-window-recovery-decision-local" in result.stdout
     assert "session-window-recovery-review-local" in result.stdout
     assert "session-window-recovery-review-batch-local" in result.stdout
+    assert "session-window-recovery-report-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -11907,6 +11908,194 @@ def test_session_window_recovery_review_batch_misordered_uses_batch_error() -> N
         assert forbidden_fragment not in result.stderr
 
 
+def test_session_window_recovery_report_local_help_stays_lazy(
+    monkeypatch,
+) -> None:
+    report_module = "async_scholar.session_window_recovery_report"
+    monkeypatch.delitem(sys.modules, report_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-recovery-report-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar session-window-recovery-report-local" in (
+        result.stdout
+    )
+    assert "--archive-root" in result.stdout
+    assert "read-only" in result.stdout
+    assert "recovery report" in result.stdout
+    assert report_module not in sys.modules
+
+
+def test_session_window_recovery_report_local_requires_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-recovery-report-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == (
+        "stored session window recovery report could not be built\n"
+    )
+
+
+def test_session_window_recovery_report_command_delegates_to_builder(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    report_module = "async_scholar.session_window_recovery_report"
+    fake_report_module = types.ModuleType(report_module)
+
+    def fake_build(archive_root: Path, session_ids: list[str]) -> str:
+        received["archive_root"] = archive_root
+        received["session_ids"] = session_ids
+        return (
+            "# Stored Session Window Recovery Report\n"
+            "\n"
+            "Review count: 1\n"
+            "Manual review required: 0\n"
+            "Required: 0\n"
+            "Not required: 1\n"
+            "\n"
+            "## session-001\n"
+            "- Session ID: session-001\n"
+            "- Lifecycle status: not_started\n"
+            "- Archive status: empty\n"
+            "- Recovery decision: no_action\n"
+            "- Review status: not_required\n"
+            "- Review reason: none\n"
+            "- Safe next review action: leave_archive_unchanged\n"
+        )
+
+    fake_report_module.build_stored_session_window_recovery_report = fake_build
+    monkeypatch.setitem(sys.modules, report_module, fake_report_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-recovery-report-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out == (
+        "# Stored Session Window Recovery Report\n"
+        "\n"
+        "Review count: 1\n"
+        "Manual review required: 0\n"
+        "Required: 0\n"
+        "Not required: 1\n"
+        "\n"
+        "## session-001\n"
+        "- Session ID: session-001\n"
+        "- Lifecycle status: not_started\n"
+        "- Archive status: empty\n"
+        "- Recovery decision: no_action\n"
+        "- Review status: not_required\n"
+        "- Review reason: none\n"
+        "- Safe next review action: leave_archive_unchanged\n"
+    )
+    assert captured.err == ""
+    assert received == {
+        "archive_root": Path("archive-root"),
+        "session_ids": ["session-001"],
+    }
+
+
+def test_session_window_recovery_report_sanitizes_build_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    report_module = "async_scholar.session_window_recovery_report"
+    fake_report_module = types.ModuleType(report_module)
+
+    def fake_build(archive_root: Path, session_ids: list[str]) -> str:
+        raise ValueError("C:\\Users\\student\\token-secret-auth-profile")
+
+    fake_report_module.build_stored_session_window_recovery_report = fake_build
+    monkeypatch.setitem(sys.modules, report_module, fake_report_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-recovery-report-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == (
+        "stored session window recovery report could not be built\n"
+    )
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_session_window_recovery_report_misordered_uses_report_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--archive-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "session-window-recovery-report-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == (
+        "stored session window recovery report could not be built\n"
+    )
+    for forbidden_fragment in (
+        "C:\\Users",
+        "token",
+        "secret",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
 def test_session_window_recovery_decision_handler_stays_thin() -> None:
     source = inspect.getsource(cli._run_session_window_recovery_decision_local_command)
 
@@ -11966,6 +12155,56 @@ def test_session_window_recovery_review_batch_handler_stays_thin() -> None:
 
     assert "build_stored_session_window_recovery_review_batch" in source
     for forbidden_fragment in (
+        "build_stored_session_window_recovery_review(",
+        "build_stored_session_window_recovery_decision",
+        "build_stored_session_window_runtime_summary",
+        "build_crash_recovery_session_preflight",
+        "list_course_schedule_session_window_inputs",
+        "load_course_schedule",
+        "save_course_schedule",
+        "initialize_course_schedule_store",
+        "_create_schema",
+        "ScheduleConfig",
+        "CourseMetadata",
+        "ScheduledStartClock",
+        "build_session_window_confirmation",
+        "build_session_window_start_authorization",
+        "write_stored_session_window_start_receipt",
+        "write_stored_session_window_stop_receipt",
+        "datetime",
+        "now(",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "selenium",
+        "sounddevice",
+        "faster_whisper",
+        "mic_recording",
+        "telegram",
+        "desktop_notifier",
+        "alert_dispatch",
+        "archive_export",
+        "archive_delete",
+        "participation",
+        "academic_answer",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in source
+
+
+def test_session_window_recovery_report_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_session_window_recovery_report_local_command)
+
+    assert "build_stored_session_window_recovery_report" in source
+    for forbidden_fragment in (
+        "build_stored_session_window_recovery_review_batch",
         "build_stored_session_window_recovery_review(",
         "build_stored_session_window_recovery_decision",
         "build_stored_session_window_runtime_summary",
