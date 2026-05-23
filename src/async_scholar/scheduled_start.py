@@ -28,6 +28,7 @@ SOURCE_KIND_VALUES = ("file", "mic")
 SCHEDULED_START_DECISION_KIND = "scheduled_start_due_decision"
 SCHEDULED_START_MANUAL_RESULT_KIND = "scheduled_start_manual_result"
 SCHEDULED_START_MANUAL_RESULT_ERROR = "scheduled start manual result could not be built"
+SCHEDULED_START_NEXT_PREVIEW_ERROR = "scheduled start next preview could not be built"
 DAY_OF_WEEK_VALUES = (
     "monday",
     "tuesday",
@@ -60,6 +61,7 @@ ScheduledStartPlanSummary = dict[str, str | int | bool | None]
 ScheduledStartClockSummary = dict[str, str]
 ScheduledStartDueDecisionSummary = dict[str, str | int | bool | None]
 ScheduledStartManualResultSummary = dict[str, str | int | bool | None]
+ScheduledStartNextPreviewSummary = dict[str, str | int | bool | None]
 
 
 def _before_validator(*field_names: str) -> Any:
@@ -741,6 +743,109 @@ def scheduled_start_manual_result_safe_summary(
     return _scheduled_start_manual_result_to_json_ready(
         _revalidate_scheduled_start_manual_result(result)
     )
+
+
+def _normalize_next_preview_source_kind(value: Any) -> str:
+    normalized = _clean_required_text(
+        value,
+        field_name="source_kind",
+        max_length=max(len(kind) for kind in SOURCE_KIND_VALUES),
+    ).lower()
+    if normalized not in _SOURCE_KIND_SET:
+        raise ValueError(SCHEDULED_START_NEXT_PREVIEW_ERROR)
+    return normalized
+
+
+def _next_preview_summary_from_manual_result(
+    result: ScheduledStartManualResult,
+    selected_class_time_index: int,
+) -> ScheduledStartNextPreviewSummary:
+    payload = scheduled_start_manual_result_safe_summary(result)
+    return {
+        "status": payload["status"],
+        "session_id": payload["session_id"],
+        "course_id": payload["course_id"],
+        "source_kind": payload["source_kind"],
+        "clock_day_of_week": payload["clock_day_of_week"],
+        "clock_local_time": payload["clock_local_time"],
+        "selected_class_time_index": selected_class_time_index,
+        "scheduled_day_of_week": payload["scheduled_day_of_week"],
+        "scheduled_local_start_time": payload["scheduled_local_start_time"],
+        "due": payload["due"],
+        "minutes_until_start": payload["minutes_until_start"],
+        "next_day_of_week": payload["next_day_of_week"],
+        "next_local_start_time": payload["next_local_start_time"],
+    }
+
+
+def build_next_scheduled_start_preview_summary(
+    schedule_config: ScheduleConfig,
+    clock: ScheduledStartClock,
+    session_id: str,
+    source_kind: str,
+    *,
+    enabled: bool = True,
+) -> ScheduledStartNextPreviewSummary:
+    """Select the next inert stored class-time preview from explicit inputs."""
+
+    try:
+        if type(schedule_config) is not ScheduleConfig:
+            raise ValueError(SCHEDULED_START_NEXT_PREVIEW_ERROR)
+        if type(clock) is not ScheduledStartClock:
+            raise ValueError(SCHEDULED_START_NEXT_PREVIEW_ERROR)
+        if not isinstance(enabled, bool):
+            raise ValueError(SCHEDULED_START_NEXT_PREVIEW_ERROR)
+
+        safe_schedule_config = ScheduleConfig(**_model_to_primitive(schedule_config))
+        safe_clock = _revalidate_scheduled_start_clock(clock)
+        safe_session_id = _normalize_session_id(session_id)
+        safe_source_kind = _normalize_next_preview_source_kind(source_kind)
+
+        if not enabled:
+            return {
+                "status": "disabled",
+                "session_id": safe_session_id,
+                "course_id": safe_schedule_config.course_id,
+                "source_kind": safe_source_kind,
+                "clock_day_of_week": safe_clock.day_of_week,
+                "clock_local_time": safe_clock.local_time,
+                "selected_class_time_index": None,
+                "scheduled_day_of_week": None,
+                "scheduled_local_start_time": None,
+                "due": False,
+                "minutes_until_start": None,
+                "next_day_of_week": None,
+                "next_local_start_time": None,
+            }
+
+        selected: tuple[int, int, ScheduledStartManualResult] | None = None
+        for index, _class_time in enumerate(safe_schedule_config.class_times):
+            plan = build_scheduled_start_plan(
+                safe_schedule_config,
+                selected_class_time_index=index,
+                source_kind=safe_source_kind,
+                enabled=True,
+            )
+            result = build_scheduled_start_manual_result(
+                plan,
+                safe_clock,
+                safe_session_id,
+            )
+            if result.minutes_until_start is None:
+                raise ValueError(SCHEDULED_START_NEXT_PREVIEW_ERROR)
+            candidate = (result.minutes_until_start, index, result)
+            if selected is None or candidate[:2] < selected[:2]:
+                selected = candidate
+
+        if selected is None:
+            raise ValueError(SCHEDULED_START_NEXT_PREVIEW_ERROR)
+        _minutes_until_start, selected_index, selected_result = selected
+        return _next_preview_summary_from_manual_result(
+            selected_result,
+            selected_class_time_index=selected_index,
+        )
+    except (TypeError, ValidationError, ValueError):
+        raise ValueError(SCHEDULED_START_NEXT_PREVIEW_ERROR) from None
 
 
 def build_scheduled_start_plan(

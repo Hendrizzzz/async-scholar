@@ -66,6 +66,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "scheduled-start-preview-local" in result.stdout
     assert "course-schedule-summary-local" in result.stdout
     assert "scheduled-start-preview-from-store-local" in result.stdout
+    assert "scheduled-start-next-from-store-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -2826,6 +2827,568 @@ def test_scheduled_start_preview_from_store_local_handler_stays_read_only() -> N
         assert forbidden_fragment not in source
 
 
+def test_scheduled_start_next_from_store_local_help_stays_lazy(monkeypatch) -> None:
+    schedule_store_module = "async_scholar.schedule_store"
+    scheduled_start_module = "async_scholar.scheduled_start"
+    monkeypatch.delitem(sys.modules, schedule_store_module, raising=False)
+    monkeypatch.delitem(sys.modules, scheduled_start_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-next-from-store-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar scheduled-start-next-from-store-local" in (
+        result.stdout
+    )
+    assert "--db-path" in result.stdout
+    assert "--clock-local-time" in result.stdout
+    assert "non-executing" in result.stdout
+    assert schedule_store_module not in sys.modules
+    assert scheduled_start_module not in sys.modules
+
+
+def test_scheduled_start_next_from_store_local_requires_explicit_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-next-from-store-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "stored next scheduled start preview could not be built\n"
+
+
+def test_scheduled_start_next_from_store_local_sanitizes_parse_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-next-from-store-local",
+            "session-001",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--db-path",
+            "schedule.sqlite",
+            "--course-id",
+            "cs101",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "stored next scheduled start preview could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_scheduled_start_next_from_store_local_sanitizes_misordered_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--db-path",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "scheduled-start-next-from-store-local",
+            "session-001",
+            "--course-id",
+            "cs101",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "stored next scheduled start preview could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_scheduled_start_next_from_store_local_selects_first_upcoming_json(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-next-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "08:30",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.count("\n") == 1
+    assert json.loads(result.stdout) == {
+        "clock_day_of_week": "monday",
+        "clock_local_time": "08:30",
+        "course_id": "cs101",
+        "due": False,
+        "minutes_until_start": 30,
+        "next_day_of_week": "monday",
+        "next_local_start_time": "09:00",
+        "scheduled_day_of_week": "monday",
+        "scheduled_local_start_time": "09:00",
+        "selected_class_time_index": 0,
+        "session_id": "session-001",
+        "source_kind": "file",
+        "status": "waiting",
+    }
+    _assert_stored_schedule_next_preview_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_scheduled_start_next_from_store_local_selects_later_week_class(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-next-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--source-kind",
+            "mic",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "10:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["selected_class_time_index"] == 1
+    assert payload["minutes_until_start"] == 3090
+    assert payload["scheduled_day_of_week"] == "wednesday"
+    assert payload["scheduled_local_start_time"] == "13:30"
+    assert payload["source_kind"] == "mic"
+    _assert_stored_schedule_next_preview_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_scheduled_start_next_from_store_local_disabled_does_not_select_json(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-next-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--disabled",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload == {
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "course_id": "cs101",
+        "due": False,
+        "minutes_until_start": None,
+        "next_day_of_week": None,
+        "next_local_start_time": None,
+        "scheduled_day_of_week": None,
+        "scheduled_local_start_time": None,
+        "selected_class_time_index": None,
+        "session_id": "session-001",
+        "source_kind": "file",
+        "status": "disabled",
+    }
+    assert "enabled" not in payload
+    assert "result_kind" not in payload
+    _assert_stored_schedule_next_preview_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_scheduled_start_next_from_store_local_missing_db_does_not_create_file(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "missing-token-secret-auth-profile.sqlite"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-next-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "stored next scheduled start preview could not be built\n"
+    assert not db_path.exists()
+    for forbidden_fragment in (
+        str(tmp_path),
+        "missing-token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_scheduled_start_next_from_store_local_sanitizes_missing_course(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-next-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "missing-token-secret-auth-profile",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "stored next scheduled start preview could not be built\n"
+    for forbidden_fragment in (
+        str(tmp_path),
+        "missing",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_scheduled_start_next_from_store_local_sanitizes_malformed_store(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("CREATE TABLE courses (course_id TEXT PRIMARY KEY)")
+        connection.execute("INSERT INTO courses (course_id) VALUES (?)", ("cs101",))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "scheduled-start-next-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "stored next scheduled start preview could not be built\n"
+    for forbidden_fragment in (
+        str(tmp_path),
+        "class_times",
+        "select",
+        "sqlite",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_scheduled_start_next_from_store_local_command_delegates_to_helpers(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    schedule_store_module = "async_scholar.schedule_store"
+    scheduled_start_module = "async_scholar.scheduled_start"
+    fake_schedule_store_module = types.ModuleType(schedule_store_module)
+    fake_scheduled_start_module = types.ModuleType(scheduled_start_module)
+    fake_schedule_config = object()
+    fake_stored_schedule = types.SimpleNamespace(schedule_config=fake_schedule_config)
+    fake_clock = object()
+
+    def fake_load(db_path: Path, course_id: str) -> object:
+        received["db_path"] = db_path
+        received["course_id"] = course_id
+        return fake_stored_schedule
+
+    class FakeClock:
+        def __new__(cls, **kwargs: object) -> object:
+            received["clock_kwargs"] = kwargs
+            return fake_clock
+
+    def fake_build_next(
+        schedule_config: object,
+        clock: object,
+        session_id: str,
+        source_kind: str,
+        *,
+        enabled: bool,
+    ) -> dict[str, object]:
+        received["schedule_config"] = schedule_config
+        received["clock"] = clock
+        received["session_id"] = session_id
+        received["source_kind"] = source_kind
+        received["enabled"] = enabled
+        return {
+            "result_kind": "scheduled_start_manual_result",
+            "status": "waiting",
+            "session_id": "session-001",
+            "course_id": "cs101",
+            "source_kind": "file",
+            "enabled": True,
+            "clock_day_of_week": "monday",
+            "clock_local_time": "08:30",
+            "selected_class_time_index": 1,
+            "scheduled_day_of_week": "monday",
+            "scheduled_local_start_time": "09:00",
+            "due": False,
+            "minutes_until_start": 30,
+            "next_day_of_week": "monday",
+            "next_local_start_time": "09:00",
+        }
+
+    fake_schedule_store_module.load_course_schedule_read_only = fake_load
+    fake_scheduled_start_module.ScheduledStartClock = FakeClock
+    fake_scheduled_start_module.build_next_scheduled_start_preview_summary = (
+        fake_build_next
+    )
+    monkeypatch.setitem(sys.modules, schedule_store_module, fake_schedule_store_module)
+    monkeypatch.setitem(
+        sys.modules,
+        scheduled_start_module,
+        fake_scheduled_start_module,
+    )
+
+    exit_code = cli.main(
+        [
+            "scheduled-start-next-from-store-local",
+            "session-001",
+            "--db-path",
+            "schedule.sqlite",
+            "--course-id",
+            "cs101",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "08:30",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert json.loads(captured.out) == {
+        "clock_day_of_week": "monday",
+        "clock_local_time": "08:30",
+        "course_id": "cs101",
+        "due": False,
+        "minutes_until_start": 30,
+        "next_day_of_week": "monday",
+        "next_local_start_time": "09:00",
+        "scheduled_day_of_week": "monday",
+        "scheduled_local_start_time": "09:00",
+        "selected_class_time_index": 1,
+        "session_id": "session-001",
+        "source_kind": "file",
+        "status": "waiting",
+    }
+    assert captured.err == ""
+    assert received == {
+        "db_path": Path("schedule.sqlite"),
+        "course_id": "cs101",
+        "clock_kwargs": {"day_of_week": "monday", "local_time": "08:30"},
+        "schedule_config": fake_schedule_config,
+        "clock": fake_clock,
+        "session_id": "session-001",
+        "source_kind": "file",
+        "enabled": True,
+    }
+
+
+def test_scheduled_start_next_from_store_local_handler_stays_read_only() -> None:
+    source = inspect.getsource(cli._run_scheduled_start_next_from_store_local_command)
+
+    assert "load_course_schedule_read_only" in source
+    assert "ScheduledStartClock" in source
+    assert "build_next_scheduled_start_preview_summary" in source
+    for forbidden_fragment in (
+        "load_course_schedule(",
+        "save_course_schedule",
+        "initialize_course_schedule_store",
+        "_create_schema",
+        "datetime",
+        "now(",
+        "sleep",
+        "Timer(",
+        "threading",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "sounddevice",
+        "telegram",
+        "desktop_notifier",
+        "execute_archive",
+        "archive_export",
+        ".open(",
+        ".read_text(",
+        ".write_text(",
+        ".mkdir(",
+        ".unlink(",
+        ".remove(",
+        ".rmdir(",
+    ):
+        assert forbidden_fragment not in source
+
+
 def _assert_scheduled_start_preview_output_is_safe(
     stdout: str,
     stderr: str,
@@ -2881,6 +3444,46 @@ def _assert_stored_schedule_preview_output_is_safe(
         "browser",
         "artifact",
         "select",
+        "sqlite",
+        "traceback",
+        "live",
+        "delivery",
+        "scheduler execution",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_stored_schedule_next_preview_output_is_safe(
+    stdout: str,
+    stderr: str,
+) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "result_kind",
+        "enabled",
+        "meeting",
+        "meet.example",
+        "timezone",
+        "confidential",
+        "instructor",
+        "dr.",
+        "lecture",
+        "lab",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        str(Path.home()).lower(),
+        "token",
+        "secret",
+        "auth",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+        "artifact",
         "sqlite",
         "traceback",
         "live",

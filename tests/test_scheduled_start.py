@@ -9,10 +9,12 @@ from async_scholar import scheduled_start
 from async_scholar.schedule_config import ScheduleConfig
 from async_scholar.scheduled_start import (
     SCHEDULED_START_MANUAL_RESULT_ERROR,
+    SCHEDULED_START_NEXT_PREVIEW_ERROR,
     ScheduledStartClock,
     ScheduledStartDueDecision,
     ScheduledStartManualResult,
     ScheduledStartPlan,
+    build_next_scheduled_start_preview_summary,
     build_scheduled_start_due_decision,
     build_scheduled_start_manual_result,
     build_scheduled_start_plan,
@@ -789,6 +791,160 @@ def test_manual_result_rejects_extra_fields_and_is_immutable() -> None:
         )
     with pytest.raises((TypeError, ValidationError)):
         result.due = False
+
+
+def test_next_preview_selects_exact_due_class_time() -> None:
+    payload = build_next_scheduled_start_preview_summary(
+        _schedule_config(),
+        ScheduledStartClock(day_of_week="thursday", local_time="18:45"),
+        "session-001",
+        "mic",
+    )
+
+    assert payload == {
+        "status": "due",
+        "session_id": "session-001",
+        "course_id": "cs_101",
+        "source_kind": "mic",
+        "clock_day_of_week": "thursday",
+        "clock_local_time": "18:45",
+        "selected_class_time_index": 1,
+        "scheduled_day_of_week": "thursday",
+        "scheduled_local_start_time": "18:45",
+        "due": True,
+        "minutes_until_start": 0,
+        "next_day_of_week": "thursday",
+        "next_local_start_time": "18:45",
+    }
+
+
+def test_next_preview_selects_nearest_same_day_future_class_time() -> None:
+    payload = build_next_scheduled_start_preview_summary(
+        _schedule_config(),
+        ScheduledStartClock(day_of_week="monday", local_time="08:30"),
+        "session-001",
+        "file",
+    )
+
+    assert payload["status"] == "waiting"
+    assert payload["selected_class_time_index"] == 0
+    assert payload["minutes_until_start"] == 30
+    assert payload["scheduled_day_of_week"] == "monday"
+    assert payload["scheduled_local_start_time"] == "09:00"
+
+
+def test_next_preview_wraps_to_next_week_class_time() -> None:
+    payload = build_next_scheduled_start_preview_summary(
+        _schedule_config(),
+        ScheduledStartClock(day_of_week="sunday", local_time="23:59"),
+        "session-001",
+        "file",
+    )
+
+    assert payload["selected_class_time_index"] == 0
+    assert payload["minutes_until_start"] == 541
+    assert payload["next_day_of_week"] == "monday"
+    assert payload["next_local_start_time"] == "09:00"
+
+
+def test_next_preview_ties_use_lower_class_time_index() -> None:
+    schedule_config = ScheduleConfig(
+        course_id="cs101",
+        class_times=[
+            {
+                "day_of_week": "monday",
+                "local_start_time": "09:00",
+                "duration_minutes": 60,
+            },
+            {
+                "day_of_week": "monday",
+                "local_start_time": "09:00",
+                "duration_minutes": 90,
+            },
+        ],
+    )
+
+    payload = build_next_scheduled_start_preview_summary(
+        schedule_config,
+        ScheduledStartClock(day_of_week="monday", local_time="08:00"),
+        "session-001",
+        "file",
+    )
+
+    assert payload["selected_class_time_index"] == 0
+    assert payload["minutes_until_start"] == 60
+
+
+def test_next_preview_disabled_does_not_select_class_time() -> None:
+    payload = build_next_scheduled_start_preview_summary(
+        _schedule_config(),
+        ScheduledStartClock(day_of_week="monday", local_time="09:00"),
+        "session-001",
+        "file",
+        enabled=False,
+    )
+
+    assert payload == {
+        "status": "disabled",
+        "session_id": "session-001",
+        "course_id": "cs_101",
+        "source_kind": "file",
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "selected_class_time_index": None,
+        "scheduled_day_of_week": None,
+        "scheduled_local_start_time": None,
+        "due": False,
+        "minutes_until_start": None,
+        "next_day_of_week": None,
+        "next_local_start_time": None,
+    }
+
+
+def test_next_preview_summary_exposes_no_private_or_execution_data() -> None:
+    payload = build_next_scheduled_start_preview_summary(
+        _schedule_config(),
+        ScheduledStartClock(day_of_week="monday", local_time="08:30"),
+        "session-001",
+        "file",
+    )
+    summary_text = json.dumps(payload, sort_keys=True)
+
+    for forbidden_text in [
+        "result_kind",
+        "enabled",
+        "timezone",
+        "Asia/Manila",
+        "Lecture",
+        "duration",
+        "meeting",
+        "path",
+        "browser",
+        "auth",
+        "cookie",
+        "transcript",
+        "audio",
+    ]:
+        assert forbidden_text not in summary_text
+
+
+def test_next_preview_rejects_invalid_inputs_with_fixed_error() -> None:
+    schedule_config = _schedule_config()
+    clock = ScheduledStartClock(day_of_week="monday", local_time="09:00")
+
+    for args in (
+        ({"course_id": "cs101"}, clock, "session-001", "file"),
+        (schedule_config, {"day_of_week": "monday"}, "session-001", "file"),
+        (schedule_config, clock, "C:/Users/student/token-secret", "file"),
+        (schedule_config, clock, "session-001", "browser"),
+    ):
+        with pytest.raises(ValueError) as exc_info:
+            build_next_scheduled_start_preview_summary(*args)
+
+        error_text = str(exc_info.value)
+        assert error_text == SCHEDULED_START_NEXT_PREVIEW_ERROR
+        for forbidden_text in ("C:", "Users", "student", "token", "secret"):
+            assert forbidden_text not in error_text
 
 
 def test_scheduled_start_module_has_no_execution_or_private_behavior() -> None:
