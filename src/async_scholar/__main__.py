@@ -40,6 +40,9 @@ _SESSION_WINDOW_ARCHIVE_PREFLIGHT_FROM_STORE_CLI_ERROR = (
 _SESSION_WINDOW_ALERT_PREVIEW_FROM_STORE_CLI_ERROR = (
     "stored session window alert preview could not be built"
 )
+_SESSION_WINDOW_READINESS_PREFLIGHT_FROM_STORE_CLI_ERROR = (
+    "stored session window readiness preflight could not be built"
+)
 _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
@@ -174,6 +177,33 @@ _STORED_SESSION_WINDOW_ALERT_PREVIEW_METADATA = {
     "delivery": "none",
     "requires_confirmation": True,
 }
+_STORED_SESSION_WINDOW_READINESS_PREFLIGHT_KEYS = (
+    "status",
+    "session_id",
+    "source_kind",
+    "clock_day_of_week",
+    "clock_local_time",
+    "course_count",
+    "due_count",
+    "alert_preview_count",
+    "archive_recovery_status",
+    "archive_existing_count",
+    "archive_missing_count",
+    "archive_total_existing_size_bytes",
+    "ready_to_start",
+    "courses",
+)
+_STORED_SESSION_WINDOW_READINESS_PREFLIGHT_COURSE_KEYS = (
+    "course_id",
+    "selected_class_time_index",
+    "scheduled_day_of_week",
+    "scheduled_local_start_time",
+    "due",
+    "minutes_until_start",
+    "stop_after_minutes",
+    "enabled",
+    "alert_preview",
+)
 
 
 class _FixedMessageArgumentParser(argparse.ArgumentParser):
@@ -416,6 +446,21 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_session_window_alert_preview_from_store_local_command
     )
 
+    session_window_readiness_preflight = subparsers.add_parser(
+        "session-window-readiness-preflight-from-store-local",
+        help="preflight due stored session windows for metadata-only readiness",
+        description=(
+            "Build read-only session-window readiness preflight metadata from an "
+            "explicit read-only local schedule store, archive root, and local clock."
+        ),
+    )
+    _add_session_window_readiness_preflight_from_store_local_arguments(
+        session_window_readiness_preflight
+    )
+    session_window_readiness_preflight.set_defaults(
+        handler=_run_session_window_readiness_preflight_from_store_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -456,6 +501,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_session_window_archive_preflight_from_store_local_argv(argv[1:])
     if argv[:1] == ["session-window-alert-preview-from-store-local"]:
         return _run_session_window_alert_preview_from_store_local_argv(argv[1:])
+    if argv[:1] == ["session-window-readiness-preflight-from-store-local"]:
+        return _run_session_window_readiness_preflight_from_store_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-save-local"]:
         return _run_course_schedule_save_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
@@ -501,6 +548,12 @@ def main(argv: list[str] | None = None) -> int:
     if "session-window-alert-preview-from-store-local" in argv:
         print(
             _SESSION_WINDOW_ALERT_PREVIEW_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 2
+    if "session-window-readiness-preflight-from-store-local" in argv:
+        print(
+            _SESSION_WINDOW_READINESS_PREFLIGHT_FROM_STORE_CLI_ERROR,
             file=sys.stderr,
         )
         return 2
@@ -1044,6 +1097,48 @@ def _add_session_window_alert_preview_from_store_local_arguments(
         "--disabled",
         action="store_true",
         help="return disabled session-window alert metadata without due courses",
+    )
+
+
+def _add_session_window_readiness_preflight_from_store_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe local session identifier for the readiness preflight",
+    )
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit existing local SQLite course schedule database",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit archive root containing the safe session directory",
+    )
+    parser.add_argument(
+        "--source-kind",
+        required=True,
+        choices=("file", "mic"),
+        help="local source kind to preflight",
+    )
+    parser.add_argument(
+        "--clock-day-of-week",
+        required=True,
+        help="explicit local clock weekday name",
+    )
+    parser.add_argument(
+        "--clock-local-time",
+        required=True,
+        help="explicit local clock time in HH:MM",
+    )
+    parser.add_argument(
+        "--disabled",
+        action="store_true",
+        help="return disabled session-window readiness metadata without due courses",
     )
 
 
@@ -1895,6 +1990,92 @@ def _stored_session_window_alert_preview_course_safe_summary(
     }
     if safe_payload["alert_preview"] != _STORED_SESSION_WINDOW_ALERT_PREVIEW_METADATA:
         raise ValueError(_SESSION_WINDOW_ALERT_PREVIEW_FROM_STORE_CLI_ERROR)
+    return safe_payload
+
+
+def _run_session_window_readiness_preflight_from_store_local_argv(
+    argv: list[str],
+) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-readiness-preflight-from-store-local",
+        description=(
+            "Build read-only session-window readiness preflight metadata from an "
+            "explicit read-only local schedule store, archive root, and local clock."
+        ),
+        fixed_error_message=_SESSION_WINDOW_READINESS_PREFLIGHT_FROM_STORE_CLI_ERROR,
+    )
+    _add_session_window_readiness_preflight_from_store_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_readiness_preflight_from_store_local_command(args)
+
+
+def _run_session_window_readiness_preflight_from_store_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.schedule_store import list_course_schedule_session_window_inputs
+    from async_scholar.scheduled_start import ScheduledStartClock
+    from async_scholar.session_window_readiness_preflight import (
+        build_session_window_readiness_preflight_summary,
+    )
+
+    try:
+        clock = ScheduledStartClock(
+            day_of_week=args.clock_day_of_week,
+            local_time=args.clock_local_time,
+        )
+        payload = _stored_session_window_readiness_preflight_safe_summary(
+            build_session_window_readiness_preflight_summary(
+                list_course_schedule_session_window_inputs(args.db_path),
+                args.archive_root,
+                args.session_id,
+                args.source_kind,
+                clock,
+                enabled=not args.disabled,
+            )
+        )
+    except (KeyError, TypeError, ValueError):
+        print(
+            _SESSION_WINDOW_READINESS_PREFLIGHT_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 1
+
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _stored_session_window_readiness_preflight_safe_summary(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    courses = payload["courses"]
+    if not isinstance(courses, list):
+        raise ValueError(_SESSION_WINDOW_READINESS_PREFLIGHT_FROM_STORE_CLI_ERROR)
+    safe_payload = {
+        key: payload[key] for key in _STORED_SESSION_WINDOW_READINESS_PREFLIGHT_KEYS
+    }
+    safe_payload["courses"] = [
+        _stored_session_window_readiness_preflight_course_safe_summary(course)
+        for course in courses
+    ]
+    return safe_payload
+
+
+def _stored_session_window_readiness_preflight_course_safe_summary(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    safe_payload = {
+        key: payload[key]
+        for key in _STORED_SESSION_WINDOW_READINESS_PREFLIGHT_COURSE_KEYS
+    }
+    alert_preview = safe_payload["alert_preview"]
+    if not isinstance(alert_preview, dict):
+        raise ValueError(_SESSION_WINDOW_READINESS_PREFLIGHT_FROM_STORE_CLI_ERROR)
+    safe_payload["alert_preview"] = {
+        key: alert_preview[key]
+        for key in _STORED_SESSION_WINDOW_ALERT_PREVIEW_METADATA_KEYS
+    }
+    if safe_payload["alert_preview"] != _STORED_SESSION_WINDOW_ALERT_PREVIEW_METADATA:
+        raise ValueError(_SESSION_WINDOW_READINESS_PREFLIGHT_FROM_STORE_CLI_ERROR)
     return safe_payload
 
 
