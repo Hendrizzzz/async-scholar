@@ -82,6 +82,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "session-window-alert-preview-from-store-local" in result.stdout
     assert "session-window-readiness-preflight-from-store-local" in result.stdout
     assert "session-window-confirmation-preflight-from-store-local" in result.stdout
+    assert "session-window-confirmation-response-from-store-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -8314,6 +8315,757 @@ def test_session_window_confirmation_preflight_handler_stays_read_only() -> None
         assert forbidden_fragment not in source
 
 
+def test_session_window_confirmation_response_from_store_local_help_stays_lazy(
+    monkeypatch,
+) -> None:
+    schedule_store_module = "async_scholar.schedule_store"
+    scheduled_start_module = "async_scholar.scheduled_start"
+    preflight_module = "async_scholar.session_window_confirmation_preflight"
+    response_module = "async_scholar.session_window_confirmation_response"
+    monkeypatch.delitem(sys.modules, schedule_store_module, raising=False)
+    monkeypatch.delitem(sys.modules, scheduled_start_module, raising=False)
+    monkeypatch.delitem(sys.modules, preflight_module, raising=False)
+    monkeypatch.delitem(sys.modules, response_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-confirmation-response-from-store-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert (
+        "usage: async_scholar session-window-confirmation-response-from-store-local"
+        in result.stdout
+    )
+    assert "--db-path" in result.stdout
+    assert "--archive-root" in result.stdout
+    assert "--clock-local-time" in result.stdout
+    assert "--confirmation-response" in result.stdout
+    assert "confirmed" in result.stdout
+    assert "declined" in result.stdout
+    assert "non-executing" in result.stdout
+    assert schedule_store_module not in sys.modules
+    assert scheduled_start_module not in sys.modules
+    assert preflight_module not in sys.modules
+    assert response_module not in sys.modules
+
+
+def test_session_window_confirmation_response_from_store_local_requires_metadata() -> (
+    None
+):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-confirmation-response-from-store-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert (
+        result.stderr
+        == "stored session window confirmation response could not be built\n"
+    )
+
+
+def test_session_window_confirmation_response_from_store_local_prints_confirmed_json(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    _write_private_course_schedule(db_path)
+    (session_dir / "events.jsonl").write_text(
+        "private event token secret auth profile payload",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-confirmation-response-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "confirmed",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.count("\n") == 1
+    assert json.loads(result.stdout) == {
+        "blocked_execution_count": 0,
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "confirmation_required": True,
+        "confirmation_response": "confirmed",
+        "confirmation_status": "required",
+        "confirmation_verified": True,
+        "confirmed_start_count": 1,
+        "course_count": 1,
+        "courses": [
+            {
+                "confirmation_response": "confirmed",
+                "course_id": "cs101",
+                "due": True,
+                "enabled": True,
+                "minutes_until_start": 0,
+                "requires_confirmation": True,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "09:00",
+                "selected_class_time_index": 0,
+                "stop_after_minutes": 75,
+            }
+        ],
+        "due_count": 1,
+        "ready_to_start": True,
+        "session_id": "session-001",
+        "source_kind": "file",
+        "status": "confirmed",
+    }
+    _assert_session_window_confirmation_response_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_session_window_confirmation_response_from_store_local_prints_declined_json(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    _write_private_course_schedule(db_path)
+    (session_dir / "events.jsonl").write_text(
+        "private event token secret auth profile payload",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-confirmation-response-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--source-kind",
+            "mic",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "declined",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert payload["status"] == "declined"
+    assert payload["confirmation_verified"] is False
+    assert payload["confirmed_start_count"] == 0
+    assert payload["blocked_execution_count"] == payload["due_count"] == 1
+    assert payload["courses"][0]["confirmation_response"] == "declined"
+    assert payload["source_kind"] == "mic"
+    _assert_session_window_confirmation_response_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_session_window_confirmation_response_from_store_local_disabled(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive"
+    (archive_root / "session-001").mkdir(parents=True)
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-confirmation-response-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "confirmed",
+            "--disabled",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert json.loads(result.stdout) == {
+        "blocked_execution_count": 0,
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "confirmation_required": False,
+        "confirmation_response": "confirmed",
+        "confirmation_status": "disabled",
+        "confirmation_verified": False,
+        "confirmed_start_count": 0,
+        "course_count": 1,
+        "courses": [],
+        "due_count": 0,
+        "ready_to_start": False,
+        "session_id": "session-001",
+        "source_kind": "file",
+        "status": "disabled",
+    }
+    _assert_session_window_confirmation_response_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_session_window_confirmation_response_from_store_local_not_required(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive"
+    (archive_root / "session-001").mkdir(parents=True)
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-confirmation-response-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "tuesday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "declined",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert result.returncode == 0
+    assert payload["status"] == "not_required"
+    assert payload["confirmation_verified"] is False
+    assert payload["confirmed_start_count"] == 0
+    assert payload["blocked_execution_count"] == 0
+    assert payload["courses"] == []
+    _assert_session_window_confirmation_response_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_session_window_confirmation_response_from_store_local_sanitizes_db_failure(
+    tmp_path: Path,
+) -> None:
+    missing_db_path = tmp_path / "missing-token-secret-auth-profile.sqlite"
+    archive_root = tmp_path / "archive"
+    (archive_root / "session-001").mkdir(parents=True)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-confirmation-response-from-store-local",
+            "session-001",
+            "--db-path",
+            str(missing_db_path),
+            "--archive-root",
+            str(archive_root),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "confirmed",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert (
+        result.stderr
+        == "stored session window confirmation response could not be built\n"
+    )
+    assert not missing_db_path.exists()
+    for forbidden_fragment in (
+        str(tmp_path),
+        "missing-token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_confirmation_response_sanitizes_archive_failure(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive-token-secret-auth-profile"
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-confirmation-response-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "declined",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert (
+        result.stderr
+        == "stored session window confirmation response could not be built\n"
+    )
+    assert not archive_root.exists()
+    for forbidden_fragment in (
+        str(tmp_path),
+        "archive-token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_confirmation_response_rejects_free_form_response() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-confirmation-response-from-store-local",
+            "session-001",
+            "--db-path",
+            "schedule.sqlite",
+            "--archive-root",
+            "archive",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "yes please start this class",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert (
+        result.stderr
+        == "stored session window confirmation response could not be built\n"
+    )
+
+
+def test_session_window_confirmation_response_misordered_uses_response_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--archive-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "session-window-confirmation-response-from-store-local",
+            "session-001",
+            "--db-path",
+            "C:\\Users\\student\\private.sqlite",
+            "--confirmation-response",
+            "confirmed",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert (
+        result.stderr
+        == "stored session window confirmation response could not be built\n"
+    )
+    for forbidden_fragment in (
+        "C:\\Users",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "private.sqlite",
+        "archive preflight",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_confirmation_response_command_delegates_to_helpers(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    schedule_store_module = "async_scholar.schedule_store"
+    scheduled_start_module = "async_scholar.scheduled_start"
+    preflight_module = "async_scholar.session_window_confirmation_preflight"
+    response_module = "async_scholar.session_window_confirmation_response"
+    fake_schedule_store_module = types.ModuleType(schedule_store_module)
+    fake_scheduled_start_module = types.ModuleType(scheduled_start_module)
+    fake_preflight_module = types.ModuleType(preflight_module)
+    fake_response_module = types.ModuleType(response_module)
+    fake_store_payload = object()
+    fake_clock = object()
+
+    def fake_list(db_path: Path) -> object:
+        received["db_path"] = db_path
+        return fake_store_payload
+
+    class FakeClock:
+        def __new__(cls, **kwargs: object) -> object:
+            received["clock_kwargs"] = kwargs
+            return fake_clock
+
+    def fake_build_preflight(
+        stored_courses: object,
+        archive_root: Path,
+        session_id: str,
+        source_kind: str,
+        clock: object,
+        *,
+        enabled: bool,
+    ) -> dict[str, object]:
+        received["stored_courses"] = stored_courses
+        received["archive_root"] = archive_root
+        received["session_id"] = session_id
+        received["source_kind"] = source_kind
+        received["clock"] = clock
+        received["enabled"] = enabled
+        return {
+            "status": "required",
+            "session_id": "session-001",
+            "source_kind": "file",
+            "clock_day_of_week": "monday",
+            "clock_local_time": "09:00",
+            "course_count": 1,
+            "due_count": 1,
+            "ready_to_start": True,
+            "confirmation_required": True,
+            "confirmation_status": "required",
+            "blocked_execution_count": 1,
+            "archive_existing_count": 1,
+            "alert_preview_count": 1,
+            "courses": [
+                {
+                    "course_id": "cs101",
+                    "selected_class_time_index": 0,
+                    "scheduled_day_of_week": "monday",
+                    "scheduled_local_start_time": "09:00",
+                    "due": True,
+                    "minutes_until_start": 0,
+                    "stop_after_minutes": 75,
+                    "enabled": True,
+                    "requires_confirmation": True,
+                    "meeting_url": "https://meet.example.edu/token-secret",
+                }
+            ],
+        }
+
+    def fake_build_response(
+        preflight_summary: dict[str, object],
+        confirmation_response: str,
+    ) -> dict[str, object]:
+        received["preflight_summary"] = preflight_summary
+        received["confirmation_response"] = confirmation_response
+        return {
+            "status": "confirmed",
+            "session_id": "session-001",
+            "source_kind": "file",
+            "clock_day_of_week": "monday",
+            "clock_local_time": "09:00",
+            "course_count": 1,
+            "due_count": 1,
+            "ready_to_start": True,
+            "confirmation_required": True,
+            "confirmation_status": "required",
+            "confirmation_response": "confirmed",
+            "confirmation_verified": True,
+            "confirmed_start_count": 1,
+            "blocked_execution_count": 0,
+            "meeting_url": "https://meet.example.edu/token-secret",
+            "courses": [
+                {
+                    "course_id": "cs101",
+                    "selected_class_time_index": 0,
+                    "scheduled_day_of_week": "monday",
+                    "scheduled_local_start_time": "09:00",
+                    "due": True,
+                    "minutes_until_start": 0,
+                    "stop_after_minutes": 75,
+                    "enabled": True,
+                    "requires_confirmation": True,
+                    "confirmation_response": "confirmed",
+                    "meeting_url": "https://meet.example.edu/token-secret",
+                }
+            ],
+        }
+
+    fake_schedule_store_module.list_course_schedule_session_window_inputs = fake_list
+    fake_scheduled_start_module.ScheduledStartClock = FakeClock
+    fake_preflight_module.build_session_window_confirmation_preflight_summary = (
+        fake_build_preflight
+    )
+    fake_response_module.build_session_window_confirmation_response_summary = (
+        fake_build_response
+    )
+    monkeypatch.setitem(sys.modules, schedule_store_module, fake_schedule_store_module)
+    monkeypatch.setitem(
+        sys.modules,
+        scheduled_start_module,
+        fake_scheduled_start_module,
+    )
+    monkeypatch.setitem(sys.modules, preflight_module, fake_preflight_module)
+    monkeypatch.setitem(sys.modules, response_module, fake_response_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-confirmation-response-from-store-local",
+            "session-001",
+            "--db-path",
+            "schedule.sqlite",
+            "--archive-root",
+            "archive-root",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "confirmed",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    preflight_summary = received["preflight_summary"]
+    assert exit_code == 0
+    assert json.loads(captured.out) == {
+        "blocked_execution_count": 0,
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "confirmation_required": True,
+        "confirmation_response": "confirmed",
+        "confirmation_status": "required",
+        "confirmation_verified": True,
+        "confirmed_start_count": 1,
+        "course_count": 1,
+        "courses": [
+            {
+                "confirmation_response": "confirmed",
+                "course_id": "cs101",
+                "due": True,
+                "enabled": True,
+                "minutes_until_start": 0,
+                "requires_confirmation": True,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "09:00",
+                "selected_class_time_index": 0,
+                "stop_after_minutes": 75,
+            }
+        ],
+        "due_count": 1,
+        "ready_to_start": True,
+        "session_id": "session-001",
+        "source_kind": "file",
+        "status": "confirmed",
+    }
+    assert captured.err == ""
+    assert received == {
+        "db_path": Path("schedule.sqlite"),
+        "clock_kwargs": {"day_of_week": "monday", "local_time": "09:00"},
+        "stored_courses": fake_store_payload,
+        "archive_root": Path("archive-root"),
+        "session_id": "session-001",
+        "source_kind": "file",
+        "clock": fake_clock,
+        "enabled": True,
+        "preflight_summary": preflight_summary,
+        "confirmation_response": "confirmed",
+    }
+    _assert_session_window_confirmation_response_output_is_safe(
+        captured.out,
+        captured.err,
+    )
+
+
+def test_session_window_confirmation_response_cli_requires_fixed_policy() -> None:
+    payload: dict[str, object] = {
+        "status": "confirmed",
+        "session_id": "session-001",
+        "source_kind": "file",
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "course_count": 1,
+        "due_count": 1,
+        "ready_to_start": True,
+        "confirmation_required": True,
+        "confirmation_status": "required",
+        "confirmation_response": "custom free-form response",
+        "confirmation_verified": True,
+        "confirmed_start_count": 1,
+        "blocked_execution_count": 0,
+        "courses": [],
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        cli._stored_session_window_confirmation_response_safe_summary(payload)
+
+    assert (
+        str(exc_info.value)
+        == "stored session window confirmation response could not be built"
+    )
+
+
+def test_session_window_confirmation_response_handler_stays_read_only() -> None:
+    source = inspect.getsource(
+        cli._run_session_window_confirmation_response_from_store_local_command
+    )
+
+    assert "list_course_schedule_session_window_inputs" in source
+    assert "ScheduledStartClock" in source
+    assert "build_session_window_confirmation_preflight_summary" in source
+    assert "build_session_window_confirmation_response_summary" in source
+    for forbidden_fragment in (
+        "_stored_session_window_confirmation_preflight_safe_summary",
+        "load_course_schedule(",
+        "load_course_schedule_read_only",
+        "load_course_schedule_safe_summary",
+        "list_course_schedule_safe_summaries",
+        "list_course_schedule_due_list_inputs",
+        "load_course_schedule_session_stop_input",
+        "save_course_schedule",
+        "initialize_course_schedule_store",
+        "_create_schema",
+        "ScheduleConfig",
+        "CourseMetadata",
+        "datetime",
+        "now(",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "selenium",
+        "sounddevice",
+        "faster_whisper",
+        "mic_recording",
+        "telegram",
+        "desktop_notifier",
+        "execute_archive",
+        "archive_delete",
+        ".open(",
+        ".read_text(",
+        ".write_text(",
+        ".mkdir(",
+        ".unlink(",
+        ".remove(",
+        ".rmdir(",
+        "rmtree",
+    ):
+        assert forbidden_fragment not in source
+
+
 def _assert_session_stop_preview_output_is_safe(
     stdout: str,
     stderr: str,
@@ -8546,6 +9298,63 @@ def _assert_session_window_readiness_preflight_output_is_safe(
 
 
 def _assert_session_window_confirmation_preflight_output_is_safe(
+    stdout: str,
+    stderr: str,
+) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "result_kind",
+        "alert_preview",
+        "alert_preview_count",
+        "archive_",
+        "title",
+        "meeting",
+        "meet.example",
+        "timezone",
+        "duration",
+        "confidential",
+        "instructor",
+        "dr.",
+        "lecture",
+        "lab",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        str(Path.home()).lower(),
+        "token",
+        "secret",
+        "auth",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+        "session_dir",
+        "artifacts",
+        "filename",
+        "events.jsonl",
+        "alerts.log",
+        "reviewer.md",
+        "runtime.jsonl",
+        "benchmark-report.json",
+        "sqlite",
+        "traceback",
+        "live delivery",
+        "live-delivery",
+        "live_delivery",
+        "dispatch",
+        "notification",
+        "payload",
+        "body",
+        "target",
+        "scheduler execution",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_session_window_confirmation_response_output_is_safe(
     stdout: str,
     stderr: str,
 ) -> None:
