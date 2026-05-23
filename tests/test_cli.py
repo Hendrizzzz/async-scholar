@@ -91,6 +91,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "session-window-recovery-review-local" in result.stdout
     assert "session-window-recovery-review-batch-local" in result.stdout
     assert "session-window-recovery-report-local" in result.stdout
+    assert "session-window-recovery-report-write-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -12094,6 +12095,244 @@ def test_session_window_recovery_report_misordered_uses_report_error() -> None:
         "Traceback",
     ):
         assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_recovery_report_write_local_help_stays_lazy(
+    monkeypatch,
+) -> None:
+    writer_module = "async_scholar.session_window_recovery_report_file"
+    monkeypatch.delitem(sys.modules, writer_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-recovery-report-write-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar session-window-recovery-report-write-local" in (
+        result.stdout
+    )
+    assert "--archive-root" in result.stdout
+    assert "--output-root" in result.stdout
+    assert "write" in result.stdout
+    assert "recovery report" in result.stdout
+    assert writer_module not in sys.modules
+
+
+def test_session_window_recovery_report_write_local_requires_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-recovery-report-write-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == (
+        "stored session window recovery report file could not be written\n"
+    )
+
+
+def test_session_window_recovery_report_write_command_delegates_to_writer(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    writer_module = "async_scholar.session_window_recovery_report_file"
+    fake_writer_module = types.ModuleType(writer_module)
+
+    def fake_write(
+        archive_root: Path,
+        output_root: Path,
+        session_ids: list[str],
+    ) -> dict[str, object]:
+        received["archive_root"] = archive_root
+        received["output_root"] = output_root
+        received["session_ids"] = session_ids
+        return {
+            "write_kind": "stored_session_window_recovery_report_file",
+            "session_count": 1,
+            "relative_path": "stored-session-window-recovery-report.md",
+            "bytes_written": 123,
+        }
+
+    fake_writer_module.write_stored_session_window_recovery_report_file = fake_write
+    monkeypatch.setitem(sys.modules, writer_module, fake_writer_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-recovery-report-write-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+            "--output-root",
+            "output-root",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out == (
+        '{"bytes_written":123,'
+        '"relative_path":"stored-session-window-recovery-report.md",'
+        '"session_count":1,'
+        '"write_kind":"stored_session_window_recovery_report_file"}\n'
+    )
+    assert captured.err == ""
+    assert received == {
+        "archive_root": Path("archive-root"),
+        "output_root": Path("output-root"),
+        "session_ids": ["session-001"],
+    }
+
+
+def test_session_window_recovery_report_write_sanitizes_build_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    writer_module = "async_scholar.session_window_recovery_report_file"
+    fake_writer_module = types.ModuleType(writer_module)
+
+    def fake_write(
+        archive_root: Path,
+        output_root: Path,
+        session_ids: list[str],
+    ) -> dict[str, object]:
+        raise OSError("C:\\Users\\student\\token-secret-auth-profile")
+
+    fake_writer_module.write_stored_session_window_recovery_report_file = fake_write
+    monkeypatch.setitem(sys.modules, writer_module, fake_writer_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-recovery-report-write-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+            "--output-root",
+            "output-root",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == (
+        "stored session window recovery report file could not be written\n"
+    )
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_session_window_recovery_report_write_misordered_uses_write_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--output-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "session-window-recovery-report-write-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == (
+        "stored session window recovery report file could not be written\n"
+    )
+    for forbidden_fragment in (
+        "C:\\Users",
+        "token",
+        "secret",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_recovery_report_write_handler_stays_thin() -> None:
+    source = inspect.getsource(
+        cli._run_session_window_recovery_report_write_local_command
+    )
+
+    assert "write_stored_session_window_recovery_report_file" in source
+    for forbidden_fragment in (
+        "build_stored_session_window_recovery_report",
+        "build_stored_session_window_recovery_review_batch",
+        "build_stored_session_window_recovery_review(",
+        "build_stored_session_window_recovery_decision",
+        "build_stored_session_window_runtime_summary",
+        "build_crash_recovery_session_preflight",
+        "list_course_schedule_session_window_inputs",
+        "load_course_schedule",
+        "save_course_schedule",
+        "initialize_course_schedule_store",
+        "_create_schema",
+        "ScheduleConfig",
+        "CourseMetadata",
+        "ScheduledStartClock",
+        "build_session_window_confirmation",
+        "build_session_window_start_authorization",
+        "write_stored_session_window_start_receipt",
+        "write_stored_session_window_stop_receipt",
+        "datetime",
+        "now(",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "selenium",
+        "sounddevice",
+        "faster_whisper",
+        "mic_recording",
+        "telegram",
+        "desktop_notifier",
+        "alert_dispatch",
+        "archive_export",
+        "archive_delete",
+        "participation",
+        "academic_answer",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in source
 
 
 def test_session_window_recovery_decision_handler_stays_thin() -> None:
