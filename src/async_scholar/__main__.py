@@ -49,6 +49,9 @@ _SESSION_WINDOW_CONFIRMATION_PREFLIGHT_FROM_STORE_CLI_ERROR = (
 _SESSION_WINDOW_CONFIRMATION_RESPONSE_FROM_STORE_CLI_ERROR = (
     "stored session window confirmation response could not be built"
 )
+_SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR = (
+    "stored session window start authorization could not be built"
+)
 _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
@@ -272,6 +275,54 @@ _STORED_SESSION_WINDOW_CONFIRMATION_RESPONSE_STATUSES = frozenset(
 )
 _STORED_SESSION_WINDOW_CONFIRMATION_RESPONSE_TOKENS = frozenset(
     ("confirmed", "declined")
+)
+_STORED_SESSION_WINDOW_START_AUTHORIZATION_KEYS = (
+    "status",
+    "session_id",
+    "source_kind",
+    "clock_day_of_week",
+    "clock_local_time",
+    "course_count",
+    "due_count",
+    "ready_to_start",
+    "confirmation_required",
+    "confirmation_status",
+    "confirmation_response",
+    "confirmation_verified",
+    "authorized",
+    "authorized_start_count",
+    "blocked_start_count",
+    "block_reason",
+    "courses",
+)
+_STORED_SESSION_WINDOW_START_AUTHORIZATION_COURSE_KEYS = (
+    "course_id",
+    "selected_class_time_index",
+    "scheduled_day_of_week",
+    "scheduled_local_start_time",
+    "due",
+    "minutes_until_start",
+    "stop_after_minutes",
+    "enabled",
+    "requires_confirmation",
+    "confirmation_response",
+    "authorized",
+)
+_STORED_SESSION_WINDOW_START_AUTHORIZATION_STATUSES = frozenset(
+    ("authorized", "blocked", "not_authorized", "not_required", "disabled")
+)
+_STORED_SESSION_WINDOW_START_AUTHORIZATION_BLOCK_REASONS = frozenset(
+    (
+        "none",
+        "confirmation_declined",
+        "confirmation_not_verified",
+        "disabled",
+        "not_ready",
+        "not_ready_to_start",
+        "not_required",
+        "confirmation_not_required",
+        "no_due_courses",
+    )
 )
 
 
@@ -561,6 +612,22 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_session_window_confirmation_response_from_store_local_command
     )
 
+    session_window_start_authorization = subparsers.add_parser(
+        "session-window-start-authorization-from-store-local",
+        help="authorize due stored session-window starts after fixed confirmation",
+        description=(
+            "Build non-executing session-window start authorization metadata from "
+            "an explicit read-only local schedule store, archive root, local clock, "
+            "and fixed confirmation response."
+        ),
+    )
+    _add_session_window_start_authorization_from_store_local_arguments(
+        session_window_start_authorization
+    )
+    session_window_start_authorization.set_defaults(
+        handler=_run_session_window_start_authorization_from_store_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -609,6 +676,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     if argv[:1] == ["session-window-confirmation-response-from-store-local"]:
         return _run_session_window_confirmation_response_from_store_local_argv(argv[1:])
+    if argv[:1] == ["session-window-start-authorization-from-store-local"]:
+        return _run_session_window_start_authorization_from_store_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-save-local"]:
         return _run_course_schedule_save_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
@@ -672,6 +741,12 @@ def main(argv: list[str] | None = None) -> int:
     if "session-window-confirmation-response-from-store-local" in argv:
         print(
             _SESSION_WINDOW_CONFIRMATION_RESPONSE_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 2
+    if "session-window-start-authorization-from-store-local" in argv:
+        print(
+            _SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR,
             file=sys.stderr,
         )
         return 2
@@ -1347,6 +1422,54 @@ def _add_session_window_confirmation_response_from_store_local_arguments(
         "--disabled",
         action="store_true",
         help="return disabled session-window response metadata without due courses",
+    )
+
+
+def _add_session_window_start_authorization_from_store_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe local session identifier for the start authorization",
+    )
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit existing local SQLite course schedule database",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit archive root containing the safe session directory",
+    )
+    parser.add_argument(
+        "--source-kind",
+        required=True,
+        choices=("file", "mic"),
+        help="local source kind to authorize",
+    )
+    parser.add_argument(
+        "--clock-day-of-week",
+        required=True,
+        help="explicit local clock weekday name",
+    )
+    parser.add_argument(
+        "--clock-local-time",
+        required=True,
+        help="explicit local clock time in HH:MM",
+    )
+    parser.add_argument(
+        "--confirmation-response",
+        required=True,
+        choices=("confirmed", "declined"),
+        help="fixed user response token to authorize",
+    )
+    parser.add_argument(
+        "--disabled",
+        action="store_true",
+        help="return disabled session-window authorization metadata without starts",
     )
 
 
@@ -2484,6 +2607,126 @@ def _stored_session_window_confirmation_response_course_safe_summary(
     }
     if safe_payload["confirmation_response"] != confirmation_response:
         raise ValueError(_SESSION_WINDOW_CONFIRMATION_RESPONSE_FROM_STORE_CLI_ERROR)
+    return safe_payload
+
+
+def _run_session_window_start_authorization_from_store_local_argv(
+    argv: list[str],
+) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-start-authorization-from-store-local",
+        description=(
+            "Build non-executing session-window start authorization metadata from "
+            "an explicit read-only local schedule store, archive root, local clock, "
+            "and fixed confirmation response."
+        ),
+        fixed_error_message=_SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR,
+    )
+    _add_session_window_start_authorization_from_store_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_start_authorization_from_store_local_command(args)
+
+
+def _run_session_window_start_authorization_from_store_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.schedule_store import list_course_schedule_session_window_inputs
+    from async_scholar.scheduled_start import ScheduledStartClock
+    from async_scholar.session_window_confirmation_preflight import (
+        build_session_window_confirmation_preflight_summary,
+    )
+    from async_scholar.session_window_confirmation_response import (
+        build_session_window_confirmation_response_summary,
+    )
+    from async_scholar.session_window_start_authorization import (
+        build_session_window_start_authorization_summary,
+    )
+
+    try:
+        clock = ScheduledStartClock(
+            day_of_week=args.clock_day_of_week,
+            local_time=args.clock_local_time,
+        )
+        preflight_payload = build_session_window_confirmation_preflight_summary(
+            list_course_schedule_session_window_inputs(args.db_path),
+            args.archive_root,
+            args.session_id,
+            args.source_kind,
+            clock,
+            enabled=not args.disabled,
+        )
+        response_payload = build_session_window_confirmation_response_summary(
+            preflight_payload,
+            args.confirmation_response,
+        )
+        payload = _stored_session_window_start_authorization_safe_summary(
+            build_session_window_start_authorization_summary(response_payload)
+        )
+    except (KeyError, TypeError, ValueError):
+        print(
+            _SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 1
+
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _stored_session_window_start_authorization_safe_summary(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    courses = payload["courses"]
+    if not isinstance(courses, list):
+        raise ValueError(_SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR)
+    safe_payload = {
+        key: payload[key] for key in _STORED_SESSION_WINDOW_START_AUTHORIZATION_KEYS
+    }
+    if (
+        safe_payload["status"]
+        not in _STORED_SESSION_WINDOW_START_AUTHORIZATION_STATUSES
+    ):
+        raise ValueError(_SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR)
+    if (
+        safe_payload["confirmation_response"]
+        not in _STORED_SESSION_WINDOW_CONFIRMATION_RESPONSE_TOKENS
+    ):
+        raise ValueError(_SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR)
+    if (
+        safe_payload["block_reason"]
+        not in _STORED_SESSION_WINDOW_START_AUTHORIZATION_BLOCK_REASONS
+    ):
+        raise ValueError(_SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR)
+    safe_payload["courses"] = [
+        _stored_session_window_start_authorization_course_safe_summary(
+            course,
+            safe_payload["confirmation_response"],
+        )
+        for course in courses
+    ]
+    if safe_payload["authorized"] and (
+        safe_payload["status"] != "authorized"
+        or safe_payload["block_reason"] != "none"
+        or safe_payload["blocked_start_count"] != 0
+        or safe_payload["authorized_start_count"] != safe_payload["due_count"]
+        or any(not course["authorized"] for course in safe_payload["courses"])
+    ):
+        raise ValueError(_SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR)
+    if not safe_payload["authorized"] and safe_payload["courses"]:
+        raise ValueError(_SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR)
+    return safe_payload
+
+
+def _stored_session_window_start_authorization_course_safe_summary(
+    payload: dict[str, object],
+    confirmation_response: object,
+) -> dict[str, object]:
+    safe_payload = {
+        key: payload[key]
+        for key in _STORED_SESSION_WINDOW_START_AUTHORIZATION_COURSE_KEYS
+    }
+    if safe_payload["confirmation_response"] != confirmation_response:
+        raise ValueError(_SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR)
     return safe_payload
 
 
