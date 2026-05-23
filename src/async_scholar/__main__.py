@@ -16,6 +16,7 @@ _ARCHIVE_EXPORT_CLI_ERROR = "archive export could not be executed"
 _ARCHIVE_EXPORT_VERIFY_CLI_ERROR = "archive export verification could not be built"
 _ARCHIVE_DELETE_DRY_RUN_CLI_ERROR = "archive delete dry run could not be built"
 _SCHEDULED_START_PREVIEW_CLI_ERROR = "scheduled start preview could not be built"
+_COURSE_SCHEDULE_SUMMARY_CLI_ERROR = "course schedule summary could not be built"
 
 
 class _FixedMessageArgumentParser(argparse.ArgumentParser):
@@ -128,6 +129,19 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_scheduled_start_preview_local_command
     )
 
+    course_schedule_summary = subparsers.add_parser(
+        "course-schedule-summary-local",
+        help="summarize a stored local course schedule using metadata only",
+        description=(
+            "Summarize one stored local course schedule from an explicit "
+            "read-only SQLite database path."
+        ),
+    )
+    _add_course_schedule_summary_local_arguments(course_schedule_summary)
+    course_schedule_summary.set_defaults(
+        handler=_run_course_schedule_summary_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -154,6 +168,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if argv[:1] == ["scheduled-start-preview-local"]:
         return _run_scheduled_start_preview_local_argv(argv[1:])
+    if argv[:1] == ["course-schedule-summary-local"]:
+        return _run_course_schedule_summary_local_argv(argv[1:])
+    if "course-schedule-summary-local" in argv or any(
+        arg == "--db-path" or arg.startswith("--db-path=") for arg in argv
+    ):
+        print(_COURSE_SCHEDULE_SUMMARY_CLI_ERROR, file=sys.stderr)
+        return 2
     if "scheduled-start-preview-local" in argv or any(
         arg == "--course-id"
         or arg.startswith("--course-id=")
@@ -337,6 +358,22 @@ def _add_scheduled_start_preview_local_arguments(
         "--disabled",
         action="store_true",
         help="preview the schedule as disabled",
+    )
+
+
+def _add_course_schedule_summary_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit existing local SQLite course schedule database",
+    )
+    parser.add_argument(
+        "--course-id",
+        required=True,
+        help="safe course identifier to summarize",
     )
 
 
@@ -583,6 +620,39 @@ def _run_scheduled_start_preview_local_command(args: argparse.Namespace) -> int:
         payload = scheduled_start_manual_result_safe_summary(preview)
     except ValueError:
         print(_SCHEDULED_START_PREVIEW_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _run_course_schedule_summary_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar course-schedule-summary-local",
+        description=(
+            "Summarize one stored local course schedule from an explicit "
+            "read-only SQLite database path."
+        ),
+        fixed_error_message=_COURSE_SCHEDULE_SUMMARY_CLI_ERROR,
+    )
+    _add_course_schedule_summary_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_course_schedule_summary_local_command(args)
+
+
+def _run_course_schedule_summary_local_command(args: argparse.Namespace) -> int:
+    from async_scholar.schedule_store import (
+        COURSE_SCHEDULE_SUMMARY_ERROR,
+        load_course_schedule_safe_summary,
+    )
+
+    try:
+        payload = load_course_schedule_safe_summary(
+            args.db_path,
+            args.course_id,
+        )
+    except ValueError:
+        print(COURSE_SCHEDULE_SUMMARY_ERROR, file=sys.stderr)
         return 1
 
     print(json.dumps(payload, sort_keys=True))

@@ -14,6 +14,7 @@ from async_scholar.schedule_config import ScheduleConfig
 COURSE_SCHEDULE_STORE_ERROR = "course schedule store could not be built"
 COURSE_SCHEDULE_SAVE_ERROR = "course schedule could not be saved"
 COURSE_SCHEDULE_LOAD_ERROR = "course schedule could not be loaded"
+COURSE_SCHEDULE_SUMMARY_ERROR = "course schedule summary could not be built"
 
 _COURSES_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS courses (
@@ -239,6 +240,89 @@ def load_course_schedule(db_path: str | Path, course_id: str) -> StoredCourseSch
         raise ValueError(COURSE_SCHEDULE_LOAD_ERROR) from None
 
 
+def load_course_schedule_safe_summary(
+    db_path: str | Path,
+    course_id: str,
+) -> dict[str, object]:
+    """Read one stored schedule summary without creating or modifying the store."""
+
+    try:
+        safe_db_path = _validate_existing_db_path(db_path)
+        safe_course_id = _normalize_course_id(course_id)
+        read_only_uri = f"{safe_db_path.resolve(strict=True).as_uri()}?mode=ro"
+        with sqlite3.connect(read_only_uri, uri=True) as connection:
+            connection.row_factory = sqlite3.Row
+            _configure_connection(connection)
+            course_row = connection.execute(
+                """
+                SELECT
+                    course_id,
+                    title,
+                    instructor_name,
+                    meeting_url,
+                    meeting_label
+                FROM courses
+                WHERE course_id = ?
+                """,
+                (safe_course_id,),
+            ).fetchone()
+            if course_row is None:
+                raise ValueError("course schedule is missing")
+
+            class_time_rows = connection.execute(
+                """
+                SELECT
+                    day_of_week,
+                    local_start_time,
+                    duration_minutes,
+                    timezone_name,
+                    meeting_label
+                FROM class_times
+                WHERE course_id = ?
+                ORDER BY position
+                """,
+                (safe_course_id,),
+            ).fetchall()
+            if not class_time_rows:
+                raise ValueError("course schedule has no class times")
+
+        course_metadata = CourseMetadata(
+            course_id=course_row["course_id"],
+            title=course_row["title"],
+            instructor_name=course_row["instructor_name"],
+            meeting_url=course_row["meeting_url"],
+            meeting_label=course_row["meeting_label"],
+        )
+        schedule_config = ScheduleConfig(
+            course_id=course_row["course_id"],
+            class_times=[
+                {
+                    "day_of_week": row["day_of_week"],
+                    "local_start_time": row["local_start_time"],
+                    "duration_minutes": row["duration_minutes"],
+                    "timezone_name": row["timezone_name"],
+                    "meeting_label": row["meeting_label"],
+                }
+                for row in class_time_rows
+            ],
+        )
+        return StoredCourseSchedule(
+            course_id=course_metadata.course_id,
+            class_time_count=len(schedule_config.class_times),
+            course_metadata=course_metadata,
+            schedule_config=schedule_config,
+        ).safe_summary()
+    except (
+        OSError,
+        RuntimeError,
+        TypeError,
+        ValidationError,
+        sqlite3.Error,
+        ValueError,
+    ):
+        raise ValueError(COURSE_SCHEDULE_SUMMARY_ERROR) from None
+
+
 def _validate_db_path(db_path: str | Path) -> Path:
     if not isinstance(db_path, (str, Path)):
         raise ValueError("db_path must be an explicit local path")
@@ -266,6 +350,13 @@ def _validate_db_path(db_path: str | Path) -> Path:
     parent = candidate.parent
     if not parent.exists() or not parent.is_dir() or parent.is_symlink():
         raise ValueError("db_path parent must be a local directory")
+    return candidate
+
+
+def _validate_existing_db_path(db_path: str | Path) -> Path:
+    candidate = _validate_db_path(db_path)
+    if not candidate.exists() or not candidate.is_file() or candidate.is_symlink():
+        raise ValueError("db_path must be an existing local database file")
     return candidate
 
 
