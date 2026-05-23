@@ -67,6 +67,9 @@ _SESSION_WINDOW_RECOVERY_DECISION_CLI_ERROR = (
 _SESSION_WINDOW_RECOVERY_REVIEW_CLI_ERROR = (
     "stored session window recovery review could not be built"
 )
+_SESSION_WINDOW_RECOVERY_REVIEW_BATCH_CLI_ERROR = (
+    "stored session window recovery review batch could not be built"
+)
 _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
@@ -715,6 +718,21 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_session_window_recovery_review_local_command
     )
 
+    session_window_recovery_review_batch = subparsers.add_parser(
+        "session-window-recovery-review-batch-local",
+        help="summarize stored session-window recovery review batch metadata",
+        description=(
+            "Build a read-only stored session-window recovery review batch from "
+            "explicit session identifiers."
+        ),
+    )
+    _add_session_window_recovery_review_batch_local_arguments(
+        session_window_recovery_review_batch
+    )
+    session_window_recovery_review_batch.set_defaults(
+        handler=_run_session_window_recovery_review_batch_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -775,6 +793,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_session_window_recovery_decision_local_argv(argv[1:])
     if argv[:1] == ["session-window-recovery-review-local"]:
         return _run_session_window_recovery_review_local_argv(argv[1:])
+    if argv[:1] == ["session-window-recovery-review-batch-local"]:
+        return _run_session_window_recovery_review_batch_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-save-local"]:
         return _run_course_schedule_save_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
@@ -874,6 +894,12 @@ def main(argv: list[str] | None = None) -> int:
     if "session-window-recovery-review-local" in argv:
         print(
             _SESSION_WINDOW_RECOVERY_REVIEW_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 2
+    if "session-window-recovery-review-batch-local" in argv:
+        print(
+            _SESSION_WINDOW_RECOVERY_REVIEW_BATCH_CLI_ERROR,
             file=sys.stderr,
         )
         return 2
@@ -1727,6 +1753,22 @@ def _add_session_window_recovery_review_local_arguments(
     parser.add_argument(
         "session_id",
         help="safe local session identifier for the recovery review",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit existing local archive root containing session metadata",
+    )
+
+
+def _add_session_window_recovery_review_batch_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_ids",
+        nargs="+",
+        help="one or more safe local session identifiers for the recovery review batch",
     )
     parser.add_argument(
         "--archive-root",
@@ -3217,6 +3259,43 @@ def _run_session_window_recovery_review_local_command(
     except (KeyError, OSError, TypeError, ValueError):
         print(
             _SESSION_WINDOW_RECOVERY_REVIEW_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_session_window_recovery_review_batch_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-recovery-review-batch-local",
+        description=(
+            "Build a read-only stored session-window recovery review batch from "
+            "explicit session identifiers."
+        ),
+        fixed_error_message=_SESSION_WINDOW_RECOVERY_REVIEW_BATCH_CLI_ERROR,
+    )
+    _add_session_window_recovery_review_batch_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_recovery_review_batch_local_command(args)
+
+
+def _run_session_window_recovery_review_batch_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.session_window_recovery_batch_review import (
+        build_stored_session_window_recovery_review_batch,
+    )
+
+    try:
+        payload = build_stored_session_window_recovery_review_batch(
+            args.archive_root,
+            args.session_ids,
+        )
+    except (KeyError, OSError, TypeError, ValueError):
+        print(
+            _SESSION_WINDOW_RECOVERY_REVIEW_BATCH_CLI_ERROR,
             file=sys.stderr,
         )
         return 1
