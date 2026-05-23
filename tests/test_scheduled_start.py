@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from async_scholar import scheduled_start
 from async_scholar.schedule_config import ScheduleConfig
 from async_scholar.scheduled_start import (
+    SCHEDULED_START_DUE_LIST_ERROR,
     SCHEDULED_START_MANUAL_RESULT_ERROR,
     SCHEDULED_START_NEXT_PREVIEW_ERROR,
     ScheduledStartClock,
@@ -16,6 +17,7 @@ from async_scholar.scheduled_start import (
     ScheduledStartPlan,
     build_next_scheduled_start_preview_summary,
     build_scheduled_start_due_decision,
+    build_scheduled_start_due_list_summary,
     build_scheduled_start_manual_result,
     build_scheduled_start_plan,
     scheduled_start_manual_result_safe_summary,
@@ -943,6 +945,283 @@ def test_next_preview_rejects_invalid_inputs_with_fixed_error() -> None:
 
         error_text = str(exc_info.value)
         assert error_text == SCHEDULED_START_NEXT_PREVIEW_ERROR
+        for forbidden_text in ("C:", "Users", "student", "token", "secret"):
+            assert forbidden_text not in error_text
+
+
+def test_due_list_summary_returns_only_due_courses_sorted_by_course_id() -> None:
+    payload = build_scheduled_start_due_list_summary(
+        {
+            "course_count": 3,
+            "courses": [
+                {
+                    "course_id": "math101",
+                    "class_times": [
+                        {
+                            "selected_class_time_index": 0,
+                            "scheduled_day_of_week": "monday",
+                            "scheduled_local_start_time": "09:00",
+                            "duration_minutes": 90,
+                            "timezone_name": "Asia/Manila",
+                            "meeting_label": "Private math lecture",
+                        }
+                    ],
+                    "title": "Private Math",
+                    "meeting_url": "https://meet.example.edu/token-secret",
+                },
+                {
+                    "course_id": "cs101",
+                    "class_times": [
+                        {
+                            "selected_class_time_index": 7,
+                            "scheduled_day_of_week": "wednesday",
+                            "scheduled_local_start_time": "13:30",
+                        },
+                        {
+                            "selected_class_time_index": 9,
+                            "scheduled_day_of_week": "monday",
+                            "scheduled_local_start_time": "09:00",
+                        },
+                    ],
+                    "instructor_name": "Dr. Private",
+                },
+                {
+                    "course_id": "bio101",
+                    "class_times": [
+                        {
+                            "selected_class_time_index": 0,
+                            "scheduled_day_of_week": "friday",
+                            "scheduled_local_start_time": "14:00",
+                        }
+                    ],
+                },
+            ],
+        },
+        ScheduledStartClock(day_of_week="monday", local_time="09:00"),
+        "session-001",
+        "file",
+    )
+
+    assert payload == {
+        "status": "due",
+        "session_id": "session-001",
+        "source_kind": "file",
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "course_count": 3,
+        "due_count": 2,
+        "courses": [
+            {
+                "course_id": "cs101",
+                "selected_class_time_index": 9,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "09:00",
+                "due": True,
+                "minutes_until_start": 0,
+            },
+            {
+                "course_id": "math101",
+                "selected_class_time_index": 0,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "09:00",
+                "due": True,
+                "minutes_until_start": 0,
+            },
+        ],
+    }
+    output_text = json.dumps(payload, sort_keys=True).lower()
+    for forbidden_text in (
+        "title",
+        "meeting",
+        "meet.example",
+        "timezone",
+        "duration",
+        "private",
+        "instructor",
+        "dr.",
+        "lecture",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+    ):
+        assert forbidden_text not in output_text
+
+
+def test_due_list_summary_reports_waiting_for_empty_or_not_due_courses() -> None:
+    empty_payload = build_scheduled_start_due_list_summary(
+        {"course_count": 0, "courses": []},
+        ScheduledStartClock(day_of_week="monday", local_time="09:00"),
+        "session-001",
+        "mic",
+    )
+
+    assert empty_payload == {
+        "status": "waiting",
+        "session_id": "session-001",
+        "source_kind": "mic",
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "course_count": 0,
+        "due_count": 0,
+        "courses": [],
+    }
+
+    waiting_payload = build_scheduled_start_due_list_summary(
+        {
+            "course_count": 1,
+            "courses": [
+                {
+                    "course_id": "cs101",
+                    "class_times": [
+                        {
+                            "selected_class_time_index": 0,
+                            "scheduled_day_of_week": "monday",
+                            "scheduled_local_start_time": "09:30",
+                        }
+                    ],
+                }
+            ],
+        },
+        ScheduledStartClock(day_of_week="monday", local_time="09:00"),
+        "session-001",
+        "file",
+    )
+
+    assert waiting_payload["status"] == "waiting"
+    assert waiting_payload["due_count"] == 0
+    assert waiting_payload["courses"] == []
+
+
+def test_due_list_summary_disabled_returns_no_due_courses() -> None:
+    payload = build_scheduled_start_due_list_summary(
+        {
+            "course_count": 1,
+            "courses": [
+                {
+                    "course_id": "cs101",
+                    "class_times": [
+                        {
+                            "selected_class_time_index": 0,
+                            "scheduled_day_of_week": "monday",
+                            "scheduled_local_start_time": "09:00",
+                        }
+                    ],
+                }
+            ],
+        },
+        ScheduledStartClock(day_of_week="monday", local_time="09:00"),
+        "session-001",
+        "file",
+        enabled=False,
+    )
+
+    assert payload == {
+        "status": "disabled",
+        "session_id": "session-001",
+        "source_kind": "file",
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "course_count": 1,
+        "due_count": 0,
+        "courses": [],
+    }
+
+
+def test_due_list_summary_rejects_invalid_inputs_with_fixed_error() -> None:
+    clock = ScheduledStartClock(day_of_week="monday", local_time="09:00")
+
+    for args in (
+        ({"course_count": 1, "courses": []}, clock, "session-001", "file"),
+        (
+            {
+                "course_count": 1,
+                "courses": [
+                    {
+                        "course_id": "cs101",
+                        "class_times": [
+                            {
+                                "selected_class_time_index": 0,
+                                "scheduled_day_of_week": "notaday",
+                                "scheduled_local_start_time": "C:/Users/token",
+                            }
+                        ],
+                    }
+                ],
+            },
+            clock,
+            "session-001",
+            "file",
+        ),
+        (
+            {
+                "course_count": 1,
+                "courses": [
+                    {
+                        "course_id": "cs101",
+                        "class_times": [
+                            {
+                                "selected_class_time_index": 0,
+                                "scheduled_day_of_week": "monday",
+                                "scheduled_local_start_time": "09:00",
+                            }
+                        ],
+                    }
+                ],
+            },
+            {"day_of_week": "monday"},
+            "session-001",
+            "file",
+        ),
+        (
+            {
+                "course_count": 1,
+                "courses": [
+                    {
+                        "course_id": "cs101",
+                        "class_times": [
+                            {
+                                "selected_class_time_index": 0,
+                                "scheduled_day_of_week": "monday",
+                                "scheduled_local_start_time": "09:00",
+                            }
+                        ],
+                    }
+                ],
+            },
+            clock,
+            "C:/Users/student/token-secret",
+            "file",
+        ),
+        (
+            {
+                "course_count": 1,
+                "courses": [
+                    {
+                        "course_id": "cs101",
+                        "class_times": [
+                            {
+                                "selected_class_time_index": 0,
+                                "scheduled_day_of_week": "monday",
+                                "scheduled_local_start_time": "09:00",
+                            }
+                        ],
+                    }
+                ],
+            },
+            clock,
+            "session-001",
+            "browser",
+        ),
+    ):
+        with pytest.raises(ValueError) as exc_info:
+            build_scheduled_start_due_list_summary(*args)
+
+        error_text = str(exc_info.value)
+        assert error_text == SCHEDULED_START_DUE_LIST_ERROR
         for forbidden_text in ("C:", "Users", "student", "token", "secret"):
             assert forbidden_text not in error_text
 

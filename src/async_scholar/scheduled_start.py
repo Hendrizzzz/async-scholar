@@ -29,6 +29,7 @@ SCHEDULED_START_DECISION_KIND = "scheduled_start_due_decision"
 SCHEDULED_START_MANUAL_RESULT_KIND = "scheduled_start_manual_result"
 SCHEDULED_START_MANUAL_RESULT_ERROR = "scheduled start manual result could not be built"
 SCHEDULED_START_NEXT_PREVIEW_ERROR = "scheduled start next preview could not be built"
+SCHEDULED_START_DUE_LIST_ERROR = "scheduled start due list could not be built"
 DAY_OF_WEEK_VALUES = (
     "monday",
     "tuesday",
@@ -62,6 +63,7 @@ ScheduledStartClockSummary = dict[str, str]
 ScheduledStartDueDecisionSummary = dict[str, str | int | bool | None]
 ScheduledStartManualResultSummary = dict[str, str | int | bool | None]
 ScheduledStartNextPreviewSummary = dict[str, str | int | bool | None]
+ScheduledStartDueListSummary = dict[str, object]
 
 
 def _before_validator(*field_names: str) -> Any:
@@ -846,6 +848,204 @@ def build_next_scheduled_start_preview_summary(
         )
     except (TypeError, ValidationError, ValueError):
         raise ValueError(SCHEDULED_START_NEXT_PREVIEW_ERROR) from None
+
+
+def build_scheduled_start_due_list_summary(
+    stored_courses: dict[str, object],
+    clock: ScheduledStartClock,
+    session_id: str,
+    source_kind: str,
+    *,
+    enabled: bool = True,
+) -> ScheduledStartDueListSummary:
+    """Build a due-only summary across stored course timing data."""
+
+    try:
+        if not isinstance(stored_courses, dict):
+            raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+        if type(clock) is not ScheduledStartClock:
+            raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+        if not isinstance(enabled, bool):
+            raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+
+        safe_clock = _revalidate_scheduled_start_clock(clock)
+        safe_session_id = _normalize_session_id(session_id)
+        safe_source_kind = _normalize_next_preview_source_kind(source_kind)
+        course_count = _normalize_due_list_course_count(stored_courses["course_count"])
+        course_rows = _normalize_due_list_courses(stored_courses["courses"])
+        if len(course_rows) != course_count:
+            raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+
+        if not enabled:
+            return _scheduled_start_due_list_summary(
+                status="disabled",
+                session_id=safe_session_id,
+                source_kind=safe_source_kind,
+                clock=safe_clock,
+                course_count=course_count,
+                courses=[],
+            )
+
+        due_courses: list[dict[str, object]] = []
+        for course_row in course_rows:
+            preview = build_next_scheduled_start_preview_summary(
+                _schedule_config_from_due_list_course(course_row),
+                safe_clock,
+                safe_session_id,
+                safe_source_kind,
+                enabled=True,
+            )
+            if preview["due"] is not True:
+                continue
+
+            selected_index = preview["selected_class_time_index"]
+            if isinstance(selected_index, bool) or not isinstance(
+                selected_index,
+                int,
+            ):
+                raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+            class_times = course_row["class_times"]
+            if not isinstance(class_times, list):
+                raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+            selected_class_time = class_times[selected_index]
+            if not isinstance(selected_class_time, dict):
+                raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+            due_courses.append(
+                {
+                    "course_id": preview["course_id"],
+                    "selected_class_time_index": selected_class_time[
+                        "selected_class_time_index"
+                    ],
+                    "scheduled_day_of_week": preview["scheduled_day_of_week"],
+                    "scheduled_local_start_time": preview["scheduled_local_start_time"],
+                    "due": True,
+                    "minutes_until_start": preview["minutes_until_start"],
+                }
+            )
+
+        due_courses.sort(key=lambda course: str(course["course_id"]))
+        return _scheduled_start_due_list_summary(
+            status="due" if due_courses else "waiting",
+            session_id=safe_session_id,
+            source_kind=safe_source_kind,
+            clock=safe_clock,
+            course_count=course_count,
+            courses=due_courses,
+        )
+    except (KeyError, IndexError, TypeError, ValidationError, ValueError):
+        raise ValueError(SCHEDULED_START_DUE_LIST_ERROR) from None
+
+
+def _scheduled_start_due_list_summary(
+    *,
+    status: Literal["due", "waiting", "disabled"],
+    session_id: str,
+    source_kind: str,
+    clock: ScheduledStartClock,
+    course_count: int,
+    courses: list[dict[str, object]],
+) -> ScheduledStartDueListSummary:
+    return {
+        "status": status,
+        "session_id": session_id,
+        "source_kind": source_kind,
+        "clock_day_of_week": clock.day_of_week,
+        "clock_local_time": clock.local_time,
+        "course_count": course_count,
+        "due_count": len(courses),
+        "courses": courses,
+    }
+
+
+def _normalize_due_list_course_count(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+    return value
+
+
+def _normalize_due_list_courses(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+    course_ids: set[str] = set()
+    courses: list[dict[str, object]] = []
+    for course in value:
+        if not isinstance(course, dict):
+            raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+        course_id = _normalize_due_list_course_id(course["course_id"])
+        if course_id in course_ids:
+            raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+        course_ids.add(course_id)
+        class_times = _normalize_due_list_class_times(course["class_times"])
+        courses.append(
+            {
+                "course_id": course_id,
+                "class_times": class_times,
+            }
+        )
+    return courses
+
+
+def _normalize_due_list_course_id(value: object) -> str:
+    normalized = _clean_required_text(
+        value,
+        field_name="course_id",
+        max_length=COURSE_ID_MAX_LENGTH,
+    ).lower()
+    if _COURSE_ID_PATTERN.fullmatch(normalized) is None:
+        raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+    return normalized
+
+
+def _normalize_due_list_class_times(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list) or not value:
+        raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+    class_times: list[dict[str, object]] = []
+    for class_time in value:
+        if not isinstance(class_time, dict):
+            raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+        selected_class_time_index = _normalize_due_list_selected_class_time_index(
+            class_time["selected_class_time_index"]
+        )
+        class_times.append(
+            {
+                "selected_class_time_index": selected_class_time_index,
+                "scheduled_day_of_week": _normalize_day_of_week_text(
+                    class_time["scheduled_day_of_week"],
+                    field_name="scheduled_day_of_week",
+                ),
+                "scheduled_local_start_time": _normalize_local_time_text(
+                    class_time["scheduled_local_start_time"],
+                    field_name="scheduled_local_start_time",
+                ),
+            }
+        )
+    return class_times
+
+
+def _normalize_due_list_selected_class_time_index(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+    return value
+
+
+def _schedule_config_from_due_list_course(
+    course: dict[str, object],
+) -> ScheduleConfig:
+    class_times = course["class_times"]
+    if not isinstance(class_times, list):
+        raise ValueError(SCHEDULED_START_DUE_LIST_ERROR)
+    return ScheduleConfig(
+        course_id=course["course_id"],
+        class_times=[
+            {
+                "day_of_week": class_time["scheduled_day_of_week"],
+                "local_start_time": class_time["scheduled_local_start_time"],
+                "duration_minutes": 1,
+            }
+            for class_time in class_times
+            if isinstance(class_time, dict)
+        ],
+    )
 
 
 def build_scheduled_start_plan(
