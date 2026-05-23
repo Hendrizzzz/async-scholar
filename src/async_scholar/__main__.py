@@ -82,6 +82,9 @@ _SESSION_WINDOW_RECOVERY_REPORT_FILE_INVENTORY_CLI_ERROR = (
 _SESSION_WINDOW_RECOVERY_REPORT_FILE_VERIFICATION_CLI_ERROR = (
     "stored session window recovery report file verification could not be built"
 )
+_SESSION_WINDOW_RECOVERY_REPORT_FILE_ACTION_PREVIEW_CLI_ERROR = (
+    "stored session window recovery report file action preview could not be built"
+)
 _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
@@ -803,6 +806,21 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_session_window_recovery_report_file_verification_local_command
     )
 
+    session_window_recovery_report_file_action_preview = subparsers.add_parser(
+        "session-window-recovery-report-file-action-preview-local",
+        help="preview the next stored session-window recovery report file action",
+        description=(
+            "Preview the next safe local action for the fixed stored "
+            "session-window recovery report file from verification metadata."
+        ),
+    )
+    _add_session_window_recovery_report_file_action_preview_local_arguments(
+        session_window_recovery_report_file_action_preview
+    )
+    session_window_recovery_report_file_action_preview.set_defaults(
+        handler=_run_session_window_recovery_report_file_action_preview_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -873,6 +891,10 @@ def main(argv: list[str] | None = None) -> int:
         return _run_session_window_recovery_report_file_inventory_local_argv(argv[1:])
     if argv[:1] == ["session-window-recovery-report-file-verify-local"]:
         return _run_session_window_recovery_report_file_verification_local_argv(
+            argv[1:]
+        )
+    if argv[:1] == ["session-window-recovery-report-file-action-preview-local"]:
+        return _run_session_window_recovery_report_file_action_preview_local_argv(
             argv[1:]
         )
     if argv[:1] == ["course-schedule-save-local"]:
@@ -1004,6 +1026,12 @@ def main(argv: list[str] | None = None) -> int:
     if "session-window-recovery-report-file-verify-local" in argv:
         print(
             _SESSION_WINDOW_RECOVERY_REPORT_FILE_VERIFICATION_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 2
+    if "session-window-recovery-report-file-action-preview-local" in argv:
+        print(
+            _SESSION_WINDOW_RECOVERY_REPORT_FILE_ACTION_PREVIEW_CLI_ERROR,
             file=sys.stderr,
         )
         return 2
@@ -1957,6 +1985,12 @@ def _add_session_window_recovery_report_file_verification_local_arguments(
         required=True,
         help="explicit existing local output root containing the report file",
     )
+
+
+def _add_session_window_recovery_report_file_action_preview_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_session_window_recovery_report_file_verification_local_arguments(parser)
 
 
 def _run_fixture_demo_command(args: argparse.Namespace) -> int:
@@ -3631,6 +3665,46 @@ def _run_session_window_recovery_report_file_verification_local_command(
     except (KeyError, OSError, TypeError, ValueError):
         print(
             _SESSION_WINDOW_RECOVERY_REPORT_FILE_VERIFICATION_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_session_window_recovery_report_file_action_preview_local_argv(
+    argv: list[str],
+) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-recovery-report-file-action-preview-local",
+        description=(
+            "Preview the next safe local action for the fixed stored "
+            "session-window recovery report file from verification metadata."
+        ),
+        fixed_error_message=_SESSION_WINDOW_RECOVERY_REPORT_FILE_ACTION_PREVIEW_CLI_ERROR,
+    )
+    _add_session_window_recovery_report_file_action_preview_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_recovery_report_file_action_preview_local_command(args)
+
+
+def _run_session_window_recovery_report_file_action_preview_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.session_window_recovery_report_file_action_preview import (
+        build_stored_session_window_recovery_report_file_action_preview,
+    )
+
+    try:
+        payload = build_stored_session_window_recovery_report_file_action_preview(
+            args.session_ids,
+            args.archive_root,
+            args.output_root,
+        )
+    except (KeyError, OSError, TypeError, ValueError):
+        print(
+            _SESSION_WINDOW_RECOVERY_REPORT_FILE_ACTION_PREVIEW_CLI_ERROR,
             file=sys.stderr,
         )
         return 1
