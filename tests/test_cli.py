@@ -8,6 +8,8 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
+
 from async_scholar import __main__ as cli
 from async_scholar.course_metadata import CourseMetadata
 from async_scholar.schedule_config import ScheduleConfig
@@ -77,6 +79,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "session-stop-preview-from-store-local" in result.stdout
     assert "session-window-plan-from-store-local" in result.stdout
     assert "session-window-archive-preflight-from-store-local" in result.stdout
+    assert "session-window-alert-preview-from-store-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -5900,6 +5903,599 @@ def test_session_window_archive_preflight_handler_stays_read_only() -> None:
         assert forbidden_fragment not in source
 
 
+def test_session_window_alert_preview_from_store_local_help_stays_lazy(
+    monkeypatch,
+) -> None:
+    schedule_store_module = "async_scholar.schedule_store"
+    scheduled_start_module = "async_scholar.scheduled_start"
+    alert_preview_module = "async_scholar.session_window_alert_preview"
+    monkeypatch.delitem(sys.modules, schedule_store_module, raising=False)
+    monkeypatch.delitem(sys.modules, scheduled_start_module, raising=False)
+    monkeypatch.delitem(sys.modules, alert_preview_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-alert-preview-from-store-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar session-window-alert-preview-from-store-local" in (
+        result.stdout
+    )
+    assert "--db-path" in result.stdout
+    assert "--clock-local-time" in result.stdout
+    assert "metadata-only" in result.stdout
+    assert schedule_store_module not in sys.modules
+    assert scheduled_start_module not in sys.modules
+    assert alert_preview_module not in sys.modules
+
+
+def test_session_window_alert_preview_from_store_local_requires_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-alert-preview-from-store-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "stored session window alert preview could not be built\n"
+
+
+def test_session_window_alert_preview_from_store_local_prints_safe_json(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+    save_course_schedule(
+        db_path,
+        CourseMetadata(
+            course_id="math101",
+            title="Private Math",
+            instructor_name="Dr. Secret",
+            meeting_url="https://meet.example.edu/math?token=secret",
+            meeting_label="Private math lecture",
+        ),
+        ScheduleConfig(
+            course_id="math101",
+            class_times=[
+                {
+                    "day_of_week": "monday",
+                    "local_start_time": "09:00",
+                    "duration_minutes": 60,
+                    "timezone_name": "Asia/Manila",
+                    "meeting_label": "Private math lecture",
+                }
+            ],
+        ),
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-alert-preview-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.count("\n") == 1
+    assert json.loads(result.stdout) == {
+        "alert_preview_count": 2,
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "course_count": 2,
+        "courses": [
+            {
+                "alert_preview": {
+                    "alert_kind": "participation_check",
+                    "delivery": "none",
+                    "requires_confirmation": True,
+                },
+                "course_id": "cs101",
+                "due": True,
+                "enabled": True,
+                "minutes_until_start": 0,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "09:00",
+                "selected_class_time_index": 0,
+                "stop_after_minutes": 75,
+            },
+            {
+                "alert_preview": {
+                    "alert_kind": "participation_check",
+                    "delivery": "none",
+                    "requires_confirmation": True,
+                },
+                "course_id": "math101",
+                "due": True,
+                "enabled": True,
+                "minutes_until_start": 0,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "09:00",
+                "selected_class_time_index": 0,
+                "stop_after_minutes": 60,
+            },
+        ],
+        "due_count": 2,
+        "session_id": "session-001",
+        "source_kind": "file",
+        "status": "due",
+    }
+    _assert_session_window_alert_preview_output_is_safe(result.stdout, result.stderr)
+
+
+def test_session_window_alert_preview_from_store_local_disabled_and_empty_due(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+
+    disabled = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-alert-preview-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--source-kind",
+            "mic",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--disabled",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    waiting = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-alert-preview-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "tuesday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert disabled.returncode == 0
+    assert json.loads(disabled.stdout) == {
+        "alert_preview_count": 0,
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "course_count": 1,
+        "courses": [],
+        "due_count": 0,
+        "session_id": "session-001",
+        "source_kind": "mic",
+        "status": "disabled",
+    }
+    assert waiting.returncode == 0
+    assert json.loads(waiting.stdout)["alert_preview_count"] == 0
+    assert json.loads(waiting.stdout)["status"] == "waiting"
+    assert json.loads(waiting.stdout)["courses"] == []
+    _assert_session_window_alert_preview_output_is_safe(
+        disabled.stdout,
+        disabled.stderr,
+    )
+    _assert_session_window_alert_preview_output_is_safe(
+        waiting.stdout,
+        waiting.stderr,
+    )
+
+
+def test_session_window_alert_preview_from_store_local_sanitizes_failures(
+    tmp_path: Path,
+) -> None:
+    missing_db_path = tmp_path / "missing-token-secret-auth-profile.sqlite"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-alert-preview-from-store-local",
+            "session-001",
+            "--db-path",
+            str(missing_db_path),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "stored session window alert preview could not be built\n"
+    assert not missing_db_path.exists()
+    for forbidden_fragment in (
+        str(tmp_path),
+        "missing-token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_alert_preview_from_store_local_sanitizes_malformed_db(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("CREATE TABLE courses (course_id TEXT PRIMARY KEY)")
+        connection.execute("INSERT INTO courses (course_id) VALUES (?)", ("cs101",))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-alert-preview-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "stored session window alert preview could not be built\n"
+    for forbidden_fragment in (
+        str(tmp_path),
+        "class_times",
+        "select",
+        "sqlite",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_alert_preview_from_store_local_rejects_bad_source_and_clock(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+
+    bad_source = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-alert-preview-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--source-kind",
+            "browser",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    bad_clock = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-alert-preview-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "99:99",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert bad_source.returncode == 2
+    assert bad_source.stdout == ""
+    assert (
+        bad_source.stderr == "stored session window alert preview could not be built\n"
+    )
+    assert bad_clock.returncode == 1
+    assert bad_clock.stdout == ""
+    assert (
+        bad_clock.stderr == "stored session window alert preview could not be built\n"
+    )
+
+
+def test_session_window_alert_preview_command_delegates_to_helpers(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    schedule_store_module = "async_scholar.schedule_store"
+    scheduled_start_module = "async_scholar.scheduled_start"
+    alert_preview_module = "async_scholar.session_window_alert_preview"
+    fake_schedule_store_module = types.ModuleType(schedule_store_module)
+    fake_scheduled_start_module = types.ModuleType(scheduled_start_module)
+    fake_alert_preview_module = types.ModuleType(alert_preview_module)
+    fake_store_payload = object()
+    fake_clock = object()
+
+    def fake_list(db_path: Path) -> object:
+        received["db_path"] = db_path
+        return fake_store_payload
+
+    class FakeClock:
+        def __new__(cls, **kwargs: object) -> object:
+            received["clock_kwargs"] = kwargs
+            return fake_clock
+
+    def fake_build(
+        stored_courses: object,
+        session_id: str,
+        source_kind: str,
+        clock: object,
+        *,
+        enabled: bool,
+    ) -> dict[str, object]:
+        received["stored_courses"] = stored_courses
+        received["session_id"] = session_id
+        received["source_kind"] = source_kind
+        received["clock"] = clock
+        received["enabled"] = enabled
+        return {
+            "status": "due",
+            "session_id": "session-001",
+            "source_kind": "file",
+            "clock_day_of_week": "monday",
+            "clock_local_time": "09:00",
+            "course_count": 1,
+            "due_count": 1,
+            "alert_preview_count": 1,
+            "courses": [
+                {
+                    "course_id": "cs101",
+                    "selected_class_time_index": 0,
+                    "scheduled_day_of_week": "monday",
+                    "scheduled_local_start_time": "09:00",
+                    "due": True,
+                    "minutes_until_start": 0,
+                    "stop_after_minutes": 75,
+                    "enabled": True,
+                    "meeting_url": "https://meet.example.edu/token-secret",
+                    "alert_preview": {
+                        "alert_kind": "participation_check",
+                        "delivery": "none",
+                        "requires_confirmation": True,
+                        "target": "private-device-token",
+                    },
+                }
+            ],
+            "private_title": "Confidential Systems",
+        }
+
+    fake_schedule_store_module.list_course_schedule_session_window_inputs = fake_list
+    fake_scheduled_start_module.ScheduledStartClock = FakeClock
+    fake_alert_preview_module.build_session_window_alert_preview_summary = fake_build
+    monkeypatch.setitem(sys.modules, schedule_store_module, fake_schedule_store_module)
+    monkeypatch.setitem(
+        sys.modules,
+        scheduled_start_module,
+        fake_scheduled_start_module,
+    )
+    monkeypatch.setitem(sys.modules, alert_preview_module, fake_alert_preview_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-alert-preview-from-store-local",
+            "session-001",
+            "--db-path",
+            "schedule.sqlite",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert json.loads(captured.out) == {
+        "alert_preview_count": 1,
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "course_count": 1,
+        "courses": [
+            {
+                "alert_preview": {
+                    "alert_kind": "participation_check",
+                    "delivery": "none",
+                    "requires_confirmation": True,
+                },
+                "course_id": "cs101",
+                "due": True,
+                "enabled": True,
+                "minutes_until_start": 0,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "09:00",
+                "selected_class_time_index": 0,
+                "stop_after_minutes": 75,
+            }
+        ],
+        "due_count": 1,
+        "session_id": "session-001",
+        "source_kind": "file",
+        "status": "due",
+    }
+    assert captured.err == ""
+    assert received == {
+        "db_path": Path("schedule.sqlite"),
+        "clock_kwargs": {"day_of_week": "monday", "local_time": "09:00"},
+        "stored_courses": fake_store_payload,
+        "session_id": "session-001",
+        "source_kind": "file",
+        "clock": fake_clock,
+        "enabled": True,
+    }
+    _assert_session_window_alert_preview_output_is_safe(captured.out, captured.err)
+
+
+def test_session_window_alert_preview_cli_safe_summary_requires_fixed_metadata() -> (
+    None
+):
+    with pytest.raises(ValueError) as exc_info:
+        cli._stored_session_window_alert_preview_safe_summary(
+            {
+                "status": "due",
+                "session_id": "session-001",
+                "source_kind": "file",
+                "clock_day_of_week": "monday",
+                "clock_local_time": "09:00",
+                "course_count": 1,
+                "due_count": 1,
+                "alert_preview_count": 1,
+                "courses": [
+                    {
+                        "course_id": "cs101",
+                        "selected_class_time_index": 0,
+                        "scheduled_day_of_week": "monday",
+                        "scheduled_local_start_time": "09:00",
+                        "due": True,
+                        "minutes_until_start": 0,
+                        "stop_after_minutes": 75,
+                        "enabled": True,
+                        "alert_preview": {
+                            "alert_kind": "private-token",
+                            "delivery": "none",
+                            "requires_confirmation": True,
+                        },
+                    }
+                ],
+            }
+        )
+
+    assert (
+        str(exc_info.value) == "stored session window alert preview could not be built"
+    )
+
+
+def test_session_window_alert_preview_handler_stays_read_only() -> None:
+    source = inspect.getsource(
+        cli._run_session_window_alert_preview_from_store_local_command
+    )
+
+    assert "list_course_schedule_session_window_inputs" in source
+    assert "ScheduledStartClock" in source
+    assert "build_session_window_alert_preview_summary" in source
+    for forbidden_fragment in (
+        "load_course_schedule(",
+        "load_course_schedule_read_only",
+        "load_course_schedule_safe_summary",
+        "list_course_schedule_safe_summaries",
+        "list_course_schedule_due_list_inputs",
+        "load_course_schedule_session_stop_input",
+        "save_course_schedule",
+        "initialize_course_schedule_store",
+        "_create_schema",
+        "ScheduleConfig",
+        "CourseMetadata",
+        "datetime",
+        "now(",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "selenium",
+        "sounddevice",
+        "faster_whisper",
+        "mic_recording",
+        "telegram",
+        "desktop_notifier",
+        "execute_archive",
+        "archive_export",
+        "archive_delete",
+        ".open(",
+        ".read_text(",
+        ".write_text(",
+        ".mkdir(",
+        ".unlink(",
+        ".remove(",
+        ".rmdir(",
+        "rmtree",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_session_stop_preview_from_store_local_requires_explicit_metadata() -> None:
     result = subprocess.run(
         [
@@ -6575,6 +7171,53 @@ def _assert_session_window_archive_preflight_output_is_safe(
         "traceback",
         "live",
         "delivery",
+        "scheduler execution",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_session_window_alert_preview_output_is_safe(
+    stdout: str,
+    stderr: str,
+) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "result_kind",
+        "title",
+        "meeting",
+        "meet.example",
+        "timezone",
+        "duration",
+        "confidential",
+        "instructor",
+        "dr.",
+        "lecture",
+        "lab",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        str(Path.home()).lower(),
+        "token",
+        "secret",
+        "auth",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+        "artifact",
+        "sqlite",
+        "traceback",
+        "live delivery",
+        "live-delivery",
+        "live_delivery",
+        "dispatch",
+        "notification",
+        "payload",
+        "body",
+        "target",
         "scheduler execution",
         "gate d",
         "product promise",
