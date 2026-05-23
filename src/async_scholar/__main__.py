@@ -61,6 +61,9 @@ _SESSION_WINDOW_STOP_RECEIPT_FROM_STORE_CLI_ERROR = (
 _SESSION_WINDOW_RUNTIME_SUMMARY_CLI_ERROR = (
     "stored session window runtime summary could not be built"
 )
+_SESSION_WINDOW_RECOVERY_DECISION_CLI_ERROR = (
+    "stored session window recovery decision could not be built"
+)
 _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
@@ -681,6 +684,21 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_session_window_runtime_summary_local_command
     )
 
+    session_window_recovery_decision = subparsers.add_parser(
+        "session-window-recovery-decision-local",
+        help="summarize stored session-window recovery decision metadata",
+        description=(
+            "Build a read-only stored session-window recovery decision from "
+            "existing runtime and archive metadata."
+        ),
+    )
+    _add_session_window_recovery_decision_local_arguments(
+        session_window_recovery_decision
+    )
+    session_window_recovery_decision.set_defaults(
+        handler=_run_session_window_recovery_decision_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -737,6 +755,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_session_window_stop_receipt_from_store_local_argv(argv[1:])
     if argv[:1] == ["session-window-runtime-summary-local"]:
         return _run_session_window_runtime_summary_local_argv(argv[1:])
+    if argv[:1] == ["session-window-recovery-decision-local"]:
+        return _run_session_window_recovery_decision_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-save-local"]:
         return _run_course_schedule_save_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
@@ -824,6 +844,12 @@ def main(argv: list[str] | None = None) -> int:
     if "session-window-runtime-summary-local" in argv:
         print(
             _SESSION_WINDOW_RUNTIME_SUMMARY_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 2
+    if "session-window-recovery-decision-local" in argv:
+        print(
+            _SESSION_WINDOW_RECOVERY_DECISION_CLI_ERROR,
             file=sys.stderr,
         )
         return 2
@@ -1653,6 +1679,21 @@ def _add_session_window_runtime_summary_local_arguments(
         type=Path,
         required=True,
         help="explicit existing local archive root containing runtime metadata",
+    )
+
+
+def _add_session_window_recovery_decision_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe local session identifier for the recovery decision",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit existing local archive root containing session metadata",
     )
 
 
@@ -3063,6 +3104,43 @@ def _run_session_window_runtime_summary_local_command(
     except (KeyError, OSError, TypeError, ValueError):
         print(
             _SESSION_WINDOW_RUNTIME_SUMMARY_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_session_window_recovery_decision_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-recovery-decision-local",
+        description=(
+            "Build a read-only stored session-window recovery decision from "
+            "existing runtime and archive metadata."
+        ),
+        fixed_error_message=_SESSION_WINDOW_RECOVERY_DECISION_CLI_ERROR,
+    )
+    _add_session_window_recovery_decision_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_recovery_decision_local_command(args)
+
+
+def _run_session_window_recovery_decision_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.session_window_recovery_decision import (
+        build_stored_session_window_recovery_decision,
+    )
+
+    try:
+        payload = build_stored_session_window_recovery_decision(
+            args.archive_root,
+            args.session_id,
+        )
+    except (KeyError, OSError, TypeError, ValueError):
+        print(
+            _SESSION_WINDOW_RECOVERY_DECISION_CLI_ERROR,
             file=sys.stderr,
         )
         return 1
