@@ -11,7 +11,10 @@ from pathlib import Path
 from async_scholar import __main__ as cli
 from async_scholar.course_metadata import CourseMetadata
 from async_scholar.schedule_config import ScheduleConfig
-from async_scholar.schedule_store import save_course_schedule
+from async_scholar.schedule_store import (
+    load_course_schedule_read_only,
+    save_course_schedule,
+)
 
 
 def _write_private_course_schedule(db_path: Path) -> None:
@@ -65,6 +68,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "archive-delete-dry-run-local" in result.stdout
     assert "scheduled-start-preview-local" in result.stdout
     assert "course-schedule-summary-local" in result.stdout
+    assert "course-schedule-save-local" in result.stdout
     assert "scheduled-start-preview-from-store-local" in result.stdout
     assert "scheduled-start-next-from-store-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
@@ -1932,6 +1936,514 @@ def test_scheduled_start_preview_local_command_delegates_to_existing_helpers(
     }
 
 
+def test_course_schedule_save_local_help_stays_lazy(monkeypatch) -> None:
+    module_names = (
+        "async_scholar.course_metadata",
+        "async_scholar.schedule_config",
+        "async_scholar.schedule_store",
+    )
+    for module_name in module_names:
+        monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "course-schedule-save-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar course-schedule-save-local" in result.stdout
+    assert "--db-path" in result.stdout
+    assert "--class-time" in result.stdout
+    assert "without executing" in result.stdout
+    for module_name in module_names:
+        assert module_name not in sys.modules
+
+
+def test_course_schedule_save_local_requires_explicit_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "course-schedule-save-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "course schedule save could not be built\n"
+
+
+def test_course_schedule_save_local_sanitizes_parse_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "course-schedule-save-local",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--db-path",
+            "schedule.sqlite",
+            "--course-id",
+            "cs101",
+            "--title",
+            "Private Title",
+            "--class-time",
+            "monday,09:00,75",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "course schedule save could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_course_schedule_save_local_sanitizes_misordered_parse_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--db-path",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "course-schedule-save-local",
+            "--course-id",
+            "cs101",
+            "--title",
+            "Private Title",
+            "--class-time",
+            "monday,09:00,75",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "course schedule save could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_course_schedule_save_local_command_prints_safe_json(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "course-schedule-save-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "CS101",
+            "--title",
+            "Confidential Systems",
+            "--instructor-name",
+            "Dr. Private",
+            "--meeting-url",
+            "https://meet.example.edu/class-room?token=private",
+            "--meeting-label",
+            "Private lecture",
+            "--class-time",
+            "monday,09:00,75,Asia/Manila,Private lecture",
+            "--class-time",
+            "wednesday,13:30,90,Asia/Manila,Private lab",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.count("\n") == 1
+    assert json.loads(result.stdout) == {
+        "class_time_count": 2,
+        "course_id": "cs101",
+    }
+    stored_schedule = load_course_schedule_read_only(db_path, "cs101")
+    assert stored_schedule.class_time_count == 2
+    assert stored_schedule.course_metadata.meeting_url is not None
+    _assert_course_schedule_save_output_is_safe(result.stdout, result.stderr)
+
+
+def test_course_schedule_save_local_command_updates_existing_schedule(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    base_command = [
+        sys.executable,
+        "-m",
+        "async_scholar",
+        "course-schedule-save-local",
+        "--db-path",
+        str(db_path),
+        "--course-id",
+        "cs101",
+        "--title",
+        "Private Title",
+    ]
+
+    first = subprocess.run(
+        [
+            *base_command,
+            "--class-time",
+            "monday,09:00,75",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    second = subprocess.run(
+        [
+            *base_command,
+            "--class-time",
+            "monday,09:00,75",
+            "--class-time",
+            "thursday,18:45,105",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert first.returncode == 0
+    assert second.returncode == 0
+    assert json.loads(first.stdout) == {
+        "class_time_count": 1,
+        "course_id": "cs101",
+    }
+    assert json.loads(second.stdout) == {
+        "class_time_count": 2,
+        "course_id": "cs101",
+    }
+    assert load_course_schedule_read_only(db_path, "cs101").class_time_count == 2
+    _assert_course_schedule_save_output_is_safe(first.stdout, first.stderr)
+    _assert_course_schedule_save_output_is_safe(second.stdout, second.stderr)
+
+
+def test_course_schedule_save_local_missing_parent_fails_safely(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "missing-token-secret-auth-profile" / "schedule.sqlite"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "course-schedule-save-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--title",
+            "Private Title",
+            "--class-time",
+            "monday,09:00,75",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "course schedule save could not be built\n"
+    assert not db_path.parent.exists()
+    assert not db_path.exists()
+    for forbidden_fragment in (
+        str(tmp_path),
+        "missing-token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_course_schedule_save_local_sanitizes_invalid_metadata(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "course-schedule-save-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--title",
+            "Private Title",
+            "--meeting-url",
+            "file:///C:/Users/student/token-secret-auth-profile",
+            "--class-time",
+            "monday,09:00,75",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "course schedule save could not be built\n"
+    assert not db_path.exists()
+    for forbidden_fragment in (
+        "file:",
+        "C:/Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_course_schedule_save_local_sanitizes_invalid_class_time(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "course-schedule-save-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--title",
+            "Private Title",
+            "--class-time",
+            "monday,25:99,duration-token-secret",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "course schedule save could not be built\n"
+    assert not db_path.exists()
+    for forbidden_fragment in (
+        str(tmp_path),
+        "25:99",
+        "duration",
+        "token",
+        "secret",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_course_schedule_save_local_command_delegates_to_existing_models(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    course_metadata_module = "async_scholar.course_metadata"
+    schedule_config_module = "async_scholar.schedule_config"
+    schedule_store_module = "async_scholar.schedule_store"
+    fake_course_metadata_module = types.ModuleType(course_metadata_module)
+    fake_schedule_config_module = types.ModuleType(schedule_config_module)
+    fake_schedule_store_module = types.ModuleType(schedule_store_module)
+    fake_course_metadata = object()
+    fake_schedule_config = object()
+
+    class FakeCourseMetadata:
+        def __new__(cls, **kwargs: object) -> object:
+            received["course_metadata_kwargs"] = kwargs
+            return fake_course_metadata
+
+    class FakeScheduleConfig:
+        def __new__(cls, **kwargs: object) -> object:
+            received["schedule_config_kwargs"] = kwargs
+            return fake_schedule_config
+
+    class FakeStoredSchedule:
+        def safe_summary(self) -> dict[str, object]:
+            received["safe_summary_called"] = True
+            return {"class_time_count": 2, "course_id": "cs101"}
+
+    def fake_save(
+        db_path: Path,
+        course_metadata: object,
+        schedule_config: object,
+    ) -> object:
+        received["db_path"] = db_path
+        received["course_metadata"] = course_metadata
+        received["schedule_config"] = schedule_config
+        return FakeStoredSchedule()
+
+    fake_course_metadata_module.CourseMetadata = FakeCourseMetadata
+    fake_schedule_config_module.ScheduleConfig = FakeScheduleConfig
+    fake_schedule_store_module.save_course_schedule = fake_save
+    monkeypatch.setitem(
+        sys.modules,
+        course_metadata_module,
+        fake_course_metadata_module,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        schedule_config_module,
+        fake_schedule_config_module,
+    )
+    monkeypatch.setitem(sys.modules, schedule_store_module, fake_schedule_store_module)
+
+    exit_code = cli.main(
+        [
+            "course-schedule-save-local",
+            "--db-path",
+            "schedule.sqlite",
+            "--course-id",
+            "cs101",
+            "--title",
+            "Private Title",
+            "--instructor-name",
+            "Dr. Private",
+            "--meeting-url",
+            "https://meet.example.edu/class-room?token=private",
+            "--meeting-label",
+            "Private lecture",
+            "--class-time",
+            "monday,09:00,75,Asia/Manila,Private lecture",
+            "--class-time",
+            "wednesday,13:30,90,Asia/Manila,Private lab",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert json.loads(captured.out) == {
+        "class_time_count": 2,
+        "course_id": "cs101",
+    }
+    assert captured.err == ""
+    assert received == {
+        "course_metadata_kwargs": {
+            "course_id": "cs101",
+            "title": "Private Title",
+            "instructor_name": "Dr. Private",
+            "meeting_url": "https://meet.example.edu/class-room?token=private",
+            "meeting_label": "Private lecture",
+        },
+        "schedule_config_kwargs": {
+            "course_id": "cs101",
+            "class_times": [
+                {
+                    "day_of_week": "monday",
+                    "local_start_time": "09:00",
+                    "duration_minutes": 75,
+                    "timezone_name": "Asia/Manila",
+                    "meeting_label": "Private lecture",
+                },
+                {
+                    "day_of_week": "wednesday",
+                    "local_start_time": "13:30",
+                    "duration_minutes": 90,
+                    "timezone_name": "Asia/Manila",
+                    "meeting_label": "Private lab",
+                },
+            ],
+        },
+        "db_path": Path("schedule.sqlite"),
+        "course_metadata": fake_course_metadata,
+        "schedule_config": fake_schedule_config,
+        "safe_summary_called": True,
+    }
+
+
+def test_course_schedule_save_local_handler_stays_bounded() -> None:
+    source = "\n".join(
+        [
+            inspect.getsource(cli._run_course_schedule_save_local_command),
+            inspect.getsource(cli._parse_course_schedule_class_time),
+        ]
+    )
+
+    assert "CourseMetadata" in source
+    assert "ScheduleConfig" in source
+    assert "save_course_schedule" in source
+    for forbidden_fragment in (
+        "load_course_schedule_read_only",
+        "load_course_schedule(",
+        "initialize_course_schedule_store",
+        "datetime",
+        "now(",
+        "sleep",
+        "Timer(",
+        "threading",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "sounddevice",
+        "telegram",
+        "desktop_notifier",
+        "execute_archive",
+        "archive_export",
+        ".open(",
+        ".read_text(",
+        ".write_text(",
+        ".mkdir(",
+        ".unlink(",
+        ".remove(",
+        ".rmdir(",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_course_schedule_summary_local_help_stays_lazy(
     monkeypatch,
 ) -> None:
@@ -3484,6 +3996,47 @@ def _assert_stored_schedule_next_preview_output_is_safe(
         "audio",
         "browser",
         "artifact",
+        "sqlite",
+        "traceback",
+        "live",
+        "delivery",
+        "scheduler execution",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_course_schedule_save_output_is_safe(
+    stdout: str,
+    stderr: str,
+) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "title",
+        "meeting",
+        "meet.example",
+        "timezone",
+        "duration",
+        "confidential",
+        "instructor",
+        "dr.",
+        "lecture",
+        "lab",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        str(Path.home()).lower(),
+        "token",
+        "secret",
+        "auth",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+        "artifact",
+        "select",
         "sqlite",
         "traceback",
         "live",

@@ -16,6 +16,7 @@ _ARCHIVE_EXPORT_CLI_ERROR = "archive export could not be executed"
 _ARCHIVE_EXPORT_VERIFY_CLI_ERROR = "archive export verification could not be built"
 _ARCHIVE_DELETE_DRY_RUN_CLI_ERROR = "archive delete dry run could not be built"
 _SCHEDULED_START_PREVIEW_CLI_ERROR = "scheduled start preview could not be built"
+_COURSE_SCHEDULE_SAVE_CLI_ERROR = "course schedule save could not be built"
 _COURSE_SCHEDULE_SUMMARY_CLI_ERROR = "course schedule summary could not be built"
 _SCHEDULED_START_PREVIEW_FROM_STORE_CLI_ERROR = (
     "stored scheduled start preview could not be built"
@@ -23,6 +24,7 @@ _SCHEDULED_START_PREVIEW_FROM_STORE_CLI_ERROR = (
 _SCHEDULED_START_NEXT_FROM_STORE_CLI_ERROR = (
     "stored next scheduled start preview could not be built"
 )
+_COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
     "session_id",
@@ -177,6 +179,17 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_course_schedule_summary_local_command
     )
 
+    course_schedule_save = subparsers.add_parser(
+        "course-schedule-save-local",
+        help="save a local course schedule from explicit metadata",
+        description=(
+            "Save one validated local course schedule into an explicit SQLite "
+            "database path without executing a scheduler."
+        ),
+    )
+    _add_course_schedule_save_local_arguments(course_schedule_save)
+    course_schedule_save.set_defaults(handler=_run_course_schedule_save_local_command)
+
     stored_schedule_preview = subparsers.add_parser(
         "scheduled-start-preview-from-store-local",
         help="preview stored scheduled-start metadata without executing",
@@ -233,8 +246,25 @@ def main(argv: list[str] | None = None) -> int:
         return _run_scheduled_start_preview_from_store_local_argv(argv[1:])
     if argv[:1] == ["scheduled-start-next-from-store-local"]:
         return _run_scheduled_start_next_from_store_local_argv(argv[1:])
+    if argv[:1] == ["course-schedule-save-local"]:
+        return _run_course_schedule_save_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
         return _run_course_schedule_summary_local_argv(argv[1:])
+    if "course-schedule-save-local" in argv or any(
+        arg == "--class-time"
+        or arg.startswith("--class-time=")
+        or arg == "--title"
+        or arg.startswith("--title=")
+        or arg == "--instructor-name"
+        or arg.startswith("--instructor-name=")
+        or arg == "--meeting-url"
+        or arg.startswith("--meeting-url=")
+        or arg == "--meeting-label"
+        or arg.startswith("--meeting-label=")
+        for arg in argv
+    ):
+        print(_COURSE_SCHEDULE_SAVE_CLI_ERROR, file=sys.stderr)
+        return 2
     if "scheduled-start-next-from-store-local" in argv:
         print(_SCHEDULED_START_NEXT_FROM_STORE_CLI_ERROR, file=sys.stderr)
         return 2
@@ -448,6 +478,46 @@ def _add_course_schedule_summary_local_arguments(
         "--course-id",
         required=True,
         help="safe course identifier to summarize",
+    )
+
+
+def _add_course_schedule_save_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit local SQLite course schedule database",
+    )
+    parser.add_argument(
+        "--course-id",
+        required=True,
+        help="safe course identifier to save",
+    )
+    parser.add_argument(
+        "--title",
+        required=True,
+        help="course title to validate and store locally",
+    )
+    parser.add_argument(
+        "--instructor-name",
+        help="optional instructor name to validate and store locally",
+    )
+    parser.add_argument(
+        "--meeting-url",
+        help="optional meeting URL to validate and store locally",
+    )
+    parser.add_argument(
+        "--meeting-label",
+        help="optional meeting label to validate and store locally",
+    )
+    parser.add_argument(
+        "--class-time",
+        action="append",
+        required=True,
+        metavar="DAY,HH:MM,DURATION[,TIMEZONE][,LABEL]",
+        help="repeatable class time metadata to validate and store locally",
     )
 
 
@@ -819,6 +889,84 @@ def _run_course_schedule_summary_local_command(args: argparse.Namespace) -> int:
 
     print(json.dumps(payload, sort_keys=True))
     return 0
+
+
+def _run_course_schedule_save_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar course-schedule-save-local",
+        description=(
+            "Save one validated local course schedule into an explicit SQLite "
+            "database path without executing a scheduler."
+        ),
+        fixed_error_message=_COURSE_SCHEDULE_SAVE_CLI_ERROR,
+    )
+    _add_course_schedule_save_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_course_schedule_save_local_command(args)
+
+
+def _run_course_schedule_save_local_command(args: argparse.Namespace) -> int:
+    from async_scholar.course_metadata import CourseMetadata
+    from async_scholar.schedule_config import ScheduleConfig
+    from async_scholar.schedule_store import save_course_schedule
+
+    try:
+        course_metadata = CourseMetadata(
+            course_id=args.course_id,
+            title=args.title,
+            instructor_name=args.instructor_name,
+            meeting_url=args.meeting_url,
+            meeting_label=args.meeting_label,
+        )
+        schedule_config = ScheduleConfig(
+            course_id=args.course_id,
+            class_times=[
+                _parse_course_schedule_class_time(class_time)
+                for class_time in args.class_time
+            ],
+        )
+        stored_schedule = save_course_schedule(
+            args.db_path,
+            course_metadata,
+            schedule_config,
+        )
+        safe_payload = _course_schedule_safe_summary(stored_schedule.safe_summary())
+    except (KeyError, TypeError, ValueError):
+        print(_COURSE_SCHEDULE_SAVE_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(safe_payload, sort_keys=True))
+    return 0
+
+
+def _course_schedule_safe_summary(payload: dict[str, object]) -> dict[str, object]:
+    return {key: payload[key] for key in _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS}
+
+
+def _parse_course_schedule_class_time(value: object) -> dict[str, object]:
+    if not isinstance(value, str):
+        raise ValueError(_COURSE_SCHEDULE_SAVE_CLI_ERROR)
+
+    parts = value.split(",")
+    if len(parts) < 3 or len(parts) > 5:
+        raise ValueError(_COURSE_SCHEDULE_SAVE_CLI_ERROR)
+
+    day_of_week, local_start_time, duration_text, *optional_parts = parts
+    try:
+        duration_minutes = int(duration_text)
+    except ValueError:
+        raise ValueError(_COURSE_SCHEDULE_SAVE_CLI_ERROR) from None
+
+    class_time: dict[str, object] = {
+        "day_of_week": day_of_week,
+        "local_start_time": local_start_time,
+        "duration_minutes": duration_minutes,
+    }
+    if optional_parts:
+        class_time["timezone_name"] = optional_parts[0]
+    if len(optional_parts) == 2:
+        class_time["meeting_label"] = optional_parts[1]
+    return class_time
 
 
 def _run_scheduled_start_preview_from_store_local_argv(argv: list[str]) -> int:
