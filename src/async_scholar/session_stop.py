@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from pydantic import VERSION, BaseModel
+from pydantic import VERSION, BaseModel, ValidationError
 
 from async_scholar.scheduled_start import ScheduledStartPlan
 
@@ -24,6 +24,7 @@ OPTIONAL_TEXT_MAX_LENGTH = 120
 TIMEZONE_NAME_MAX_LENGTH = 64
 STOP_AFTER_MINUTES_MAX = 24 * 60
 SOURCE_KIND_VALUES = ("file", "mic")
+STORED_SESSION_STOP_PREVIEW_ERROR = "stored session stop preview could not be built"
 DAY_OF_WEEK_VALUES = (
     "monday",
     "tuesday",
@@ -40,6 +41,7 @@ _DAY_OF_WEEK_SET = frozenset(DAY_OF_WEEK_VALUES)
 _SOURCE_KIND_SET = frozenset(SOURCE_KIND_VALUES)
 
 SessionStopPlanSummary = dict[str, str | int | bool | None]
+StoredSessionStopPreviewSummary = dict[str, str | int | bool]
 
 
 def _before_validator(*field_names: str) -> Any:
@@ -229,3 +231,44 @@ def build_session_stop_plan(
         source_kind=scheduled_start_plan.source_kind,
         enabled=scheduled_start_plan.enabled,
     )
+
+
+def build_session_stop_preview_from_store_input(
+    stored_class_time: dict[str, object],
+    source_kind: str,
+    *,
+    enabled: bool = True,
+) -> StoredSessionStopPreviewSummary:
+    """Build inert session-stop preview metadata from one stored class time."""
+
+    try:
+        selected_class_time_index = _clean_selected_class_time_index(
+            stored_class_time["selected_class_time_index"]
+        )
+        plan = SessionStopPlan(
+            course_id=stored_class_time["course_id"],
+            day_of_week=stored_class_time["scheduled_day_of_week"],
+            local_start_time=stored_class_time["scheduled_local_start_time"],
+            stop_after_minutes=stored_class_time["stop_after_minutes"],
+            source_kind=source_kind,
+            enabled=enabled,
+        )
+    except (KeyError, TypeError, ValidationError, ValueError):
+        raise ValueError(STORED_SESSION_STOP_PREVIEW_ERROR) from None
+
+    return {
+        "status": "enabled" if plan.enabled else "disabled",
+        "course_id": plan.course_id,
+        "source_kind": plan.source_kind,
+        "selected_class_time_index": selected_class_time_index,
+        "scheduled_day_of_week": plan.day_of_week,
+        "scheduled_local_start_time": plan.local_start_time,
+        "stop_after_minutes": plan.stop_after_minutes,
+        "enabled": plan.enabled,
+    }
+
+
+def _clean_selected_class_time_index(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError("selected_class_time_index must be a non-negative integer")
+    return value

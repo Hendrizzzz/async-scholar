@@ -9,8 +9,10 @@ from async_scholar import session_stop
 from async_scholar.scheduled_start import ScheduledStartPlan
 from async_scholar.session_stop import (
     STOP_AFTER_MINUTES_MAX,
+    STORED_SESSION_STOP_PREVIEW_ERROR,
     SessionStopPlan,
     build_session_stop_plan,
+    build_session_stop_preview_from_store_input,
 )
 
 
@@ -238,6 +240,175 @@ def test_session_stop_plan_uses_json_ready_pydantic_serialization() -> None:
         "source_kind": "mic",
         "enabled": False,
     }
+
+
+def test_build_session_stop_preview_from_store_input_is_allowlisted() -> None:
+    summary = build_session_stop_preview_from_store_input(
+        {
+            "course_id": " CS_101 ",
+            "selected_class_time_index": 1,
+            "scheduled_day_of_week": " Wednesday ",
+            "scheduled_local_start_time": " 13:30 ",
+            "stop_after_minutes": 90,
+            "title": "Confidential Systems",
+            "meeting_url": "https://meet.example.edu/token-secret",
+        },
+        " Mic ",
+    )
+
+    assert summary == {
+        "status": "enabled",
+        "course_id": "cs_101",
+        "source_kind": "mic",
+        "selected_class_time_index": 1,
+        "scheduled_day_of_week": "wednesday",
+        "scheduled_local_start_time": "13:30",
+        "stop_after_minutes": 90,
+        "enabled": True,
+    }
+    assert list(summary) == [
+        "status",
+        "course_id",
+        "source_kind",
+        "selected_class_time_index",
+        "scheduled_day_of_week",
+        "scheduled_local_start_time",
+        "stop_after_minutes",
+        "enabled",
+    ]
+    public_text = str(summary).lower()
+    for forbidden_fragment in (
+        "title",
+        "meeting",
+        "meet.example",
+        "token",
+        "secret",
+        "timezone",
+        "instructor",
+        "transcript",
+        "audio",
+        "browser",
+    ):
+        assert forbidden_fragment not in public_text
+
+
+def test_build_session_stop_preview_from_store_input_supports_disabled() -> None:
+    summary = build_session_stop_preview_from_store_input(
+        {
+            "course_id": "cs101",
+            "selected_class_time_index": 0,
+            "scheduled_day_of_week": "monday",
+            "scheduled_local_start_time": "09:00",
+            "stop_after_minutes": 75,
+        },
+        "file",
+        enabled=False,
+    )
+
+    assert summary == {
+        "status": "disabled",
+        "course_id": "cs101",
+        "source_kind": "file",
+        "selected_class_time_index": 0,
+        "scheduled_day_of_week": "monday",
+        "scheduled_local_start_time": "09:00",
+        "stop_after_minutes": 75,
+        "enabled": False,
+    }
+
+
+@pytest.mark.parametrize(
+    ("stored_class_time", "source_kind", "enabled"),
+    [
+        ({}, "file", True),
+        (
+            {
+                "course_id": "cs101",
+                "selected_class_time_index": -1,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "09:00",
+                "stop_after_minutes": 75,
+            },
+            "file",
+            True,
+        ),
+        (
+            {
+                "course_id": "cs101",
+                "selected_class_time_index": 0,
+                "scheduled_day_of_week": "notaday",
+                "scheduled_local_start_time": "09:00",
+                "stop_after_minutes": 75,
+            },
+            "file",
+            True,
+        ),
+        (
+            {
+                "course_id": "cs101",
+                "selected_class_time_index": 0,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "99:99",
+                "stop_after_minutes": 75,
+            },
+            "file",
+            True,
+        ),
+        (
+            {
+                "course_id": "cs101",
+                "selected_class_time_index": 0,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "09:00",
+                "stop_after_minutes": 0,
+            },
+            "file",
+            True,
+        ),
+        (
+            {
+                "course_id": "cs101",
+                "selected_class_time_index": 0,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "09:00",
+                "stop_after_minutes": 75,
+            },
+            "browser",
+            True,
+        ),
+        (
+            {
+                "course_id": "cs101",
+                "selected_class_time_index": 0,
+                "scheduled_day_of_week": "monday",
+                "scheduled_local_start_time": "09:00",
+                "stop_after_minutes": 75,
+            },
+            "file",
+            "yes",
+        ),
+    ],
+)
+def test_build_session_stop_preview_from_store_input_sanitizes_failures(
+    stored_class_time: dict[str, object],
+    source_kind: str,
+    enabled: object,
+) -> None:
+    with pytest.raises(ValueError) as exc_info:
+        build_session_stop_preview_from_store_input(
+            stored_class_time,
+            source_kind,
+            enabled=enabled,
+        )
+
+    assert str(exc_info.value) == STORED_SESSION_STOP_PREVIEW_ERROR
+    for forbidden_fragment in (
+        "notaday",
+        "99:99",
+        "browser",
+        "traceback",
+    ):
+        assert forbidden_fragment not in str(exc_info.value).lower()
 
 
 def test_session_stop_module_has_no_execution_or_private_behavior() -> None:

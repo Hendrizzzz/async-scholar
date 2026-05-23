@@ -28,6 +28,9 @@ _SCHEDULED_START_NEXT_FROM_STORE_CLI_ERROR = (
 _SCHEDULED_START_DUE_LIST_FROM_STORE_CLI_ERROR = (
     "stored scheduled start due list could not be built"
 )
+_SESSION_STOP_PREVIEW_FROM_STORE_CLI_ERROR = (
+    "stored session stop preview could not be built"
+)
 _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
@@ -75,6 +78,16 @@ _STORED_SCHEDULED_START_DUE_LIST_COURSE_KEYS = (
     "scheduled_local_start_time",
     "due",
     "minutes_until_start",
+)
+_STORED_SESSION_STOP_PREVIEW_KEYS = (
+    "status",
+    "course_id",
+    "source_kind",
+    "selected_class_time_index",
+    "scheduled_day_of_week",
+    "scheduled_local_start_time",
+    "stop_after_minutes",
+    "enabled",
 )
 
 
@@ -262,6 +275,19 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_scheduled_start_due_list_from_store_local_command
     )
 
+    session_stop_preview = subparsers.add_parser(
+        "session-stop-preview-from-store-local",
+        help="preview stored session-stop metadata without executing",
+        description=(
+            "Preview one non-executing session-stop decision from an explicit "
+            "read-only local schedule store."
+        ),
+    )
+    _add_session_stop_preview_from_store_local_arguments(session_stop_preview)
+    session_stop_preview.set_defaults(
+        handler=_run_session_stop_preview_from_store_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -294,6 +320,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_scheduled_start_next_from_store_local_argv(argv[1:])
     if argv[:1] == ["scheduled-start-due-list-from-store-local"]:
         return _run_scheduled_start_due_list_from_store_local_argv(argv[1:])
+    if argv[:1] == ["session-stop-preview-from-store-local"]:
+        return _run_session_stop_preview_from_store_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-save-local"]:
         return _run_course_schedule_save_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
@@ -323,6 +351,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if "scheduled-start-due-list-from-store-local" in argv:
         print(_SCHEDULED_START_DUE_LIST_FROM_STORE_CLI_ERROR, file=sys.stderr)
+        return 2
+    if "session-stop-preview-from-store-local" in argv:
+        print(_SESSION_STOP_PREVIEW_FROM_STORE_CLI_ERROR, file=sys.stderr)
         return 2
     if "scheduled-start-preview-from-store-local" in argv or any(
         arg == "--class-time-index" or arg.startswith("--class-time-index=")
@@ -709,6 +740,39 @@ def _add_scheduled_start_due_list_from_store_local_arguments(
         "--disabled",
         action="store_true",
         help="return disabled due-list metadata without due courses",
+    )
+
+
+def _add_session_stop_preview_from_store_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit existing local SQLite course schedule database",
+    )
+    parser.add_argument(
+        "--course-id",
+        required=True,
+        help="safe course identifier to preview",
+    )
+    parser.add_argument(
+        "--class-time-index",
+        required=True,
+        type=int,
+        help="explicit zero-based stored class-time index to preview",
+    )
+    parser.add_argument(
+        "--source-kind",
+        required=True,
+        choices=("file", "mic"),
+        help="local source kind to preview",
+    )
+    parser.add_argument(
+        "--disabled",
+        action="store_true",
+        help="preview the stored session stop as disabled",
     )
 
 
@@ -1293,6 +1357,52 @@ def _stored_schedule_due_list_course_safe_summary(
     payload: dict[str, object],
 ) -> dict[str, object]:
     return {key: payload[key] for key in _STORED_SCHEDULED_START_DUE_LIST_COURSE_KEYS}
+
+
+def _run_session_stop_preview_from_store_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-stop-preview-from-store-local",
+        description=(
+            "Preview one non-executing session-stop decision from an explicit "
+            "read-only local schedule store."
+        ),
+        fixed_error_message=_SESSION_STOP_PREVIEW_FROM_STORE_CLI_ERROR,
+    )
+    _add_session_stop_preview_from_store_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_stop_preview_from_store_local_command(args)
+
+
+def _run_session_stop_preview_from_store_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.schedule_store import load_course_schedule_session_stop_input
+    from async_scholar.session_stop import build_session_stop_preview_from_store_input
+
+    try:
+        payload = _stored_session_stop_preview_safe_summary(
+            build_session_stop_preview_from_store_input(
+                load_course_schedule_session_stop_input(
+                    args.db_path,
+                    args.course_id,
+                    args.class_time_index,
+                ),
+                args.source_kind,
+                enabled=not args.disabled,
+            )
+        )
+    except (KeyError, TypeError, ValueError):
+        print(_SESSION_STOP_PREVIEW_FROM_STORE_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _stored_session_stop_preview_safe_summary(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    return {key: payload[key] for key in _STORED_SESSION_STOP_PREVIEW_KEYS}
 
 
 def _run_mic_recording_diagnostic_command(argv: list[str]) -> int:

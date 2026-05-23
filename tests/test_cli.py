@@ -74,6 +74,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "scheduled-start-preview-from-store-local" in result.stdout
     assert "scheduled-start-next-from-store-local" in result.stdout
     assert "scheduled-start-due-list-from-store-local" in result.stdout
+    assert "session-stop-preview-from-store-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -4847,6 +4848,630 @@ def test_scheduled_start_due_list_from_store_local_handler_stays_read_only() -> 
         "rmtree",
     ):
         assert forbidden_fragment not in source
+
+
+def test_session_stop_preview_from_store_local_help_stays_lazy(monkeypatch) -> None:
+    schedule_store_module = "async_scholar.schedule_store"
+    session_stop_module = "async_scholar.session_stop"
+    monkeypatch.delitem(sys.modules, schedule_store_module, raising=False)
+    monkeypatch.delitem(sys.modules, session_stop_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-stop-preview-from-store-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar session-stop-preview-from-store-local" in (
+        result.stdout
+    )
+    assert "--db-path" in result.stdout
+    assert "--class-time-index" in result.stdout
+    assert "--source-kind" in result.stdout
+    assert "non-executing" in result.stdout
+    assert schedule_store_module not in sys.modules
+    assert session_stop_module not in sys.modules
+
+
+def test_session_stop_preview_from_store_local_requires_explicit_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-stop-preview-from-store-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "stored session stop preview could not be built\n"
+
+
+def test_session_stop_preview_from_store_local_sanitizes_parse_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-stop-preview-from-store-local",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--db-path",
+            "schedule.sqlite",
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "stored session stop preview could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_stop_preview_from_store_local_sanitizes_misordered_failures() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--db-path",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "session-stop-preview-from-store-local",
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "stored session stop preview could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_stop_preview_from_store_local_rejects_bad_source_kind(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-stop-preview-from-store-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "browser",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "stored session stop preview could not be built\n"
+    for forbidden_fragment in (
+        "browser",
+        "invalid choice",
+        str(tmp_path),
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_stop_preview_from_store_local_rejects_bad_disabled_input(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-stop-preview-from-store-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+            "--disabled=false",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "stored session stop preview could not be built\n"
+    for forbidden_fragment in (
+        "false",
+        "unrecognized arguments",
+        str(tmp_path),
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_stop_preview_from_store_local_prints_safe_json(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+    expected = {
+        "course_id": "cs101",
+        "enabled": True,
+        "scheduled_day_of_week": "wednesday",
+        "scheduled_local_start_time": "13:30",
+        "selected_class_time_index": 1,
+        "source_kind": "mic",
+        "status": "enabled",
+        "stop_after_minutes": 90,
+    }
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-stop-preview-from-store-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "1",
+            "--source-kind",
+            "mic",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == f"{json.dumps(expected, sort_keys=True)}\n"
+    assert json.loads(result.stdout) == expected
+    _assert_session_stop_preview_output_is_safe(result.stdout, result.stderr)
+
+
+def test_session_stop_preview_from_store_local_prints_disabled_json(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-stop-preview-from-store-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+            "--disabled",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert json.loads(result.stdout) == {
+        "course_id": "cs101",
+        "enabled": False,
+        "scheduled_day_of_week": "monday",
+        "scheduled_local_start_time": "09:00",
+        "selected_class_time_index": 0,
+        "source_kind": "file",
+        "status": "disabled",
+        "stop_after_minutes": 75,
+    }
+    _assert_session_stop_preview_output_is_safe(result.stdout, result.stderr)
+
+
+def test_session_stop_preview_from_store_local_missing_db_does_not_create_file(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "missing-token-secret-auth-profile.sqlite"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-stop-preview-from-store-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "stored session stop preview could not be built\n"
+    assert not db_path.exists()
+    for forbidden_fragment in (
+        str(tmp_path),
+        "missing-token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_stop_preview_from_store_local_sanitizes_missing_course(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-stop-preview-from-store-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "missing-token-secret-auth-profile",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "stored session stop preview could not be built\n"
+    for forbidden_fragment in (
+        str(tmp_path),
+        "missing",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_stop_preview_from_store_local_sanitizes_bad_index(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-stop-preview-from-store-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "99",
+            "--source-kind",
+            "file",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "stored session stop preview could not be built\n"
+    for forbidden_fragment in (
+        str(tmp_path),
+        "99",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_stop_preview_from_store_local_sanitizes_malformed_store(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("CREATE TABLE courses (course_id TEXT PRIMARY KEY)")
+        connection.execute("INSERT INTO courses (course_id) VALUES (?)", ("cs101",))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-stop-preview-from-store-local",
+            "--db-path",
+            str(db_path),
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "stored session stop preview could not be built\n"
+    for forbidden_fragment in (
+        str(tmp_path),
+        "class_times",
+        "select",
+        "sqlite",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_stop_preview_from_store_local_command_delegates_to_helpers(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    schedule_store_module = "async_scholar.schedule_store"
+    session_stop_module = "async_scholar.session_stop"
+    fake_schedule_store_module = types.ModuleType(schedule_store_module)
+    fake_session_stop_module = types.ModuleType(session_stop_module)
+    fake_store_payload = object()
+
+    def fake_load(
+        db_path: Path,
+        course_id: str,
+        selected_class_time_index: int,
+    ) -> object:
+        received["db_path"] = db_path
+        received["course_id"] = course_id
+        received["selected_class_time_index"] = selected_class_time_index
+        return fake_store_payload
+
+    def fake_build_preview(
+        stored_class_time: object,
+        source_kind: str,
+        *,
+        enabled: bool,
+    ) -> dict[str, object]:
+        received["stored_class_time"] = stored_class_time
+        received["source_kind"] = source_kind
+        received["enabled"] = enabled
+        return {
+            "status": "enabled",
+            "course_id": "cs101",
+            "source_kind": "file",
+            "selected_class_time_index": 0,
+            "scheduled_day_of_week": "monday",
+            "scheduled_local_start_time": "09:00",
+            "stop_after_minutes": 75,
+            "enabled": True,
+            "title": "Confidential Systems",
+            "meeting_url": "https://meet.example.edu/token-secret",
+        }
+
+    fake_schedule_store_module.load_course_schedule_session_stop_input = fake_load
+    fake_session_stop_module.build_session_stop_preview_from_store_input = (
+        fake_build_preview
+    )
+    monkeypatch.setitem(sys.modules, schedule_store_module, fake_schedule_store_module)
+    monkeypatch.setitem(sys.modules, session_stop_module, fake_session_stop_module)
+
+    exit_code = cli.main(
+        [
+            "session-stop-preview-from-store-local",
+            "--db-path",
+            "schedule.sqlite",
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert json.loads(captured.out) == {
+        "course_id": "cs101",
+        "enabled": True,
+        "scheduled_day_of_week": "monday",
+        "scheduled_local_start_time": "09:00",
+        "selected_class_time_index": 0,
+        "source_kind": "file",
+        "status": "enabled",
+        "stop_after_minutes": 75,
+    }
+    assert captured.err == ""
+    assert received == {
+        "db_path": Path("schedule.sqlite"),
+        "course_id": "cs101",
+        "selected_class_time_index": 0,
+        "stored_class_time": fake_store_payload,
+        "source_kind": "file",
+        "enabled": True,
+    }
+    _assert_session_stop_preview_output_is_safe(captured.out, captured.err)
+
+
+def test_session_stop_preview_from_store_local_handler_stays_read_only() -> None:
+    source = inspect.getsource(cli._run_session_stop_preview_from_store_local_command)
+
+    assert "load_course_schedule_session_stop_input" in source
+    assert "build_session_stop_preview_from_store_input" in source
+    for forbidden_fragment in (
+        "load_course_schedule(",
+        "load_course_schedule_read_only",
+        "load_course_schedule_safe_summary",
+        "list_course_schedule_safe_summaries",
+        "list_course_schedule_due_list_inputs",
+        "save_course_schedule",
+        "initialize_course_schedule_store",
+        "_create_schema",
+        "ScheduleConfig",
+        "CourseMetadata",
+        "ScheduledStartClock",
+        "scheduled_start",
+        "datetime",
+        "now(",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "selenium",
+        "sounddevice",
+        "faster_whisper",
+        "mic_recording",
+        "telegram",
+        "desktop_notifier",
+        "execute_archive",
+        "archive_export",
+        "archive_delete",
+        ".open(",
+        ".read_text(",
+        ".write_text(",
+        ".mkdir(",
+        ".unlink(",
+        ".remove(",
+        ".rmdir(",
+        "rmtree",
+    ):
+        assert forbidden_fragment not in source
+
+
+def _assert_session_stop_preview_output_is_safe(
+    stdout: str,
+    stderr: str,
+) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "result_kind",
+        "title",
+        "meeting",
+        "meet.example",
+        "timezone",
+        "duration",
+        "confidential",
+        "instructor",
+        "dr.",
+        "lecture",
+        "lab",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        str(Path.home()).lower(),
+        "token",
+        "secret",
+        "auth",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+        "artifact",
+        "sqlite",
+        "traceback",
+        "live",
+        "delivery",
+        "scheduler execution",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in combined_output
 
 
 def _assert_scheduled_start_preview_output_is_safe(

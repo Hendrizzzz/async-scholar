@@ -17,6 +17,9 @@ COURSE_SCHEDULE_LOAD_ERROR = "course schedule could not be loaded"
 COURSE_SCHEDULE_SUMMARY_ERROR = "course schedule summary could not be built"
 COURSE_SCHEDULE_LIST_ERROR = "course schedule list could not be built"
 COURSE_SCHEDULE_DUE_LIST_ERROR = "course schedule due list could not be built"
+COURSE_SCHEDULE_SESSION_STOP_PREVIEW_ERROR = (
+    "course schedule session stop preview could not be built"
+)
 
 _COURSES_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS courses (
@@ -280,6 +283,39 @@ def list_course_schedule_due_list_inputs(db_path: str | Path) -> dict[str, objec
     }
 
 
+def load_course_schedule_session_stop_input(
+    db_path: str | Path,
+    course_id: str,
+    selected_class_time_index: int,
+) -> dict[str, object]:
+    """Load only one stored class-time row needed by a session-stop preview."""
+
+    try:
+        safe_db_path = _validate_existing_db_path(db_path)
+        safe_course_id = _normalize_course_id(course_id)
+        safe_selected_class_time_index = _normalize_class_time_index(
+            selected_class_time_index
+        )
+        read_only_uri = f"{safe_db_path.resolve(strict=True).as_uri()}?mode=ro"
+        with sqlite3.connect(read_only_uri, uri=True) as connection:
+            connection.row_factory = sqlite3.Row
+            _configure_connection(connection)
+            return _fetch_course_schedule_session_stop_input(
+                connection,
+                safe_course_id,
+                safe_selected_class_time_index,
+            )
+    except (
+        OSError,
+        RuntimeError,
+        TypeError,
+        ValidationError,
+        sqlite3.Error,
+        ValueError,
+    ):
+        raise ValueError(COURSE_SCHEDULE_SESSION_STOP_PREVIEW_ERROR) from None
+
+
 def _validate_db_path(db_path: str | Path) -> Path:
     if not isinstance(db_path, (str, Path)):
         raise ValueError("db_path must be an explicit local path")
@@ -472,6 +508,65 @@ def _fetch_course_schedule_due_list_inputs(
         )
 
     return courses
+
+
+def _fetch_course_schedule_session_stop_input(
+    connection: sqlite3.Connection,
+    safe_course_id: str,
+    safe_selected_class_time_index: int,
+) -> dict[str, object]:
+    row = connection.execute(
+        """
+        SELECT
+            course_id,
+            position AS selected_class_time_index,
+            day_of_week AS scheduled_day_of_week,
+            local_start_time AS scheduled_local_start_time,
+            duration_minutes AS stop_after_minutes
+        FROM class_times
+        WHERE course_id = ? AND position = ?
+        """,
+        (safe_course_id, safe_selected_class_time_index),
+    ).fetchone()
+    if row is None:
+        raise ValueError("course schedule class time is missing")
+
+    course_id = _normalize_course_id(row["course_id"])
+    selected_class_time_index = _normalize_class_time_index(
+        row["selected_class_time_index"]
+    )
+    scheduled_day_of_week = row["scheduled_day_of_week"]
+    scheduled_local_start_time = row["scheduled_local_start_time"]
+    stop_after_minutes = row["stop_after_minutes"]
+    if not isinstance(scheduled_day_of_week, str) or not isinstance(
+        scheduled_local_start_time,
+        str,
+    ):
+        raise ValueError("course schedule has invalid class time")
+    if (
+        isinstance(stop_after_minutes, bool)
+        or not isinstance(stop_after_minutes, int)
+        or stop_after_minutes <= 0
+    ):
+        raise ValueError("course schedule has invalid class time")
+
+    return {
+        "course_id": course_id,
+        "selected_class_time_index": selected_class_time_index,
+        "scheduled_day_of_week": scheduled_day_of_week,
+        "scheduled_local_start_time": scheduled_local_start_time,
+        "stop_after_minutes": stop_after_minutes,
+    }
+
+
+def _normalize_class_time_index(selected_class_time_index: int) -> int:
+    if (
+        isinstance(selected_class_time_index, bool)
+        or not isinstance(selected_class_time_index, int)
+        or selected_class_time_index < 0
+    ):
+        raise ValueError("selected_class_time_index must be a non-negative integer")
+    return selected_class_time_index
 
 
 def _configure_connection(connection: sqlite3.Connection) -> None:
