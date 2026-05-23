@@ -93,6 +93,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "session-window-recovery-report-local" in result.stdout
     assert "session-window-recovery-report-write-local" in result.stdout
     assert "session-window-recovery-report-file-inventory-local" in result.stdout
+    assert "session-window-recovery-report-file-verify-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -12520,6 +12521,269 @@ def test_session_window_recovery_report_file_inventory_handler_stays_thin() -> N
 
     assert "build_stored_session_window_recovery_report_file_inventory" in source
     for forbidden_fragment in (
+        "write_stored_session_window_recovery_report_file",
+        "build_stored_session_window_recovery_report(",
+        "build_stored_session_window_recovery_review_batch",
+        "build_stored_session_window_recovery_review(",
+        "build_stored_session_window_recovery_decision",
+        "build_stored_session_window_runtime_summary",
+        "build_crash_recovery_session_preflight",
+        "list_course_schedule_session_window_inputs",
+        "load_course_schedule",
+        "save_course_schedule",
+        "initialize_course_schedule_store",
+        "_create_schema",
+        "ScheduleConfig",
+        "CourseMetadata",
+        "ScheduledStartClock",
+        "build_session_window_confirmation",
+        "build_session_window_start_authorization",
+        "write_stored_session_window_start_receipt",
+        "write_stored_session_window_stop_receipt",
+        "datetime",
+        "now(",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "selenium",
+        "sounddevice",
+        "faster_whisper",
+        "mic_recording",
+        "telegram",
+        "desktop_notifier",
+        "alert_dispatch",
+        "archive_export",
+        "archive_delete",
+        "participation",
+        "academic_answer",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in source
+
+
+def test_session_window_recovery_report_file_verification_local_help_stays_lazy(
+    monkeypatch,
+) -> None:
+    verification_module = (
+        "async_scholar.session_window_recovery_report_file_verification"
+    )
+    monkeypatch.delitem(sys.modules, verification_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-recovery-report-file-verify-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert (
+        "usage: async_scholar session-window-recovery-report-file-verify-local"
+    ) in result.stdout
+    assert "--archive-root" in result.stdout
+    assert "--output-root" in result.stdout
+    assert "verify" in result.stdout
+    assert "recovery report" in result.stdout
+    assert verification_module not in sys.modules
+
+
+def test_session_window_recovery_report_file_verification_local_requires_metadata() -> (
+    None
+):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-recovery-report-file-verify-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == (
+        "stored session window recovery report file verification could not be built\n"
+    )
+
+
+def test_session_window_recovery_report_file_verification_command_delegates_to_builder(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    verification_module = (
+        "async_scholar.session_window_recovery_report_file_verification"
+    )
+    fake_verification_module = types.ModuleType(verification_module)
+
+    def fake_build(
+        session_ids: list[str],
+        archive_root: Path,
+        output_root: Path,
+    ) -> dict[str, object]:
+        received["session_ids"] = session_ids
+        received["archive_root"] = archive_root
+        received["output_root"] = output_root
+        return {
+            "verification_kind": (
+                "stored_session_window_recovery_report_file_verification"
+            ),
+            "session_count": 1,
+            "relative_path": "stored-session-window-recovery-report.md",
+            "exists": True,
+            "matches_expected": True,
+            "size_bytes": 123,
+            "expected_size_bytes": 123,
+        }
+
+    fake_verification_module.__dict__[
+        "build_stored_session_window_recovery_report_file_verification"
+    ] = fake_build
+    monkeypatch.setitem(sys.modules, verification_module, fake_verification_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-recovery-report-file-verify-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+            "--output-root",
+            "output-root",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out == (
+        '{"exists":true,'
+        '"expected_size_bytes":123,'
+        '"matches_expected":true,'
+        '"relative_path":"stored-session-window-recovery-report.md",'
+        '"session_count":1,'
+        '"size_bytes":123,'
+        '"verification_kind":'
+        '"stored_session_window_recovery_report_file_verification"}\n'
+    )
+    assert captured.err == ""
+    assert received == {
+        "session_ids": ["session-001"],
+        "archive_root": Path("archive-root"),
+        "output_root": Path("output-root"),
+    }
+
+
+def test_session_window_recovery_report_file_verification_sanitizes_build_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    verification_module = (
+        "async_scholar.session_window_recovery_report_file_verification"
+    )
+    fake_verification_module = types.ModuleType(verification_module)
+
+    def fake_build(
+        session_ids: list[str],
+        archive_root: Path,
+        output_root: Path,
+    ) -> dict[str, object]:
+        raise OSError("C:\\Users\\student\\token-secret-auth-profile")
+
+    fake_verification_module.__dict__[
+        "build_stored_session_window_recovery_report_file_verification"
+    ] = fake_build
+    monkeypatch.setitem(sys.modules, verification_module, fake_verification_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-recovery-report-file-verify-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+            "--output-root",
+            "output-root",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == (
+        "stored session window recovery report file verification could not be built\n"
+    )
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_session_window_report_file_verification_misordered_uses_verifier_error() -> (
+    None
+):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--output-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "session-window-recovery-report-file-verify-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == (
+        "stored session window recovery report file verification could not be built\n"
+    )
+    for forbidden_fragment in (
+        "C:\\Users",
+        "token",
+        "secret",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_recovery_report_file_verification_handler_stays_thin() -> None:
+    source = inspect.getsource(
+        cli._run_session_window_recovery_report_file_verification_local_command
+    )
+
+    assert "build_stored_session_window_recovery_report_file_verification" in source
+    for forbidden_fragment in (
+        "build_stored_session_window_recovery_report_file_inventory",
         "write_stored_session_window_recovery_report_file",
         "build_stored_session_window_recovery_report(",
         "build_stored_session_window_recovery_review_batch",
