@@ -88,6 +88,9 @@ _SESSION_WINDOW_RECOVERY_REPORT_FILE_ACTION_PREVIEW_CLI_ERROR = (
 _SESSION_WINDOW_RECOVERY_REPORT_FILE_ACTION_CLI_ERROR = (
     "stored session window recovery report file action could not be applied"
 )
+_SESSION_WINDOW_RECOVERY_REPORT_FILE_STATUS_CLI_ERROR = (
+    "stored session window recovery report file status could not be built"
+)
 _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
@@ -839,6 +842,21 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_session_window_recovery_report_file_action_local_command
     )
 
+    session_window_recovery_report_file_status = subparsers.add_parser(
+        "session-window-recovery-report-file-status-local",
+        help="summarize stored session-window recovery report file status",
+        description=(
+            "Summarize the fixed stored session-window recovery report file "
+            "status from verification metadata."
+        ),
+    )
+    _add_session_window_recovery_report_file_status_local_arguments(
+        session_window_recovery_report_file_status
+    )
+    session_window_recovery_report_file_status.set_defaults(
+        handler=_run_session_window_recovery_report_file_status_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -917,6 +935,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     if argv[:1] == ["session-window-recovery-report-file-action-local"]:
         return _run_session_window_recovery_report_file_action_local_argv(argv[1:])
+    if argv[:1] == ["session-window-recovery-report-file-status-local"]:
+        return _run_session_window_recovery_report_file_status_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-save-local"]:
         return _run_course_schedule_save_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
@@ -1058,6 +1078,12 @@ def main(argv: list[str] | None = None) -> int:
     if "session-window-recovery-report-file-action-local" in argv:
         print(
             _SESSION_WINDOW_RECOVERY_REPORT_FILE_ACTION_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 2
+    if "session-window-recovery-report-file-status-local" in argv:
+        print(
+            _SESSION_WINDOW_RECOVERY_REPORT_FILE_STATUS_CLI_ERROR,
             file=sys.stderr,
         )
         return 2
@@ -2020,6 +2046,12 @@ def _add_session_window_recovery_report_file_action_preview_local_arguments(
 
 
 def _add_session_window_recovery_report_file_action_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_session_window_recovery_report_file_verification_local_arguments(parser)
+
+
+def _add_session_window_recovery_report_file_status_local_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_session_window_recovery_report_file_verification_local_arguments(parser)
@@ -3777,6 +3809,46 @@ def _run_session_window_recovery_report_file_action_local_command(
     except (KeyError, OSError, TypeError, ValueError):
         print(
             _SESSION_WINDOW_RECOVERY_REPORT_FILE_ACTION_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_session_window_recovery_report_file_status_local_argv(
+    argv: list[str],
+) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-recovery-report-file-status-local",
+        description=(
+            "Summarize the fixed stored session-window recovery report file "
+            "status from verification metadata."
+        ),
+        fixed_error_message=_SESSION_WINDOW_RECOVERY_REPORT_FILE_STATUS_CLI_ERROR,
+    )
+    _add_session_window_recovery_report_file_status_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_recovery_report_file_status_local_command(args)
+
+
+def _run_session_window_recovery_report_file_status_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.session_window_recovery_report_file_status import (
+        build_stored_session_window_recovery_report_file_status,
+    )
+
+    try:
+        payload = build_stored_session_window_recovery_report_file_status(
+            args.session_ids,
+            args.archive_root,
+            args.output_root,
+        )
+    except (KeyError, OSError, TypeError, ValueError):
+        print(
+            _SESSION_WINDOW_RECOVERY_REPORT_FILE_STATUS_CLI_ERROR,
             file=sys.stderr,
         )
         return 1
