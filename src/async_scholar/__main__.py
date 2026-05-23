@@ -58,6 +58,9 @@ _SESSION_WINDOW_START_RECEIPT_FROM_STORE_CLI_ERROR = (
 _SESSION_WINDOW_STOP_RECEIPT_FROM_STORE_CLI_ERROR = (
     "stored session window stop receipt could not be built"
 )
+_SESSION_WINDOW_RUNTIME_SUMMARY_CLI_ERROR = (
+    "stored session window runtime summary could not be built"
+)
 _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
@@ -665,6 +668,19 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_session_window_stop_receipt_from_store_local_command
     )
 
+    session_window_runtime_summary = subparsers.add_parser(
+        "session-window-runtime-summary-local",
+        help="summarize stored session-window runtime receipts",
+        description=(
+            "Build a read-only metadata summary from an existing stored "
+            "session-window runtime file."
+        ),
+    )
+    _add_session_window_runtime_summary_local_arguments(session_window_runtime_summary)
+    session_window_runtime_summary.set_defaults(
+        handler=_run_session_window_runtime_summary_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -719,6 +735,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_session_window_start_receipt_from_store_local_argv(argv[1:])
     if argv[:1] == ["session-window-stop-receipt-from-store-local"]:
         return _run_session_window_stop_receipt_from_store_local_argv(argv[1:])
+    if argv[:1] == ["session-window-runtime-summary-local"]:
+        return _run_session_window_runtime_summary_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-save-local"]:
         return _run_course_schedule_save_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
@@ -800,6 +818,12 @@ def main(argv: list[str] | None = None) -> int:
     if "session-window-stop-receipt-from-store-local" in argv:
         print(
             _SESSION_WINDOW_STOP_RECEIPT_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 2
+    if "session-window-runtime-summary-local" in argv:
+        print(
+            _SESSION_WINDOW_RUNTIME_SUMMARY_CLI_ERROR,
             file=sys.stderr,
         )
         return 2
@@ -1614,6 +1638,21 @@ def _add_session_window_stop_receipt_from_store_local_arguments(
         "--disabled",
         action="store_true",
         help="return disabled session-window stop receipt metadata without writing",
+    )
+
+
+def _add_session_window_runtime_summary_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe local session identifier for the runtime summary",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit existing local archive root containing runtime metadata",
     )
 
 
@@ -2987,6 +3026,43 @@ def _run_session_window_stop_receipt_from_store_local_command(
     except (KeyError, OSError, TypeError, ValueError):
         print(
             _SESSION_WINDOW_STOP_RECEIPT_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_session_window_runtime_summary_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-runtime-summary-local",
+        description=(
+            "Build a read-only metadata summary from an existing stored "
+            "session-window runtime file."
+        ),
+        fixed_error_message=_SESSION_WINDOW_RUNTIME_SUMMARY_CLI_ERROR,
+    )
+    _add_session_window_runtime_summary_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_runtime_summary_local_command(args)
+
+
+def _run_session_window_runtime_summary_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.session_window_runtime_summary import (
+        build_stored_session_window_runtime_summary,
+    )
+
+    try:
+        payload = build_stored_session_window_runtime_summary(
+            args.archive_root,
+            args.session_id,
+        )
+    except (KeyError, OSError, TypeError, ValueError):
+        print(
+            _SESSION_WINDOW_RUNTIME_SUMMARY_CLI_ERROR,
             file=sys.stderr,
         )
         return 1

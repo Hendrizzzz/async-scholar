@@ -86,6 +86,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "session-window-start-authorization-from-store-local" in result.stdout
     assert "session-window-start-receipt-from-store-local" in result.stdout
     assert "session-window-stop-receipt-from-store-local" in result.stdout
+    assert "session-window-runtime-summary-local" in result.stdout
     assert "mic-recording-diagnostic" in result.stdout
 
 
@@ -10874,6 +10875,321 @@ def test_session_window_stop_receipt_command_sanitizes_writer_failure(
         assert forbidden_fragment not in captured.err
 
 
+def test_session_window_runtime_summary_local_help_stays_lazy(
+    monkeypatch,
+) -> None:
+    summary_module = "async_scholar.session_window_runtime_summary"
+    monkeypatch.delitem(sys.modules, summary_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-runtime-summary-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar session-window-runtime-summary-local" in (
+        result.stdout
+    )
+    assert "--archive-root" in result.stdout
+    assert "read-only" in result.stdout
+    assert "runtime" in result.stdout
+    assert summary_module not in sys.modules
+
+
+def test_session_window_runtime_summary_local_requires_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-runtime-summary-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "stored session window runtime summary could not be built\n"
+
+
+def test_session_window_runtime_summary_prints_compact_json(
+    tmp_path: Path,
+) -> None:
+    archive_root = tmp_path / "archive"
+    session_dir = archive_root / "session-001"
+    runtime_path = session_dir / "runtime.jsonl"
+    session_dir.mkdir(parents=True)
+    start_receipt = _session_window_runtime_start_receipt()
+    runtime_path.write_text(
+        json.dumps(start_receipt, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-runtime-summary-local",
+            "session-001",
+            "--archive-root",
+            str(archive_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    expected = {
+        "summary_kind": "stored_session_window_runtime_summary",
+        "session_id": "session-001",
+        "runtime_record_count": 1,
+        "start_receipt_count": 1,
+        "stop_receipt_count": 0,
+        "lifecycle_status": "started",
+        "session_active": True,
+        "session_stopped": False,
+        "last_receipt_kind": "stored_session_window_start_receipt",
+        "last_source_kind": "file",
+    }
+    expected_line = json.dumps(expected, sort_keys=True, separators=(",", ":"))
+    assert result.returncode == 0
+    assert result.stdout == f"{expected_line}\n"
+    assert result.stderr == ""
+    _assert_session_window_runtime_summary_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_session_window_runtime_summary_sanitizes_runtime_failure(
+    tmp_path: Path,
+) -> None:
+    archive_root = tmp_path / "archive-token-secret-auth-profile"
+    session_dir = archive_root / "session-001"
+    runtime_path = session_dir / "runtime.jsonl"
+    session_dir.mkdir(parents=True)
+    private_receipt = _session_window_runtime_start_receipt(
+        private_path=str(tmp_path),
+    )
+    runtime_path.write_text(
+        json.dumps(private_receipt, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-runtime-summary-local",
+            "session-001",
+            "--archive-root",
+            str(archive_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "stored session window runtime summary could not be built\n"
+    for forbidden_fragment in (
+        str(tmp_path),
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "private_path",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_runtime_summary_misordered_uses_summary_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--archive-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "session-window-runtime-summary-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "stored session window runtime summary could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "token",
+        "secret",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_runtime_summary_command_delegates_to_reader(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    summary_module = "async_scholar.session_window_runtime_summary"
+    fake_summary_module = types.ModuleType(summary_module)
+
+    def fake_build(archive_root: Path, session_id: str) -> dict[str, object]:
+        received["archive_root"] = archive_root
+        received["session_id"] = session_id
+        return {
+            "summary_kind": "stored_session_window_runtime_summary",
+            "session_id": "session-001",
+            "runtime_record_count": 0,
+            "start_receipt_count": 0,
+            "stop_receipt_count": 0,
+            "lifecycle_status": "not_started",
+            "session_active": False,
+            "session_stopped": False,
+            "last_receipt_kind": "none",
+            "last_source_kind": "none",
+        }
+
+    fake_summary_module.build_stored_session_window_runtime_summary = fake_build
+    monkeypatch.setitem(sys.modules, summary_module, fake_summary_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-runtime-summary-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out == (
+        '{"last_receipt_kind":"none","last_source_kind":"none",'
+        '"lifecycle_status":"not_started","runtime_record_count":0,'
+        '"session_active":false,"session_id":"session-001",'
+        '"session_stopped":false,"start_receipt_count":0,'
+        '"stop_receipt_count":0,'
+        '"summary_kind":"stored_session_window_runtime_summary"}\n'
+    )
+    assert captured.err == ""
+    assert received == {
+        "archive_root": Path("archive-root"),
+        "session_id": "session-001",
+    }
+
+
+def test_session_window_runtime_summary_command_sanitizes_reader_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    summary_module = "async_scholar.session_window_runtime_summary"
+    fake_summary_module = types.ModuleType(summary_module)
+
+    def fake_build(archive_root: Path, session_id: str) -> dict[str, object]:
+        raise ValueError("C:\\Users\\student\\token-secret-auth-profile")
+
+    fake_summary_module.build_stored_session_window_runtime_summary = fake_build
+    monkeypatch.setitem(sys.modules, summary_module, fake_summary_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-runtime-summary-local",
+            "session-001",
+            "--archive-root",
+            "archive-root",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "stored session window runtime summary could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_session_window_runtime_summary_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_session_window_runtime_summary_local_command)
+
+    assert "build_stored_session_window_runtime_summary" in source
+    for forbidden_fragment in (
+        "list_course_schedule_session_window_inputs",
+        "load_course_schedule",
+        "save_course_schedule",
+        "initialize_course_schedule_store",
+        "_create_schema",
+        "ScheduleConfig",
+        "CourseMetadata",
+        "ScheduledStartClock",
+        "build_session_window_confirmation",
+        "build_session_window_start_authorization",
+        "write_stored_session_window_start_receipt",
+        "write_stored_session_window_stop_receipt",
+        "datetime",
+        "now(",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "selenium",
+        "sounddevice",
+        "faster_whisper",
+        "mic_recording",
+        "telegram",
+        "desktop_notifier",
+        "alert_dispatch",
+        "execute_archive",
+        "archive_export",
+        "archive_delete",
+        ".open(",
+        ".read_text(",
+        ".write_text(",
+        ".mkdir(",
+        ".unlink(",
+        ".remove(",
+        ".rmdir(",
+        "rmtree",
+        "autonomous",
+        "academic_answer",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_session_window_stop_receipt_handler_stays_thin() -> None:
     source = inspect.getsource(
         cli._run_session_window_stop_receipt_from_store_local_command
@@ -11117,6 +11433,94 @@ def _assert_session_window_stop_receipt_output_is_safe(
         "product promise",
     ):
         assert forbidden_fragment not in combined_output
+
+
+def _assert_session_window_runtime_summary_output_is_safe(
+    stdout: str,
+    stderr: str,
+) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "result_kind",
+        "alert_preview",
+        "alert_preview_count",
+        "archive_",
+        "db_path",
+        "course_id",
+        "clock",
+        "scheduled",
+        "title",
+        "meeting",
+        "meet.example",
+        "timezone",
+        "duration",
+        "confidential",
+        "instructor",
+        "dr.",
+        "lecture",
+        "lab",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        str(Path.home()).lower(),
+        "token",
+        "secret",
+        "auth state",
+        "auth_state",
+        "auth-profile",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+        "session_dir",
+        "artifacts",
+        "filename",
+        "events.jsonl",
+        "alerts.log",
+        "reviewer.md",
+        "runtime.jsonl",
+        "benchmark-report.json",
+        "sqlite",
+        "traceback",
+        "live delivery",
+        "live-delivery",
+        "live_delivery",
+        "dispatch",
+        "notification",
+        "payload",
+        "body",
+        "target",
+        "scheduler execution",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _session_window_runtime_start_receipt(**overrides: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "receipt_kind": "stored_session_window_start_receipt",
+        "status": "authorized",
+        "session_id": "session-001",
+        "source_kind": "file",
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "course_count": 1,
+        "due_count": 1,
+        "ready_to_start": True,
+        "confirmation_required": True,
+        "confirmation_status": "required",
+        "confirmation_response": "confirmed",
+        "confirmation_verified": True,
+        "authorized": True,
+        "authorized_start_count": 1,
+        "blocked_start_count": 0,
+        "block_reason": "none",
+        "runtime_record_written": True,
+    }
+    payload.update(overrides)
+    return payload
 
 
 def _assert_session_stop_preview_output_is_safe(
