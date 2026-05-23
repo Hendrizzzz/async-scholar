@@ -17,6 +17,7 @@ from async_scholar.schedule_store import (
     StoredCourseSchedule,
     initialize_course_schedule_store,
     load_course_schedule,
+    load_course_schedule_read_only,
     load_course_schedule_safe_summary,
     save_course_schedule,
 )
@@ -151,6 +152,31 @@ def test_load_course_schedule_safe_summary_is_read_only_and_redacted(
         "audio",
     ):
         assert forbidden_fragment not in public_text
+
+
+def test_load_course_schedule_read_only_uses_read_only_uri_and_validates_rows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    save_course_schedule(db_path, _course_metadata(), _schedule_config())
+    real_connect = schedule_store.sqlite3.connect
+    connection_call: dict[str, object] = {}
+
+    def checking_connect(database: object, *args: object, **kwargs: object) -> object:
+        connection_call["database"] = str(database)
+        connection_call["uri"] = kwargs.get("uri")
+        return real_connect(database, *args, **kwargs)
+
+    monkeypatch.setattr(schedule_store.sqlite3, "connect", checking_connect)
+
+    loaded = load_course_schedule_read_only(db_path, "cs101")
+
+    assert loaded.safe_summary() == {"course_id": "cs101", "class_time_count": 2}
+    assert loaded.course_metadata.meeting_url == _private_meeting_url()
+    assert loaded.schedule_config.class_times[1].day_of_week == "wednesday"
+    assert connection_call["uri"] is True
+    assert str(connection_call["database"]).endswith("?mode=ro")
 
 
 def test_load_course_schedule_safe_summary_rejects_missing_db_without_creating(

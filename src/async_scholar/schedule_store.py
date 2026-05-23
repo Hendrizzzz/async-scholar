@@ -170,65 +170,32 @@ def load_course_schedule(db_path: str | Path, course_id: str) -> StoredCourseSch
             connection.row_factory = sqlite3.Row
             _configure_connection(connection)
             _create_schema(connection)
-            course_row = connection.execute(
-                """
-                SELECT
-                    course_id,
-                    title,
-                    instructor_name,
-                    meeting_url,
-                    meeting_label
-                FROM courses
-                WHERE course_id = ?
-                """,
-                (safe_course_id,),
-            ).fetchone()
-            if course_row is None:
-                raise ValueError("course schedule is missing")
+            return _fetch_stored_course_schedule(connection, safe_course_id)
+    except (
+        OSError,
+        RuntimeError,
+        TypeError,
+        ValidationError,
+        sqlite3.Error,
+        ValueError,
+    ):
+        raise ValueError(COURSE_SCHEDULE_LOAD_ERROR) from None
 
-            class_time_rows = connection.execute(
-                """
-                SELECT
-                    day_of_week,
-                    local_start_time,
-                    duration_minutes,
-                    timezone_name,
-                    meeting_label
-                FROM class_times
-                WHERE course_id = ?
-                ORDER BY position
-                """,
-                (safe_course_id,),
-            ).fetchall()
-            if not class_time_rows:
-                raise ValueError("course schedule has no class times")
 
-        course_metadata = CourseMetadata(
-            course_id=course_row["course_id"],
-            title=course_row["title"],
-            instructor_name=course_row["instructor_name"],
-            meeting_url=course_row["meeting_url"],
-            meeting_label=course_row["meeting_label"],
-        )
-        schedule_config = ScheduleConfig(
-            course_id=course_row["course_id"],
-            class_times=[
-                {
-                    "day_of_week": row["day_of_week"],
-                    "local_start_time": row["local_start_time"],
-                    "duration_minutes": row["duration_minutes"],
-                    "timezone_name": row["timezone_name"],
-                    "meeting_label": row["meeting_label"],
-                }
-                for row in class_time_rows
-            ],
-        )
-        return StoredCourseSchedule(
-            course_id=course_metadata.course_id,
-            class_time_count=len(schedule_config.class_times),
-            course_metadata=course_metadata,
-            schedule_config=schedule_config,
-        )
+def load_course_schedule_read_only(
+    db_path: str | Path,
+    course_id: str,
+) -> StoredCourseSchedule:
+    """Load one stored schedule without creating or modifying the store."""
+
+    try:
+        safe_db_path = _validate_existing_db_path(db_path)
+        safe_course_id = _normalize_course_id(course_id)
+        read_only_uri = f"{safe_db_path.resolve(strict=True).as_uri()}?mode=ro"
+        with sqlite3.connect(read_only_uri, uri=True) as connection:
+            connection.row_factory = sqlite3.Row
+            _configure_connection(connection)
+            return _fetch_stored_course_schedule(connection, safe_course_id)
     except (
         OSError,
         RuntimeError,
@@ -247,71 +214,7 @@ def load_course_schedule_safe_summary(
     """Read one stored schedule summary without creating or modifying the store."""
 
     try:
-        safe_db_path = _validate_existing_db_path(db_path)
-        safe_course_id = _normalize_course_id(course_id)
-        read_only_uri = f"{safe_db_path.resolve(strict=True).as_uri()}?mode=ro"
-        with sqlite3.connect(read_only_uri, uri=True) as connection:
-            connection.row_factory = sqlite3.Row
-            _configure_connection(connection)
-            course_row = connection.execute(
-                """
-                SELECT
-                    course_id,
-                    title,
-                    instructor_name,
-                    meeting_url,
-                    meeting_label
-                FROM courses
-                WHERE course_id = ?
-                """,
-                (safe_course_id,),
-            ).fetchone()
-            if course_row is None:
-                raise ValueError("course schedule is missing")
-
-            class_time_rows = connection.execute(
-                """
-                SELECT
-                    day_of_week,
-                    local_start_time,
-                    duration_minutes,
-                    timezone_name,
-                    meeting_label
-                FROM class_times
-                WHERE course_id = ?
-                ORDER BY position
-                """,
-                (safe_course_id,),
-            ).fetchall()
-            if not class_time_rows:
-                raise ValueError("course schedule has no class times")
-
-        course_metadata = CourseMetadata(
-            course_id=course_row["course_id"],
-            title=course_row["title"],
-            instructor_name=course_row["instructor_name"],
-            meeting_url=course_row["meeting_url"],
-            meeting_label=course_row["meeting_label"],
-        )
-        schedule_config = ScheduleConfig(
-            course_id=course_row["course_id"],
-            class_times=[
-                {
-                    "day_of_week": row["day_of_week"],
-                    "local_start_time": row["local_start_time"],
-                    "duration_minutes": row["duration_minutes"],
-                    "timezone_name": row["timezone_name"],
-                    "meeting_label": row["meeting_label"],
-                }
-                for row in class_time_rows
-            ],
-        )
-        return StoredCourseSchedule(
-            course_id=course_metadata.course_id,
-            class_time_count=len(schedule_config.class_times),
-            course_metadata=course_metadata,
-            schedule_config=schedule_config,
-        ).safe_summary()
+        return load_course_schedule_read_only(db_path, course_id).safe_summary()
     except (
         OSError,
         RuntimeError,
@@ -358,6 +261,71 @@ def _validate_existing_db_path(db_path: str | Path) -> Path:
     if not candidate.exists() or not candidate.is_file() or candidate.is_symlink():
         raise ValueError("db_path must be an existing local database file")
     return candidate
+
+
+def _fetch_stored_course_schedule(
+    connection: sqlite3.Connection,
+    safe_course_id: str,
+) -> StoredCourseSchedule:
+    course_row = connection.execute(
+        """
+        SELECT
+            course_id,
+            title,
+            instructor_name,
+            meeting_url,
+            meeting_label
+        FROM courses
+        WHERE course_id = ?
+        """,
+        (safe_course_id,),
+    ).fetchone()
+    if course_row is None:
+        raise ValueError("course schedule is missing")
+
+    class_time_rows = connection.execute(
+        """
+        SELECT
+            day_of_week,
+            local_start_time,
+            duration_minutes,
+            timezone_name,
+            meeting_label
+        FROM class_times
+        WHERE course_id = ?
+        ORDER BY position
+        """,
+        (safe_course_id,),
+    ).fetchall()
+    if not class_time_rows:
+        raise ValueError("course schedule has no class times")
+
+    course_metadata = CourseMetadata(
+        course_id=course_row["course_id"],
+        title=course_row["title"],
+        instructor_name=course_row["instructor_name"],
+        meeting_url=course_row["meeting_url"],
+        meeting_label=course_row["meeting_label"],
+    )
+    schedule_config = ScheduleConfig(
+        course_id=course_row["course_id"],
+        class_times=[
+            {
+                "day_of_week": row["day_of_week"],
+                "local_start_time": row["local_start_time"],
+                "duration_minutes": row["duration_minutes"],
+                "timezone_name": row["timezone_name"],
+                "meeting_label": row["meeting_label"],
+            }
+            for row in class_time_rows
+        ],
+    )
+    return StoredCourseSchedule(
+        course_id=course_metadata.course_id,
+        class_time_count=len(schedule_config.class_times),
+        course_metadata=course_metadata,
+        schedule_config=schedule_config,
+    )
 
 
 def _configure_connection(connection: sqlite3.Connection) -> None:

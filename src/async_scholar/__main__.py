@@ -17,6 +17,23 @@ _ARCHIVE_EXPORT_VERIFY_CLI_ERROR = "archive export verification could not be bui
 _ARCHIVE_DELETE_DRY_RUN_CLI_ERROR = "archive delete dry run could not be built"
 _SCHEDULED_START_PREVIEW_CLI_ERROR = "scheduled start preview could not be built"
 _COURSE_SCHEDULE_SUMMARY_CLI_ERROR = "course schedule summary could not be built"
+_SCHEDULED_START_PREVIEW_FROM_STORE_CLI_ERROR = (
+    "stored scheduled start preview could not be built"
+)
+_STORED_SCHEDULED_START_PREVIEW_KEYS = (
+    "status",
+    "session_id",
+    "course_id",
+    "source_kind",
+    "clock_day_of_week",
+    "clock_local_time",
+    "scheduled_day_of_week",
+    "scheduled_local_start_time",
+    "due",
+    "minutes_until_start",
+    "next_day_of_week",
+    "next_local_start_time",
+)
 
 
 class _FixedMessageArgumentParser(argparse.ArgumentParser):
@@ -142,6 +159,19 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_course_schedule_summary_local_command
     )
 
+    stored_schedule_preview = subparsers.add_parser(
+        "scheduled-start-preview-from-store-local",
+        help="preview stored scheduled-start metadata without executing",
+        description=(
+            "Preview one non-executing scheduled-start decision from an "
+            "explicit read-only local schedule store and explicit local clock."
+        ),
+    )
+    _add_scheduled_start_preview_from_store_local_arguments(stored_schedule_preview)
+    stored_schedule_preview.set_defaults(
+        handler=_run_scheduled_start_preview_from_store_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -168,8 +198,16 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if argv[:1] == ["scheduled-start-preview-local"]:
         return _run_scheduled_start_preview_local_argv(argv[1:])
+    if argv[:1] == ["scheduled-start-preview-from-store-local"]:
+        return _run_scheduled_start_preview_from_store_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
         return _run_course_schedule_summary_local_argv(argv[1:])
+    if "scheduled-start-preview-from-store-local" in argv or any(
+        arg == "--class-time-index" or arg.startswith("--class-time-index=")
+        for arg in argv
+    ):
+        print(_SCHEDULED_START_PREVIEW_FROM_STORE_CLI_ERROR, file=sys.stderr)
+        return 2
     if "course-schedule-summary-local" in argv or any(
         arg == "--db-path" or arg.startswith("--db-path=") for arg in argv
     ):
@@ -374,6 +412,53 @@ def _add_course_schedule_summary_local_arguments(
         "--course-id",
         required=True,
         help="safe course identifier to summarize",
+    )
+
+
+def _add_scheduled_start_preview_from_store_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe local session identifier to preview",
+    )
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit existing local SQLite course schedule database",
+    )
+    parser.add_argument(
+        "--course-id",
+        required=True,
+        help="safe course identifier to preview",
+    )
+    parser.add_argument(
+        "--class-time-index",
+        required=True,
+        type=int,
+        help="explicit zero-based stored class-time index to preview",
+    )
+    parser.add_argument(
+        "--source-kind",
+        required=True,
+        choices=("file", "mic"),
+        help="local source kind to preview",
+    )
+    parser.add_argument(
+        "--clock-day-of-week",
+        required=True,
+        help="explicit local clock weekday name",
+    )
+    parser.add_argument(
+        "--clock-local-time",
+        required=True,
+        help="explicit local clock time in HH:MM",
+    )
+    parser.add_argument(
+        "--disabled",
+        action="store_true",
+        help="preview the stored schedule as disabled",
     )
 
 
@@ -657,6 +742,68 @@ def _run_course_schedule_summary_local_command(args: argparse.Namespace) -> int:
 
     print(json.dumps(payload, sort_keys=True))
     return 0
+
+
+def _run_scheduled_start_preview_from_store_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar scheduled-start-preview-from-store-local",
+        description=(
+            "Preview one non-executing scheduled-start decision from an "
+            "explicit read-only local schedule store and explicit local clock."
+        ),
+        fixed_error_message=_SCHEDULED_START_PREVIEW_FROM_STORE_CLI_ERROR,
+    )
+    _add_scheduled_start_preview_from_store_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_scheduled_start_preview_from_store_local_command(args)
+
+
+def _run_scheduled_start_preview_from_store_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.schedule_store import load_course_schedule_read_only
+    from async_scholar.scheduled_start import (
+        ScheduledStartClock,
+        build_scheduled_start_manual_result,
+        build_scheduled_start_plan,
+        scheduled_start_manual_result_safe_summary,
+    )
+
+    try:
+        stored_schedule = load_course_schedule_read_only(
+            args.db_path,
+            args.course_id,
+        )
+        plan = build_scheduled_start_plan(
+            stored_schedule.schedule_config,
+            selected_class_time_index=args.class_time_index,
+            source_kind=args.source_kind,
+            enabled=not args.disabled,
+        )
+        clock = ScheduledStartClock(
+            day_of_week=args.clock_day_of_week,
+            local_time=args.clock_local_time,
+        )
+        preview = build_scheduled_start_manual_result(
+            plan,
+            clock,
+            args.session_id,
+        )
+        payload = _stored_schedule_preview_safe_summary(
+            scheduled_start_manual_result_safe_summary(preview)
+        )
+    except (KeyError, TypeError, ValueError):
+        print(_SCHEDULED_START_PREVIEW_FROM_STORE_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _stored_schedule_preview_safe_summary(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    return {key: payload[key] for key in _STORED_SCHEDULED_START_PREVIEW_KEYS}
 
 
 def _run_mic_recording_diagnostic_command(argv: list[str]) -> int:
