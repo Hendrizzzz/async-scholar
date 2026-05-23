@@ -52,6 +52,9 @@ _SESSION_WINDOW_CONFIRMATION_RESPONSE_FROM_STORE_CLI_ERROR = (
 _SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR = (
     "stored session window start authorization could not be built"
 )
+_SESSION_WINDOW_START_RECEIPT_FROM_STORE_CLI_ERROR = (
+    "stored session window start receipt could not be built"
+)
 _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
@@ -628,6 +631,22 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_session_window_start_authorization_from_store_local_command
     )
 
+    session_window_start_receipt = subparsers.add_parser(
+        "session-window-start-receipt-from-store-local",
+        help="record an authorized stored session-window start receipt",
+        description=(
+            "Record metadata-only session-window start receipt data from an "
+            "explicit read-only local schedule store, archive root, local clock, "
+            "and fixed confirmation response."
+        ),
+    )
+    _add_session_window_start_receipt_from_store_local_arguments(
+        session_window_start_receipt
+    )
+    session_window_start_receipt.set_defaults(
+        handler=_run_session_window_start_receipt_from_store_local_command
+    )
+
     subparsers.add_parser(
         "mic-recording-diagnostic",
         help="run the bounded microphone recording diagnostic",
@@ -678,6 +697,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_session_window_confirmation_response_from_store_local_argv(argv[1:])
     if argv[:1] == ["session-window-start-authorization-from-store-local"]:
         return _run_session_window_start_authorization_from_store_local_argv(argv[1:])
+    if argv[:1] == ["session-window-start-receipt-from-store-local"]:
+        return _run_session_window_start_receipt_from_store_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-save-local"]:
         return _run_course_schedule_save_local_argv(argv[1:])
     if argv[:1] == ["course-schedule-summary-local"]:
@@ -747,6 +768,12 @@ def main(argv: list[str] | None = None) -> int:
     if "session-window-start-authorization-from-store-local" in argv:
         print(
             _SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 2
+    if "session-window-start-receipt-from-store-local" in argv:
+        print(
+            _SESSION_WINDOW_START_RECEIPT_FROM_STORE_CLI_ERROR,
             file=sys.stderr,
         )
         return 2
@@ -1470,6 +1497,54 @@ def _add_session_window_start_authorization_from_store_local_arguments(
         "--disabled",
         action="store_true",
         help="return disabled session-window authorization metadata without starts",
+    )
+
+
+def _add_session_window_start_receipt_from_store_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe local session identifier for the start receipt",
+    )
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit existing local SQLite course schedule database",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit existing local archive root for the runtime receipt",
+    )
+    parser.add_argument(
+        "--source-kind",
+        required=True,
+        choices=("file", "mic"),
+        help="local source kind to record",
+    )
+    parser.add_argument(
+        "--clock-day-of-week",
+        required=True,
+        help="explicit local clock weekday name",
+    )
+    parser.add_argument(
+        "--clock-local-time",
+        required=True,
+        help="explicit local clock time in HH:MM",
+    )
+    parser.add_argument(
+        "--confirmation-response",
+        required=True,
+        choices=("confirmed", "declined"),
+        help="fixed user response token to record",
+    )
+    parser.add_argument(
+        "--disabled",
+        action="store_true",
+        help="return disabled session-window receipt metadata without writing",
     )
 
 
@@ -2728,6 +2803,76 @@ def _stored_session_window_start_authorization_course_safe_summary(
     if safe_payload["confirmation_response"] != confirmation_response:
         raise ValueError(_SESSION_WINDOW_START_AUTHORIZATION_FROM_STORE_CLI_ERROR)
     return safe_payload
+
+
+def _run_session_window_start_receipt_from_store_local_argv(
+    argv: list[str],
+) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-start-receipt-from-store-local",
+        description=(
+            "Record metadata-only session-window start receipt data from an "
+            "explicit read-only local schedule store, archive root, local clock, "
+            "and fixed confirmation response."
+        ),
+        fixed_error_message=_SESSION_WINDOW_START_RECEIPT_FROM_STORE_CLI_ERROR,
+    )
+    _add_session_window_start_receipt_from_store_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_start_receipt_from_store_local_command(args)
+
+
+def _run_session_window_start_receipt_from_store_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.schedule_store import list_course_schedule_session_window_inputs
+    from async_scholar.scheduled_start import ScheduledStartClock
+    from async_scholar.session_window_confirmation_preflight import (
+        build_session_window_confirmation_preflight_summary,
+    )
+    from async_scholar.session_window_confirmation_response import (
+        build_session_window_confirmation_response_summary,
+    )
+    from async_scholar.session_window_start_authorization import (
+        build_session_window_start_authorization_summary,
+    )
+    from async_scholar.session_window_start_receipt import (
+        write_stored_session_window_start_receipt,
+    )
+
+    try:
+        clock = ScheduledStartClock(
+            day_of_week=args.clock_day_of_week,
+            local_time=args.clock_local_time,
+        )
+        preflight_payload = build_session_window_confirmation_preflight_summary(
+            list_course_schedule_session_window_inputs(args.db_path),
+            args.archive_root,
+            args.session_id,
+            args.source_kind,
+            clock,
+            enabled=not args.disabled,
+        )
+        response_payload = build_session_window_confirmation_response_summary(
+            preflight_payload,
+            args.confirmation_response,
+        )
+        authorization_payload = build_session_window_start_authorization_summary(
+            response_payload
+        )
+        payload = write_stored_session_window_start_receipt(
+            authorization_payload,
+            args.archive_root,
+        )
+    except (KeyError, OSError, TypeError, ValueError):
+        print(
+            _SESSION_WINDOW_START_RECEIPT_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
 
 
 def _run_mic_recording_diagnostic_command(argv: list[str]) -> int:
