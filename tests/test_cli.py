@@ -90,6 +90,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "session-window-execute-from-store-local" in result.stdout
     assert "session-window-start-receipt-from-store-local" in result.stdout
     assert "session-window-stop-execution-preflight-from-store-local" in result.stdout
+    assert "session-window-stop-execute-from-store-local" in result.stdout
     assert "session-window-stop-receipt-from-store-local" in result.stdout
     assert "session-window-runtime-summary-local" in result.stdout
     assert "session-window-recovery-decision-local" in result.stdout
@@ -11774,6 +11775,502 @@ def test_session_window_stop_execution_preflight_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+def test_session_window_stop_execute_from_store_local_help_stays_lazy(
+    monkeypatch,
+) -> None:
+    execution_module = "async_scholar.session_window_stop_execution"
+    monkeypatch.delitem(sys.modules, execution_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-stop-execute-from-store-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert (
+        "usage: async_scholar session-window-stop-execute-from-store-local"
+    ) in result.stdout
+    assert "--db-path" in result.stdout
+    assert "--archive-root" in result.stdout
+    assert "--course-id" in result.stdout
+    assert "--class-time-index" in result.stdout
+    assert "--source-kind" in result.stdout
+    assert "--confirmation-response" in result.stdout
+    assert "one-shot" in result.stdout
+    assert execution_module not in sys.modules
+
+
+def test_session_window_stop_execute_from_store_local_requires_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-stop-execute-from-store-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "stored session window stop execution could not be built\n"
+
+
+def test_session_window_stop_execute_prints_executed_json_and_appends_runtime(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive"
+    session_dir = archive_root / "session-001"
+    runtime_path = session_dir / "runtime.jsonl"
+    session_dir.mkdir(parents=True)
+    _write_private_course_schedule(db_path)
+    runtime_line = json.dumps(
+        _session_window_runtime_start_receipt(),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    runtime_path.write_text(f"{runtime_line}\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-stop-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+            "--confirmation-response",
+            "confirmed",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    expected = {
+        "confirmation_response": "confirmed",
+        "course_id": "cs101",
+        "decision": "executed",
+        "execution_kind": "stored_session_window_stop_execution",
+        "preflight_decision": "allow",
+        "preflight_reason": "ready_to_stop",
+        "ready_to_stop": True,
+        "reason": "stop_receipt_written",
+        "runtime_record_written": True,
+        "runtime_state": "started",
+        "scheduled_day_of_week": "monday",
+        "scheduled_local_start_time": "09:00",
+        "selected_class_time_index": 0,
+        "session_id": "session-001",
+        "source_kind": "file",
+        "start_receipt_count": 1,
+        "stop_after_minutes": 75,
+        "stop_receipt_count": 0,
+    }
+    expected_line = json.dumps(expected, sort_keys=True, separators=(",", ":"))
+    runtime_lines = runtime_path.read_text(encoding="utf-8").splitlines()
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == f"{expected_line}\n"
+    assert len(runtime_lines) == 2
+    assert json.loads(runtime_lines[1])["receipt_kind"] == (
+        "stored_session_window_stop_receipt"
+    )
+    _assert_session_window_stop_execute_output_is_safe(
+        result.stdout,
+        result.stderr,
+        runtime_path,
+    )
+
+
+def test_session_window_stop_execute_declined_does_not_append_runtime(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive"
+    session_dir = archive_root / "session-001"
+    runtime_path = session_dir / "runtime.jsonl"
+    session_dir.mkdir(parents=True)
+    _write_private_course_schedule(db_path)
+    runtime_line = json.dumps(
+        _session_window_runtime_start_receipt(),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    runtime_path.write_text(f"{runtime_line}\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-stop-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+            "--confirmation-response",
+            "declined",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert payload["preflight_decision"] == "allow"
+    assert payload["decision"] == "blocked"
+    assert payload["reason"] == "confirmation_declined"
+    assert payload["runtime_record_written"] is False
+    assert runtime_path.read_text(encoding="utf-8") == f"{runtime_line}\n"
+    _assert_session_window_stop_execute_output_is_safe(
+        result.stdout,
+        result.stderr,
+        runtime_path,
+    )
+
+
+def test_session_window_stop_execute_prints_blocked_preflight_json(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-stop-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+            "--confirmation-response",
+            "confirmed",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert payload["runtime_state"] == "missing"
+    assert payload["preflight_decision"] == "block"
+    assert payload["decision"] == "blocked"
+    assert payload["reason"] == "missing_runtime"
+    assert payload["runtime_record_written"] is False
+    assert not (session_dir / "runtime.jsonl").exists()
+    _assert_session_window_stop_execute_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_session_window_stop_execute_sanitizes_parse_failure() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-stop-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            "C:\\Users\\student\\private.sqlite",
+            "--archive-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "browser audio",
+            "--confirmation-response",
+            "confirmed",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "stored session window stop execution could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "private",
+        "token",
+        "secret",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_stop_execute_misordered_uses_execution_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--archive-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "session-window-stop-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            "C:\\Users\\student\\private.sqlite",
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+            "--confirmation-response",
+            "confirmed",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "stored session window stop execution could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "token",
+        "secret",
+        "private.sqlite",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_stop_execute_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    execution_module = "async_scholar.session_window_stop_execution"
+    fake_execution_module = types.ModuleType(execution_module)
+
+    def fake_build(
+        db_path: Path,
+        archive_root: Path,
+        session_id: str,
+        course_id: str,
+        class_time_index: int,
+        source_kind: str,
+        confirmation_response: str,
+        *,
+        enabled: bool,
+    ) -> dict[str, object]:
+        received["db_path"] = db_path
+        received["archive_root"] = archive_root
+        received["session_id"] = session_id
+        received["course_id"] = course_id
+        received["class_time_index"] = class_time_index
+        received["source_kind"] = source_kind
+        received["confirmation_response"] = confirmation_response
+        received["enabled"] = enabled
+        return {
+            "execution_kind": "stored_session_window_stop_execution",
+            "session_id": "session-001",
+            "course_id": "cs101",
+            "source_kind": "file",
+            "selected_class_time_index": 0,
+            "scheduled_day_of_week": "monday",
+            "scheduled_local_start_time": "09:00",
+            "stop_after_minutes": 75,
+            "runtime_state": "started",
+            "start_receipt_count": 1,
+            "stop_receipt_count": 0,
+            "ready_to_stop": True,
+            "confirmation_response": "confirmed",
+            "preflight_decision": "allow",
+            "preflight_reason": "ready_to_stop",
+            "runtime_record_written": True,
+            "decision": "executed",
+            "reason": "stop_receipt_written",
+        }
+
+    helper_name = "build_stored_session_window_stop_execution_from_store"
+    fake_execution_module.__dict__[helper_name] = fake_build
+    monkeypatch.setitem(sys.modules, execution_module, fake_execution_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-stop-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            "schedule.sqlite",
+            "--archive-root",
+            "archive-root",
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+            "--confirmation-response",
+            "confirmed",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.err == ""
+    assert json.loads(captured.out)["decision"] == "executed"
+    assert received == {
+        "db_path": Path("schedule.sqlite"),
+        "archive_root": Path("archive-root"),
+        "session_id": "session-001",
+        "course_id": "cs101",
+        "class_time_index": 0,
+        "source_kind": "file",
+        "confirmation_response": "confirmed",
+        "enabled": True,
+    }
+
+
+def test_session_window_stop_execute_command_sanitizes_helper_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    execution_module = "async_scholar.session_window_stop_execution"
+    fake_execution_module = types.ModuleType(execution_module)
+
+    def fake_build(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise ValueError("C:\\Users\\student\\token-secret-auth-profile")
+
+    helper_name = "build_stored_session_window_stop_execution_from_store"
+    fake_execution_module.__dict__[helper_name] = fake_build
+    monkeypatch.setitem(sys.modules, execution_module, fake_execution_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-stop-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            "schedule.sqlite",
+            "--archive-root",
+            "archive-root",
+            "--course-id",
+            "cs101",
+            "--class-time-index",
+            "0",
+            "--source-kind",
+            "file",
+            "--confirmation-response",
+            "confirmed",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "stored session window stop execution could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_session_window_stop_execute_handler_stays_thin() -> None:
+    source = inspect.getsource(
+        cli._run_session_window_stop_execute_from_store_local_command
+    )
+
+    assert "build_stored_session_window_stop_execution_from_store" in source
+    for forbidden_fragment in (
+        "load_course_schedule_session_stop_input",
+        "build_session_stop_preview_from_store_input",
+        "build_stored_session_window_runtime_summary",
+        "write_stored_session_window_stop_receipt",
+        "write_stored_session_window_start_receipt",
+        "datetime",
+        "now(",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "selenium",
+        "sounddevice",
+        "faster_whisper",
+        "mic_recording",
+        "telegram",
+        "desktop_notifier",
+        "alert_dispatch",
+        "archive_delete",
+        ".open(",
+        ".read_text(",
+        ".write_text(",
+        ".mkdir(",
+        ".unlink(",
+        ".remove(",
+        ".rmdir(",
+        "rmtree",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_gate_d_readiness_local_help_stays_lazy(monkeypatch) -> None:
     readiness_module = "async_scholar.gate_d_readiness"
     monkeypatch.delitem(sys.modules, readiness_module, raising=False)
@@ -15936,6 +16433,69 @@ def _assert_session_window_start_receipt_output_is_safe(
 
 
 def _assert_session_window_stop_receipt_output_is_safe(
+    stdout: str,
+    stderr: str,
+    runtime_path: Path | None = None,
+) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    if runtime_path is not None:
+        combined_output += runtime_path.read_text(encoding="utf-8").lower()
+    for forbidden_fragment in (
+        "result_kind",
+        "alert_preview",
+        "alert_preview_count",
+        "archive_",
+        "db_path",
+        "title",
+        "meeting",
+        "meet.example",
+        "timezone",
+        "duration",
+        "confidential",
+        "instructor",
+        "dr.",
+        "lecture",
+        "lab",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        str(Path.home()).lower(),
+        "token",
+        "secret",
+        "auth state",
+        "auth_state",
+        "auth-profile",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+        "session_dir",
+        "artifacts",
+        "filename",
+        "events.jsonl",
+        "alerts.log",
+        "reviewer.md",
+        "runtime.jsonl",
+        "benchmark-report.json",
+        "sqlite",
+        "traceback",
+        "live delivery",
+        "live-delivery",
+        "live_delivery",
+        "dispatch",
+        "notification",
+        "payload",
+        "body",
+        "target",
+        "scheduler execution",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_session_window_stop_execute_output_is_safe(
     stdout: str,
     stderr: str,
     runtime_path: Path | None = None,
