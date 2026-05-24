@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import inspect
 import json
 import sqlite3
@@ -12274,6 +12275,42 @@ def test_session_window_stop_execute_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+_GATE_D_OLD_SATISFACTORY_ARGS = [
+    "--mic-diagnostics-after-reboot",
+    "satisfactory",
+    "--alert-routing",
+    "satisfactory",
+    "--security-review",
+    "satisfactory",
+    "--policy-gate-tests",
+    "satisfactory",
+    "--rollback-plan-for-loopback-playwright-spike",
+    "satisfactory",
+]
+_GATE_D_NEW_SATISFACTORY_ARGS = [
+    "--signal-quality-evidence",
+    "satisfactory",
+    "--scheduler-lifecycle-evidence",
+    "satisfactory",
+    "--delivery-path-evidence",
+    "satisfactory",
+    "--monitoring-boundary-evidence",
+    "satisfactory",
+    "--product-judgment-evidence",
+    "satisfactory",
+]
+_GATE_D_ALL_SATISFACTORY_ARGS = (
+    _GATE_D_OLD_SATISFACTORY_ARGS + _GATE_D_NEW_SATISFACTORY_ARGS
+)
+_GATE_D_NEW_MISSING_EVIDENCE = [
+    "signal_quality_evidence",
+    "scheduler_lifecycle_evidence",
+    "delivery_path_evidence",
+    "monitoring_boundary_evidence",
+    "product_judgment_evidence",
+]
+
+
 def test_gate_d_readiness_local_help_stays_lazy(monkeypatch) -> None:
     readiness_module = "async_scholar.gate_d_readiness"
     monkeypatch.delitem(sys.modules, readiness_module, raising=False)
@@ -12295,6 +12332,11 @@ def test_gate_d_readiness_local_help_stays_lazy(monkeypatch) -> None:
     assert "usage: async_scholar gate-d-readiness-local" in result.stdout
     assert "--mic-diagnostics-after-reboot" in result.stdout
     assert "--rollback-plan-for-loopback-playwright-spike" in result.stdout
+    assert "--signal-quality-evidence" in result.stdout
+    assert "--scheduler-lifecycle-evidence" in result.stdout
+    assert "--delivery-path-evidence" in result.stdout
+    assert "--monitoring-boundary-evidence" in result.stdout
+    assert "--product-judgment-evidence" in result.stdout
     assert readiness_module not in sys.modules
 
 
@@ -12333,6 +12375,16 @@ def test_gate_d_readiness_local_prints_compact_ready_json() -> None:
             "satisfactory",
             "--rollback-plan-for-loopback-playwright-spike",
             "satisfactory",
+            "--signal-quality-evidence",
+            "satisfactory",
+            "--scheduler-lifecycle-evidence",
+            "satisfactory",
+            "--delivery-path-evidence",
+            "satisfactory",
+            "--monitoring-boundary-evidence",
+            "satisfactory",
+            "--product-judgment-evidence",
+            "satisfactory",
         ],
         check=False,
         capture_output=True,
@@ -12346,6 +12398,11 @@ def test_gate_d_readiness_local_prints_compact_ready_json() -> None:
         "security_review_status": "satisfactory",
         "policy_gate_tests_status": "satisfactory",
         "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
+        "signal_quality_evidence_status": "satisfactory",
+        "scheduler_lifecycle_evidence_status": "satisfactory",
+        "delivery_path_evidence_status": "satisfactory",
+        "monitoring_boundary_evidence_status": "satisfactory",
+        "product_judgment_evidence_status": "satisfactory",
         "ready_for_gate_review": True,
         "decision": "ready_for_gate_review",
         "reason": "all_required_gate_d_readiness_evidence_satisfactory",
@@ -12355,6 +12412,43 @@ def test_gate_d_readiness_local_prints_compact_ready_json() -> None:
     assert result.returncode == 0
     assert result.stderr == ""
     assert result.stdout == f"{expected_line}\n"
+    _assert_gate_d_readiness_output_is_safe(result.stdout, result.stderr)
+
+
+def test_gate_d_readiness_local_old_five_flags_default_new_evidence_missing() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-readiness-local",
+            "--mic-diagnostics-after-reboot",
+            "satisfactory",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert payload["signal_quality_evidence_status"] == "missing"
+    assert payload["scheduler_lifecycle_evidence_status"] == "missing"
+    assert payload["delivery_path_evidence_status"] == "missing"
+    assert payload["monitoring_boundary_evidence_status"] == "missing"
+    assert payload["product_judgment_evidence_status"] == "missing"
+    assert payload["ready_for_gate_review"] is False
+    assert payload["decision"] == "blocked"
     _assert_gate_d_readiness_output_is_safe(result.stdout, result.stderr)
 
 
@@ -12441,6 +12535,27 @@ def test_gate_d_readiness_local_misordered_uses_readiness_error() -> None:
     _assert_gate_d_readiness_output_is_safe(result.stdout, result.stderr)
 
 
+def test_gate_d_readiness_local_misordered_new_flag_uses_readiness_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--product-judgment-evidence",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "gate-d-readiness-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "gate d readiness could not be built\n"
+    _assert_gate_d_readiness_output_is_safe(result.stdout, result.stderr)
+
+
 def test_gate_d_readiness_local_command_delegates_to_helper(
     capsys,
     monkeypatch,
@@ -12456,6 +12571,11 @@ def test_gate_d_readiness_local_command_delegates_to_helper(
         security_review: str,
         policy_gate_tests: str,
         rollback_plan_for_loopback_playwright_spike: str,
+        signal_quality_evidence: str,
+        scheduler_lifecycle_evidence: str,
+        delivery_path_evidence: str,
+        monitoring_boundary_evidence: str,
+        product_judgment_evidence: str,
     ) -> dict[str, object]:
         received["mic_diagnostics_after_reboot"] = mic_diagnostics_after_reboot
         received["alert_routing"] = alert_routing
@@ -12464,6 +12584,11 @@ def test_gate_d_readiness_local_command_delegates_to_helper(
         received["rollback_plan_for_loopback_playwright_spike"] = (
             rollback_plan_for_loopback_playwright_spike
         )
+        received["signal_quality_evidence"] = signal_quality_evidence
+        received["scheduler_lifecycle_evidence"] = scheduler_lifecycle_evidence
+        received["delivery_path_evidence"] = delivery_path_evidence
+        received["monitoring_boundary_evidence"] = monitoring_boundary_evidence
+        received["product_judgment_evidence"] = product_judgment_evidence
         return {
             "readiness_kind": "gate_d_readiness",
             "mic_diagnostics_after_reboot_status": "satisfactory",
@@ -12471,9 +12596,14 @@ def test_gate_d_readiness_local_command_delegates_to_helper(
             "security_review_status": "satisfactory",
             "policy_gate_tests_status": "satisfactory",
             "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
-            "ready_for_gate_review": True,
-            "decision": "ready_for_gate_review",
-            "reason": "all_required_gate_d_readiness_evidence_satisfactory",
+            "signal_quality_evidence_status": "missing",
+            "scheduler_lifecycle_evidence_status": "missing",
+            "delivery_path_evidence_status": "missing",
+            "monitoring_boundary_evidence_status": "missing",
+            "product_judgment_evidence_status": "missing",
+            "ready_for_gate_review": False,
+            "decision": "blocked",
+            "reason": "required_gate_d_readiness_evidence_missing_or_blocking",
         }
 
     fake_readiness_module.build_gate_d_readiness_report = fake_build  # type: ignore[attr-defined]
@@ -12506,8 +12636,56 @@ def test_gate_d_readiness_local_command_delegates_to_helper(
         "security_review": "satisfactory",
         "policy_gate_tests": "satisfactory",
         "rollback_plan_for_loopback_playwright_spike": "satisfactory",
+        "signal_quality_evidence": "missing",
+        "scheduler_lifecycle_evidence": "missing",
+        "delivery_path_evidence": "missing",
+        "monitoring_boundary_evidence": "missing",
+        "product_judgment_evidence": "missing",
     }
-    assert payload["decision"] == "ready_for_gate_review"
+    assert payload["decision"] == "blocked"
+
+
+def test_gate_d_readiness_local_sanitizes_import_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def fake_import(
+        name: str,
+        globals_: object = None,
+        locals_: object = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> object:
+        if name == "async_scholar.gate_d_readiness":
+            raise ImportError("C:\\Users\\student\\token-secret-auth-profile")
+        return real_import(name, globals_, locals_, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    exit_code = cli.main(
+        [
+            "gate-d-readiness-local",
+            "--mic-diagnostics-after-reboot",
+            "satisfactory",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ]
+    )
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "gate d readiness could not be built\n"
+    _assert_gate_d_readiness_output_is_safe(captured.out, captured.err)
 
 
 def test_gate_d_readiness_local_handler_stays_thin() -> None:
@@ -12570,6 +12748,11 @@ def test_gate_d_evidence_gaps_local_help_stays_lazy(monkeypatch) -> None:
     assert "usage: async_scholar gate-d-evidence-gaps-local" in result.stdout
     assert "--mic-diagnostics-after-reboot" in result.stdout
     assert "--rollback-plan-for-loopback-playwright-spike" in result.stdout
+    assert "--signal-quality-evidence" in result.stdout
+    assert "--scheduler-lifecycle-evidence" in result.stdout
+    assert "--delivery-path-evidence" in result.stdout
+    assert "--monitoring-boundary-evidence" in result.stdout
+    assert "--product-judgment-evidence" in result.stdout
     assert readiness_module not in sys.modules
 
 
@@ -12608,6 +12791,16 @@ def test_gate_d_evidence_gaps_local_prints_compact_no_gaps_json() -> None:
             "satisfactory",
             "--rollback-plan-for-loopback-playwright-spike",
             "satisfactory",
+            "--signal-quality-evidence",
+            "satisfactory",
+            "--scheduler-lifecycle-evidence",
+            "satisfactory",
+            "--delivery-path-evidence",
+            "satisfactory",
+            "--monitoring-boundary-evidence",
+            "satisfactory",
+            "--product-judgment-evidence",
+            "satisfactory",
         ],
         check=False,
         capture_output=True,
@@ -12621,11 +12814,16 @@ def test_gate_d_evidence_gaps_local_prints_compact_no_gaps_json() -> None:
         "security_review_status": "satisfactory",
         "policy_gate_tests_status": "satisfactory",
         "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
+        "signal_quality_evidence_status": "satisfactory",
+        "scheduler_lifecycle_evidence_status": "satisfactory",
+        "delivery_path_evidence_status": "satisfactory",
+        "monitoring_boundary_evidence_status": "satisfactory",
+        "product_judgment_evidence_status": "satisfactory",
         "missing_evidence": [],
         "missing_evidence_count": 0,
         "blocking_evidence": [],
         "blocking_evidence_count": 0,
-        "satisfactory_evidence_count": 5,
+        "satisfactory_evidence_count": 10,
         "decision": "no_gaps",
         "reason": "all_gate_d_evidence_categories_satisfactory",
     }
@@ -12634,6 +12832,48 @@ def test_gate_d_evidence_gaps_local_prints_compact_no_gaps_json() -> None:
     assert result.returncode == 0
     assert result.stderr == ""
     assert result.stdout == f"{expected_line}\n"
+    _assert_gate_d_evidence_gaps_output_is_safe(result.stdout, result.stderr)
+
+
+def test_gate_d_evidence_gaps_local_old_five_defaults_new_missing() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-evidence-gaps-local",
+            "--mic-diagnostics-after-reboot",
+            "satisfactory",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert payload["missing_evidence"] == [
+        "signal_quality_evidence",
+        "scheduler_lifecycle_evidence",
+        "delivery_path_evidence",
+        "monitoring_boundary_evidence",
+        "product_judgment_evidence",
+    ]
+    assert payload["missing_evidence_count"] == 5
+    assert payload["blocking_evidence"] == []
+    assert payload["blocking_evidence_count"] == 0
+    assert payload["satisfactory_evidence_count"] == 5
+    assert payload["decision"] == "gaps_present"
     _assert_gate_d_evidence_gaps_output_is_safe(result.stdout, result.stderr)
 
 
@@ -12654,6 +12894,16 @@ def test_gate_d_evidence_gaps_local_prints_gap_json() -> None:
             "satisfactory",
             "--rollback-plan-for-loopback-playwright-spike",
             "satisfactory",
+            "--signal-quality-evidence",
+            "satisfactory",
+            "--scheduler-lifecycle-evidence",
+            "satisfactory",
+            "--delivery-path-evidence",
+            "satisfactory",
+            "--monitoring-boundary-evidence",
+            "satisfactory",
+            "--product-judgment-evidence",
+            "satisfactory",
         ],
         check=False,
         capture_output=True,
@@ -12670,7 +12920,7 @@ def test_gate_d_evidence_gaps_local_prints_gap_json() -> None:
     assert payload["missing_evidence_count"] == 1
     assert payload["blocking_evidence"] == ["security_review"]
     assert payload["blocking_evidence_count"] == 1
-    assert payload["satisfactory_evidence_count"] == 3
+    assert payload["satisfactory_evidence_count"] == 8
     _assert_gate_d_evidence_gaps_output_is_safe(result.stdout, result.stderr)
 
 
@@ -12724,6 +12974,27 @@ def test_gate_d_evidence_gaps_local_misordered_uses_gap_error() -> None:
     _assert_gate_d_evidence_gaps_output_is_safe(result.stdout, result.stderr)
 
 
+def test_gate_d_evidence_gaps_local_misordered_new_flag_uses_gap_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--monitoring-boundary-evidence",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "gate-d-evidence-gaps-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "gate d evidence gap summary could not be built\n"
+    _assert_gate_d_evidence_gaps_output_is_safe(result.stdout, result.stderr)
+
+
 def test_gate_d_evidence_gaps_local_command_delegates_to_helper(
     capsys,
     monkeypatch,
@@ -12739,6 +13010,11 @@ def test_gate_d_evidence_gaps_local_command_delegates_to_helper(
         security_review: str,
         policy_gate_tests: str,
         rollback_plan_for_loopback_playwright_spike: str,
+        signal_quality_evidence: str,
+        scheduler_lifecycle_evidence: str,
+        delivery_path_evidence: str,
+        monitoring_boundary_evidence: str,
+        product_judgment_evidence: str,
     ) -> dict[str, object]:
         received["mic_diagnostics_after_reboot"] = mic_diagnostics_after_reboot
         received["alert_routing"] = alert_routing
@@ -12747,6 +13023,11 @@ def test_gate_d_evidence_gaps_local_command_delegates_to_helper(
         received["rollback_plan_for_loopback_playwright_spike"] = (
             rollback_plan_for_loopback_playwright_spike
         )
+        received["signal_quality_evidence"] = signal_quality_evidence
+        received["scheduler_lifecycle_evidence"] = scheduler_lifecycle_evidence
+        received["delivery_path_evidence"] = delivery_path_evidence
+        received["monitoring_boundary_evidence"] = monitoring_boundary_evidence
+        received["product_judgment_evidence"] = product_judgment_evidence
         return {
             "summary_kind": "gate_d_evidence_gap_summary",
             "mic_diagnostics_after_reboot_status": "satisfactory",
@@ -12754,13 +13035,24 @@ def test_gate_d_evidence_gaps_local_command_delegates_to_helper(
             "security_review_status": "satisfactory",
             "policy_gate_tests_status": "satisfactory",
             "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
-            "missing_evidence": [],
-            "missing_evidence_count": 0,
+            "signal_quality_evidence_status": "missing",
+            "scheduler_lifecycle_evidence_status": "missing",
+            "delivery_path_evidence_status": "missing",
+            "monitoring_boundary_evidence_status": "missing",
+            "product_judgment_evidence_status": "missing",
+            "missing_evidence": [
+                "signal_quality_evidence",
+                "scheduler_lifecycle_evidence",
+                "delivery_path_evidence",
+                "monitoring_boundary_evidence",
+                "product_judgment_evidence",
+            ],
+            "missing_evidence_count": 5,
             "blocking_evidence": [],
             "blocking_evidence_count": 0,
             "satisfactory_evidence_count": 5,
-            "decision": "no_gaps",
-            "reason": "all_gate_d_evidence_categories_satisfactory",
+            "decision": "gaps_present",
+            "reason": "required_gate_d_evidence_gaps_present",
         }
 
     fake_readiness_module.build_gate_d_evidence_gap_summary = fake_build  # type: ignore[attr-defined]
@@ -12793,8 +13085,13 @@ def test_gate_d_evidence_gaps_local_command_delegates_to_helper(
         "security_review": "satisfactory",
         "policy_gate_tests": "satisfactory",
         "rollback_plan_for_loopback_playwright_spike": "satisfactory",
+        "signal_quality_evidence": "missing",
+        "scheduler_lifecycle_evidence": "missing",
+        "delivery_path_evidence": "missing",
+        "monitoring_boundary_evidence": "missing",
+        "product_judgment_evidence": "missing",
     }
-    assert payload["decision"] == "no_gaps"
+    assert payload["decision"] == "gaps_present"
     _assert_gate_d_evidence_gaps_output_is_safe(captured.out, captured.err)
 
 
@@ -12810,6 +13107,49 @@ def test_gate_d_evidence_gaps_local_sanitizes_helper_failure(
 
     fake_readiness_module.build_gate_d_evidence_gap_summary = fake_build  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, readiness_module, fake_readiness_module)
+
+    exit_code = cli.main(
+        [
+            "gate-d-evidence-gaps-local",
+            "--mic-diagnostics-after-reboot",
+            "satisfactory",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ]
+    )
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "gate d evidence gap summary could not be built\n"
+    _assert_gate_d_evidence_gaps_output_is_safe(captured.out, captured.err)
+
+
+def test_gate_d_evidence_gaps_local_sanitizes_import_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def fake_import(
+        name: str,
+        globals_: object = None,
+        locals_: object = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> object:
+        if name == "async_scholar.gate_d_readiness":
+            raise ImportError("C:\\Users\\student\\token-secret-auth-profile")
+        return real_import(name, globals_, locals_, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
 
     exit_code = cli.main(
         [

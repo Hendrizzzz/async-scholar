@@ -1056,6 +1056,16 @@ def main(argv: list[str] | None = None) -> int:
         or arg.startswith("--policy-gate-tests=")
         or arg == "--rollback-plan-for-loopback-playwright-spike"
         or arg.startswith("--rollback-plan-for-loopback-playwright-spike=")
+        or arg == "--signal-quality-evidence"
+        or arg.startswith("--signal-quality-evidence=")
+        or arg == "--scheduler-lifecycle-evidence"
+        or arg.startswith("--scheduler-lifecycle-evidence=")
+        or arg == "--delivery-path-evidence"
+        or arg.startswith("--delivery-path-evidence=")
+        or arg == "--monitoring-boundary-evidence"
+        or arg.startswith("--monitoring-boundary-evidence=")
+        or arg == "--product-judgment-evidence"
+        or arg.startswith("--product-judgment-evidence=")
         for arg in argv
     ):
         print(_GATE_D_READINESS_CLI_ERROR, file=sys.stderr)
@@ -1484,6 +1494,36 @@ def _add_gate_d_readiness_local_arguments(parser: argparse.ArgumentParser) -> No
         required=True,
         choices=_GATE_D_READINESS_STATUSES,
         help="fixed scalar status for rollback-plan readiness evidence",
+    )
+    parser.add_argument(
+        "--signal-quality-evidence",
+        default="missing",
+        choices=_GATE_D_READINESS_STATUSES,
+        help="fixed scalar status for signal quality evidence",
+    )
+    parser.add_argument(
+        "--scheduler-lifecycle-evidence",
+        default="missing",
+        choices=_GATE_D_READINESS_STATUSES,
+        help="fixed scalar status for scheduler lifecycle evidence",
+    )
+    parser.add_argument(
+        "--delivery-path-evidence",
+        default="missing",
+        choices=_GATE_D_READINESS_STATUSES,
+        help="fixed scalar status for delivery path evidence",
+    )
+    parser.add_argument(
+        "--monitoring-boundary-evidence",
+        default="missing",
+        choices=_GATE_D_READINESS_STATUSES,
+        help="fixed scalar status for monitoring boundary evidence",
+    )
+    parser.add_argument(
+        "--product-judgment-evidence",
+        default="missing",
+        choices=_GATE_D_READINESS_STATUSES,
+        help="fixed scalar status for product judgment evidence",
     )
 
 
@@ -2732,9 +2772,9 @@ def _run_gate_d_readiness_local_argv(argv: list[str]) -> int:
 
 
 def _run_gate_d_readiness_local_command(args: argparse.Namespace) -> int:
-    from async_scholar.gate_d_readiness import build_gate_d_readiness_report
-
     try:
+        from async_scholar.gate_d_readiness import build_gate_d_readiness_report
+
         payload = build_gate_d_readiness_report(
             mic_diagnostics_after_reboot=args.mic_diagnostics_after_reboot,
             alert_routing=args.alert_routing,
@@ -2743,8 +2783,13 @@ def _run_gate_d_readiness_local_command(args: argparse.Namespace) -> int:
             rollback_plan_for_loopback_playwright_spike=(
                 args.rollback_plan_for_loopback_playwright_spike
             ),
+            signal_quality_evidence=args.signal_quality_evidence,
+            scheduler_lifecycle_evidence=args.scheduler_lifecycle_evidence,
+            delivery_path_evidence=args.delivery_path_evidence,
+            monitoring_boundary_evidence=args.monitoring_boundary_evidence,
+            product_judgment_evidence=args.product_judgment_evidence,
         )
-    except (KeyError, TypeError, ValueError):
+    except (ImportError, KeyError, TypeError, ValueError):
         print(_GATE_D_READINESS_CLI_ERROR, file=sys.stderr)
         return 1
 
@@ -2767,9 +2812,9 @@ def _run_gate_d_evidence_gaps_local_argv(argv: list[str]) -> int:
 
 
 def _run_gate_d_evidence_gaps_local_command(args: argparse.Namespace) -> int:
-    from async_scholar.gate_d_readiness import build_gate_d_evidence_gap_summary
-
     try:
+        from async_scholar.gate_d_readiness import build_gate_d_evidence_gap_summary
+
         payload = build_gate_d_evidence_gap_summary(
             mic_diagnostics_after_reboot=args.mic_diagnostics_after_reboot,
             alert_routing=args.alert_routing,
@@ -2778,8 +2823,13 @@ def _run_gate_d_evidence_gaps_local_command(args: argparse.Namespace) -> int:
             rollback_plan_for_loopback_playwright_spike=(
                 args.rollback_plan_for_loopback_playwright_spike
             ),
+            signal_quality_evidence=args.signal_quality_evidence,
+            scheduler_lifecycle_evidence=args.scheduler_lifecycle_evidence,
+            delivery_path_evidence=args.delivery_path_evidence,
+            monitoring_boundary_evidence=args.monitoring_boundary_evidence,
+            product_judgment_evidence=args.product_judgment_evidence,
         )
-    except (KeyError, TypeError, ValueError):
+    except (ImportError, KeyError, TypeError, ValueError):
         print(_GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR, file=sys.stderr)
         return 1
 

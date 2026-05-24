@@ -32,14 +32,15 @@ _EVIDENCE_CATEGORIES = (
         "rollback_plan_for_loopback_playwright_spike",
         "rollback_plan_for_loopback_playwright_spike_status",
     ),
+    ("signal_quality_evidence", "signal_quality_evidence_status"),
+    ("scheduler_lifecycle_evidence", "scheduler_lifecycle_evidence_status"),
+    ("delivery_path_evidence", "delivery_path_evidence_status"),
+    ("monitoring_boundary_evidence", "monitoring_boundary_evidence_status"),
+    ("product_judgment_evidence", "product_judgment_evidence_status"),
 )
 _EVIDENCE_GAP_SUMMARY_KEYS = (
     "summary_kind",
-    "mic_diagnostics_after_reboot_status",
-    "alert_routing_status",
-    "security_review_status",
-    "policy_gate_tests_status",
-    "rollback_plan_for_loopback_playwright_spike_status",
+    *(status_key for _, status_key in _EVIDENCE_CATEGORIES),
     "missing_evidence",
     "missing_evidence_count",
     "blocking_evidence",
@@ -50,11 +51,7 @@ _EVIDENCE_GAP_SUMMARY_KEYS = (
 )
 _REPORT_KEYS = (
     "readiness_kind",
-    "mic_diagnostics_after_reboot_status",
-    "alert_routing_status",
-    "security_review_status",
-    "policy_gate_tests_status",
-    "rollback_plan_for_loopback_playwright_spike_status",
+    *(status_key for _, status_key in _EVIDENCE_CATEGORIES),
     "ready_for_gate_review",
     "decision",
     "reason",
@@ -68,19 +65,27 @@ def build_gate_d_evidence_gap_summary(
     security_review: object,
     policy_gate_tests: object,
     rollback_plan_for_loopback_playwright_spike: object,
+    signal_quality_evidence: object = "missing",
+    scheduler_lifecycle_evidence: object = "missing",
+    delivery_path_evidence: object = "missing",
+    monitoring_boundary_evidence: object = "missing",
+    product_judgment_evidence: object = "missing",
 ) -> GateDEvidenceGapSummary:
     try:
-        statuses = {
-            "mic_diagnostics_after_reboot_status": _status(
-                mic_diagnostics_after_reboot
-            ),
-            "alert_routing_status": _status(alert_routing),
-            "security_review_status": _status(security_review),
-            "policy_gate_tests_status": _status(policy_gate_tests),
-            "rollback_plan_for_loopback_playwright_spike_status": _status(
+        statuses = _evidence_statuses(
+            mic_diagnostics_after_reboot=mic_diagnostics_after_reboot,
+            alert_routing=alert_routing,
+            security_review=security_review,
+            policy_gate_tests=policy_gate_tests,
+            rollback_plan_for_loopback_playwright_spike=(
                 rollback_plan_for_loopback_playwright_spike
             ),
-        }
+            signal_quality_evidence=signal_quality_evidence,
+            scheduler_lifecycle_evidence=scheduler_lifecycle_evidence,
+            delivery_path_evidence=delivery_path_evidence,
+            monitoring_boundary_evidence=monitoring_boundary_evidence,
+            product_judgment_evidence=product_judgment_evidence,
+        )
         missing_evidence = [
             category
             for category, status_key in _EVIDENCE_CATEGORIES
@@ -118,19 +123,27 @@ def build_gate_d_readiness_report(
     security_review: object,
     policy_gate_tests: object,
     rollback_plan_for_loopback_playwright_spike: object,
+    signal_quality_evidence: object = "missing",
+    scheduler_lifecycle_evidence: object = "missing",
+    delivery_path_evidence: object = "missing",
+    monitoring_boundary_evidence: object = "missing",
+    product_judgment_evidence: object = "missing",
 ) -> GateDReadinessReport:
     try:
-        statuses = {
-            "mic_diagnostics_after_reboot_status": _status(
-                mic_diagnostics_after_reboot
-            ),
-            "alert_routing_status": _status(alert_routing),
-            "security_review_status": _status(security_review),
-            "policy_gate_tests_status": _status(policy_gate_tests),
-            "rollback_plan_for_loopback_playwright_spike_status": _status(
+        statuses = _evidence_statuses(
+            mic_diagnostics_after_reboot=mic_diagnostics_after_reboot,
+            alert_routing=alert_routing,
+            security_review=security_review,
+            policy_gate_tests=policy_gate_tests,
+            rollback_plan_for_loopback_playwright_spike=(
                 rollback_plan_for_loopback_playwright_spike
             ),
-        }
+            signal_quality_evidence=signal_quality_evidence,
+            scheduler_lifecycle_evidence=scheduler_lifecycle_evidence,
+            delivery_path_evidence=delivery_path_evidence,
+            monitoring_boundary_evidence=monitoring_boundary_evidence,
+            product_judgment_evidence=product_judgment_evidence,
+        )
         ready = all(status == "satisfactory" for status in statuses.values())
         payload: dict[str, object] = {
             "readiness_kind": _READINESS_KIND,
@@ -162,6 +175,21 @@ def _evidence_gap_summary_safe_summary(
         "policy_gate_tests_status": _status(payload["policy_gate_tests_status"]),
         "rollback_plan_for_loopback_playwright_spike_status": _status(
             payload["rollback_plan_for_loopback_playwright_spike_status"]
+        ),
+        "signal_quality_evidence_status": _status(
+            payload["signal_quality_evidence_status"]
+        ),
+        "scheduler_lifecycle_evidence_status": _status(
+            payload["scheduler_lifecycle_evidence_status"]
+        ),
+        "delivery_path_evidence_status": _status(
+            payload["delivery_path_evidence_status"]
+        ),
+        "monitoring_boundary_evidence_status": _status(
+            payload["monitoring_boundary_evidence_status"]
+        ),
+        "product_judgment_evidence_status": _status(
+            payload["product_judgment_evidence_status"]
         ),
         "missing_evidence": _evidence_categories(payload["missing_evidence"]),
         "missing_evidence_count": _non_negative_int(payload["missing_evidence_count"]),
@@ -225,17 +253,26 @@ def _readiness_safe_summary(payload: dict[str, object]) -> dict[str, object]:
         "rollback_plan_for_loopback_playwright_spike_status": _status(
             payload["rollback_plan_for_loopback_playwright_spike_status"]
         ),
+        "signal_quality_evidence_status": _status(
+            payload["signal_quality_evidence_status"]
+        ),
+        "scheduler_lifecycle_evidence_status": _status(
+            payload["scheduler_lifecycle_evidence_status"]
+        ),
+        "delivery_path_evidence_status": _status(
+            payload["delivery_path_evidence_status"]
+        ),
+        "monitoring_boundary_evidence_status": _status(
+            payload["monitoring_boundary_evidence_status"]
+        ),
+        "product_judgment_evidence_status": _status(
+            payload["product_judgment_evidence_status"]
+        ),
         "ready_for_gate_review": _bool_value(payload["ready_for_gate_review"]),
         "decision": _decision(payload["decision"]),
         "reason": _reason(payload["reason"]),
     }
-    statuses = (
-        report["mic_diagnostics_after_reboot_status"],
-        report["alert_routing_status"],
-        report["security_review_status"],
-        report["policy_gate_tests_status"],
-        report["rollback_plan_for_loopback_playwright_spike_status"],
-    )
+    statuses = tuple(report[status_key] for _, status_key in _EVIDENCE_CATEGORIES)
     ready = all(status == "satisfactory" for status in statuses)
     if report["ready_for_gate_review"] is not ready:
         _fail()
@@ -245,6 +282,13 @@ def _readiness_safe_summary(payload: dict[str, object]) -> dict[str, object]:
     elif report["decision"] != _BLOCKED_DECISION or report["reason"] != _BLOCKED_REASON:
         _fail()
     return report
+
+
+def _evidence_statuses(**evidence_values: object) -> dict[str, str]:
+    return {
+        status_key: _status(evidence_values[category])
+        for category, status_key in _EVIDENCE_CATEGORIES
+    }
 
 
 def _status(value: object) -> str:
