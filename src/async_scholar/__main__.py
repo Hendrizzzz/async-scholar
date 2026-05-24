@@ -61,6 +61,9 @@ _SESSION_WINDOW_EXECUTION_FROM_STORE_CLI_ERROR = (
 _SESSION_WINDOW_START_RECEIPT_FROM_STORE_CLI_ERROR = (
     "stored session window start receipt could not be built"
 )
+_SESSION_WINDOW_STOP_EXECUTION_PREFLIGHT_FROM_STORE_CLI_ERROR = (
+    "stored session window stop execution preflight could not be built"
+)
 _SESSION_WINDOW_STOP_RECEIPT_FROM_STORE_CLI_ERROR = (
     "stored session window stop receipt could not be built"
 )
@@ -719,6 +722,22 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_session_window_start_receipt_from_store_local_command
     )
 
+    session_window_stop_execution_preflight = subparsers.add_parser(
+        "session-window-stop-execution-preflight-from-store-local",
+        help="preflight a stored session-window stop without writing",
+        description=(
+            "Build read-only stored session-window stop execution preflight "
+            "metadata from an explicit read-only local schedule store, archive "
+            "root, stored class time, and source kind."
+        ),
+    )
+    _add_session_window_stop_execution_preflight_from_store_local_arguments(
+        session_window_stop_execution_preflight
+    )
+    session_window_stop_execution_preflight.set_defaults(
+        handler=_run_session_window_stop_execution_preflight_from_store_local_command
+    )
+
     session_window_stop_receipt = subparsers.add_parser(
         "session-window-stop-receipt-from-store-local",
         help="record a stored session-window stop receipt",
@@ -949,6 +968,10 @@ def main(argv: list[str] | None = None) -> int:
         return _run_session_window_execute_from_store_local_argv(argv[1:])
     if argv[:1] == ["session-window-start-receipt-from-store-local"]:
         return _run_session_window_start_receipt_from_store_local_argv(argv[1:])
+    if argv[:1] == ["session-window-stop-execution-preflight-from-store-local"]:
+        return _run_session_window_stop_execution_preflight_from_store_local_argv(
+            argv[1:]
+        )
     if argv[:1] == ["session-window-stop-receipt-from-store-local"]:
         return _run_session_window_stop_receipt_from_store_local_argv(argv[1:])
     if argv[:1] == ["session-window-runtime-summary-local"]:
@@ -1064,6 +1087,12 @@ def main(argv: list[str] | None = None) -> int:
     if "session-window-start-receipt-from-store-local" in argv:
         print(
             _SESSION_WINDOW_START_RECEIPT_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 2
+    if "session-window-stop-execution-preflight-from-store-local" in argv:
+        print(
+            _SESSION_WINDOW_STOP_EXECUTION_PREFLIGHT_FROM_STORE_CLI_ERROR,
             file=sys.stderr,
         )
         return 2
@@ -2003,6 +2032,49 @@ def _add_session_window_start_receipt_from_store_local_arguments(
         "--disabled",
         action="store_true",
         help="return disabled session-window receipt metadata without writing",
+    )
+
+
+def _add_session_window_stop_execution_preflight_from_store_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "session_id",
+        help="safe local session identifier for the stop preflight",
+    )
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit existing local SQLite course schedule database",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit existing local archive root for runtime metadata",
+    )
+    parser.add_argument(
+        "--course-id",
+        required=True,
+        help="safe course identifier to inspect",
+    )
+    parser.add_argument(
+        "--class-time-index",
+        required=True,
+        type=int,
+        help="explicit zero-based stored class-time index to inspect",
+    )
+    parser.add_argument(
+        "--source-kind",
+        required=True,
+        choices=("file", "mic"),
+        help="local source kind to inspect as metadata",
+    )
+    parser.add_argument(
+        "--disabled",
+        action="store_true",
+        help="return disabled session-window stop preflight metadata",
     )
 
 
@@ -3675,6 +3747,53 @@ def _run_session_window_stop_receipt_from_store_local_command(
     except (KeyError, OSError, TypeError, ValueError):
         print(
             _SESSION_WINDOW_STOP_RECEIPT_FROM_STORE_CLI_ERROR,
+            file=sys.stderr,
+        )
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_session_window_stop_execution_preflight_from_store_local_argv(
+    argv: list[str],
+) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-stop-execution-preflight-from-store-local",
+        description=(
+            "Build read-only stored session-window stop execution preflight "
+            "metadata from an explicit read-only local schedule store, archive "
+            "root, stored class time, and source kind."
+        ),
+        fixed_error_message=(
+            _SESSION_WINDOW_STOP_EXECUTION_PREFLIGHT_FROM_STORE_CLI_ERROR
+        ),
+    )
+    _add_session_window_stop_execution_preflight_from_store_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_stop_execution_preflight_from_store_local_command(args)
+
+
+def _run_session_window_stop_execution_preflight_from_store_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.session_window_stop_execution_preflight import (
+        build_stored_session_window_stop_execution_preflight_from_store,
+    )
+
+    try:
+        payload = build_stored_session_window_stop_execution_preflight_from_store(
+            args.db_path,
+            args.archive_root,
+            args.session_id,
+            args.course_id,
+            args.class_time_index,
+            args.source_kind,
+            enabled=not args.disabled,
+        )
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError):
+        print(
+            _SESSION_WINDOW_STOP_EXECUTION_PREFLIGHT_FROM_STORE_CLI_ERROR,
             file=sys.stderr,
         )
         return 1
