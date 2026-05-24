@@ -22,6 +22,7 @@ _GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR = (
 _ALERT_ROUTING_SMOKE_CLI_ERROR = "local alert routing smoke could not be built"
 _POLICY_GATE_SMOKE_CLI_ERROR = "policy gate smoke could not be built"
 _DELIVERY_PATH_SMOKE_CLI_ERROR = "delivery path smoke could not be built"
+_MONITORING_BOUNDARY_SMOKE_CLI_ERROR = "monitoring boundary smoke could not be built"
 _SESSION_WINDOW_LIFECYCLE_SMOKE_CLI_ERROR = (
     "session window lifecycle smoke could not be built"
 )
@@ -537,6 +538,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     delivery_path_smoke.set_defaults(handler=_run_delivery_path_smoke_local_command)
+
+    monitoring_boundary_smoke = subparsers.add_parser(
+        "monitoring-boundary-smoke-local",
+        help="summarize local monitoring-boundary smoke evidence",
+        description=(
+            "Build a metadata-only local monitoring-boundary smoke summary "
+            "from fixed synthetic checks."
+        ),
+    )
+    monitoring_boundary_smoke.set_defaults(
+        handler=_run_monitoring_boundary_smoke_local_command
+    )
 
     session_window_lifecycle_smoke = subparsers.add_parser(
         "session-window-lifecycle-smoke-local",
@@ -1055,6 +1068,11 @@ def main(argv: list[str] | None = None) -> int:
         return _run_delivery_path_smoke_local_argv(argv[1:])
     if "delivery-path-smoke-local" in argv:
         print(_DELIVERY_PATH_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["monitoring-boundary-smoke-local"]:
+        return _run_monitoring_boundary_smoke_local_argv(argv[1:])
+    if "monitoring-boundary-smoke-local" in argv:
+        print(_MONITORING_BOUNDARY_SMOKE_CLI_ERROR, file=sys.stderr)
         return 2
     if argv[:1] == ["session-window-lifecycle-smoke-local"]:
         return _run_session_window_lifecycle_smoke_local_argv(argv[1:])
@@ -2929,6 +2947,34 @@ def _run_delivery_path_smoke_local_command(args: argparse.Namespace) -> int:
         payload = build_local_delivery_path_smoke()
     except (ImportError, KeyError, RuntimeError, TypeError, ValueError):
         print(_DELIVERY_PATH_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_monitoring_boundary_smoke_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar monitoring-boundary-smoke-local",
+        description=(
+            "Build a metadata-only local monitoring-boundary smoke summary "
+            "from fixed synthetic checks."
+        ),
+        fixed_error_message=_MONITORING_BOUNDARY_SMOKE_CLI_ERROR,
+    )
+    args = parser.parse_args(argv)
+    return _run_monitoring_boundary_smoke_local_command(args)
+
+
+def _run_monitoring_boundary_smoke_local_command(args: argparse.Namespace) -> int:
+    try:
+        from async_scholar.monitoring_boundary_smoke import (
+            build_local_monitoring_boundary_smoke,
+        )
+
+        payload = build_local_monitoring_boundary_smoke()
+    except (ImportError, KeyError, RuntimeError, TypeError, ValueError):
+        print(_MONITORING_BOUNDARY_SMOKE_CLI_ERROR, file=sys.stderr)
         return 1
 
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))

@@ -75,6 +75,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "alert-routing-smoke-local" in result.stdout
     assert "policy-gate-smoke-local" in result.stdout
     assert "delivery-path-smoke-local" in result.stdout
+    assert "monitoring-boundary-smoke-local" in result.stdout
     assert "session-window-lifecycle-smoke-local" in result.stdout
     assert "scheduled-start-preview-local" in result.stdout
     assert "course-schedule-summary-local" in result.stdout
@@ -14051,6 +14052,279 @@ def test_delivery_path_smoke_local_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+def test_monitoring_boundary_smoke_local_help_stays_lazy(monkeypatch) -> None:
+    module_name = "async_scholar.monitoring_boundary_smoke"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "monitoring-boundary-smoke-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar monitoring-boundary-smoke-local" in result.stdout
+    assert module_name not in sys.modules
+
+
+def test_monitoring_boundary_smoke_local_prints_compact_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "monitoring-boundary-smoke-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == (
+        '{"audio_capture_performed":false,'
+        '"auth_profile_accessed":false,'
+        '"browser_automation_performed":false,'
+        '"gate_d_pass_claimed":false,'
+        '"html_inspection_status":"inspected",'
+        '"monitoring_boundary_evidence_status":"satisfactory",'
+        '"network_performed":false,'
+        '"product_promise_alpha_pass_claimed":false,'
+        '"real_online_monitoring_performed":false,'
+        '"session_history_status":"summarized",'
+        '"smoke_kind":"local_monitoring_boundary",'
+        '"synthetic_fixture_status":"built"}\n'
+    )
+    _assert_monitoring_boundary_smoke_output_is_safe(result.stdout, result.stderr)
+
+
+def test_monitoring_boundary_smoke_local_rejects_extra_arguments_safely() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "monitoring-boundary-smoke-local",
+            "C:\\Users\\student\\token-secret-auth-profile",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "monitoring boundary smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth-profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_monitoring_boundary_smoke_local_misordered_uses_smoke_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--private-path",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "monitoring-boundary-smoke-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "monitoring boundary smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth-profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_monitoring_boundary_smoke_local_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, bool] = {}
+    module_name = "async_scholar.monitoring_boundary_smoke"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_monitoring_boundary_smoke() -> dict[str, object]:
+        received["called"] = True
+        return {
+            "audio_capture_performed": False,
+            "auth_profile_accessed": False,
+            "browser_automation_performed": False,
+            "gate_d_pass_claimed": False,
+            "html_inspection_status": "inspected",
+            "monitoring_boundary_evidence_status": "satisfactory",
+            "network_performed": False,
+            "product_promise_alpha_pass_claimed": False,
+            "real_online_monitoring_performed": False,
+            "session_history_status": "summarized",
+            "smoke_kind": "local_monitoring_boundary",
+            "synthetic_fixture_status": "built",
+        }
+
+    fake_module.build_local_monitoring_boundary_smoke = (
+        fake_build_local_monitoring_boundary_smoke
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["monitoring-boundary-smoke-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert received == {"called": True}
+    assert captured.err == ""
+    assert json.loads(captured.out) == {
+        "audio_capture_performed": False,
+        "auth_profile_accessed": False,
+        "browser_automation_performed": False,
+        "gate_d_pass_claimed": False,
+        "html_inspection_status": "inspected",
+        "monitoring_boundary_evidence_status": "satisfactory",
+        "network_performed": False,
+        "product_promise_alpha_pass_claimed": False,
+        "real_online_monitoring_performed": False,
+        "session_history_status": "summarized",
+        "smoke_kind": "local_monitoring_boundary",
+        "synthetic_fixture_status": "built",
+    }
+
+
+def test_monitoring_boundary_smoke_local_sanitizes_helper_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.monitoring_boundary_smoke"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_monitoring_boundary_smoke() -> dict[str, object]:
+        raise RuntimeError("C:\\Users\\student\\.env BOT_TOKEN=secret traceback")
+
+    fake_module.build_local_monitoring_boundary_smoke = (
+        fake_build_local_monitoring_boundary_smoke
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["monitoring-boundary-smoke-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "monitoring boundary smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        ".env",
+        "BOT_TOKEN",
+        "secret",
+        "traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_monitoring_boundary_smoke_local_sanitizes_import_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "async_scholar.monitoring_boundary_smoke":
+            raise ImportError(
+                "C:\\Users\\student\\.env BOT_TOKEN=secret import traceback"
+            )
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    exit_code = cli.main(["monitoring-boundary-smoke-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "monitoring boundary smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        ".env",
+        "BOT_TOKEN",
+        "secret",
+        "traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_monitoring_boundary_smoke_local_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_monitoring_boundary_smoke_local_command)
+
+    assert "build_local_monitoring_boundary_smoke" in source
+    assert "ImportError" in source
+    assert "except" in source
+    for forbidden_fragment in (
+        "build_fake_meeting_fixture",
+        "inspect_fake_meeting_session_html",
+        "build_fake_meeting_session_history_summary",
+        "build_fake_meeting_session_awareness_event",
+        "subprocess",
+        "powershell",
+        "requests",
+        "httpx",
+        "urllib",
+        "socket",
+        "playwright",
+        "selenium",
+        "webbrowser",
+        "sounddevice",
+        "faster_whisper",
+        "vad",
+        "stt",
+        "loopback",
+        "browser",
+        "profile",
+        "cookie",
+        "open(",
+        "read_text",
+        "write_text",
+        "mkdir",
+        "unlink",
+        "remove",
+        "rmdir",
+        "rmtree",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_session_window_lifecycle_smoke_local_help_stays_lazy(monkeypatch) -> None:
     module_name = "async_scholar.session_window_lifecycle_smoke"
     monkeypatch.delitem(sys.modules, module_name, raising=False)
@@ -18816,6 +19090,70 @@ def _assert_delivery_path_smoke_output_is_safe(stdout: str, stderr: str) -> None
         "powershell",
         "playwright",
         "loopback",
+        "gate d passed",
+        "product promise alpha passed",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_monitoring_boundary_smoke_output_is_safe(
+    stdout: str,
+    stderr: str,
+) -> None:
+    payload = json.loads(stdout)
+    assert payload["real_online_monitoring_performed"] is False
+    assert payload["browser_automation_performed"] is False
+    assert payload["auth_profile_accessed"] is False
+    assert payload["network_performed"] is False
+    assert payload["audio_capture_performed"] is False
+    assert payload["gate_d_pass_claimed"] is False
+    assert payload["product_promise_alpha_pass_claimed"] is False
+    assert set(payload) == {
+        "smoke_kind",
+        "synthetic_fixture_status",
+        "html_inspection_status",
+        "session_history_status",
+        "monitoring_boundary_evidence_status",
+        "real_online_monitoring_performed",
+        "browser_automation_performed",
+        "auth_profile_accessed",
+        "network_performed",
+        "audio_capture_performed",
+        "gate_d_pass_claimed",
+        "product_promise_alpha_pass_claimed",
+    }
+
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "fixture_id",
+        "title",
+        "participant",
+        "synthetic instructor",
+        "synthetic learner",
+        "<html",
+        "data-async",
+        "selector",
+        "message",
+        "event_id",
+        "source_segment",
+        "provider",
+        "url",
+        "meeting_url",
+        "meet.example",
+        "google",
+        "http://",
+        "https://",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        ".env",
+        "token",
+        "secret",
+        "cookie",
+        "auth-profile",
+        "raw",
+        "exception",
+        "traceback",
         "gate d passed",
         "product promise alpha passed",
     ):
