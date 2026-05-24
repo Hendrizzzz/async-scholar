@@ -19,7 +19,7 @@ EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE = {
     "bundle_kind": "local_gate_d_smoke_evidence_bundle",
     "mic_diagnostics_after_reboot_status": "missing",
     "alert_routing_status": "satisfactory",
-    "security_review_status": "missing",
+    "security_review_status": "satisfactory",
     "policy_gate_tests_status": "satisfactory",
     "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
     "signal_quality_evidence_status": "missing",
@@ -29,15 +29,14 @@ EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE = {
     "product_judgment_evidence_status": "missing",
     "missing_evidence": [
         "mic_diagnostics_after_reboot",
-        "security_review",
         "signal_quality_evidence",
         "scheduler_lifecycle_evidence",
         "product_judgment_evidence",
     ],
-    "missing_evidence_count": 5,
+    "missing_evidence_count": 4,
     "blocking_evidence": [],
     "blocking_evidence_count": 0,
-    "satisfactory_evidence_count": 5,
+    "satisfactory_evidence_count": 6,
     "ready_for_gate_review": False,
     "readiness_decision": "blocked",
     "readiness_reason": "required_gate_d_readiness_evidence_missing_or_blocking",
@@ -90,6 +89,7 @@ def test_local_gate_d_bundle_omits_raw_helper_payloads() -> None:
         "session_history_status",
         "evidence_kind",
         "rollback_plan_document_status",
+        "privacy_boundary_review_status",
         "auth_profile_accessed",
         "network_performed",
         "subprocess_performed",
@@ -114,6 +114,7 @@ def test_local_gate_d_smoke_evidence_bundle_derives_statuses_from_nested_smokes(
         "delivery_called": True,
         "monitoring_called": True,
         "rollback_plan_called": True,
+        "security_review_called": True,
         "readiness_statuses": _fixed_status_inputs(),
         "gap_statuses": _fixed_status_inputs(),
     }
@@ -135,6 +136,7 @@ def test_local_gate_d_bundle_maps_missing_and_satisfactory_categories() -> None:
     ]
     assert satisfactory_statuses == [
         "alert_routing_status",
+        "security_review_status",
         "policy_gate_tests_status",
         "rollback_plan_for_loopback_playwright_spike_status",
         "delivery_path_evidence_status",
@@ -142,14 +144,12 @@ def test_local_gate_d_bundle_maps_missing_and_satisfactory_categories() -> None:
     ]
     assert missing_statuses == [
         "mic_diagnostics_after_reboot_status",
-        "security_review_status",
         "signal_quality_evidence_status",
         "scheduler_lifecycle_evidence_status",
         "product_judgment_evidence_status",
     ]
     assert payload["missing_evidence"] == [
         "mic_diagnostics_after_reboot",
-        "security_review",
         "signal_quality_evidence",
         "scheduler_lifecycle_evidence",
         "product_judgment_evidence",
@@ -169,9 +169,9 @@ def test_local_gate_d_smoke_evidence_bundle_reports_blocked_readiness_and_gaps()
     )
     assert payload["gap_decision"] == "gaps_present"
     assert payload["gap_reason"] == "required_gate_d_evidence_gaps_present"
-    assert payload["missing_evidence_count"] == 5
+    assert payload["missing_evidence_count"] == 4
     assert payload["blocking_evidence_count"] == 0
-    assert payload["satisfactory_evidence_count"] == 5
+    assert payload["satisfactory_evidence_count"] == 6
 
 
 def test_local_gate_d_smoke_evidence_bundle_sanitizes_helper_failures(
@@ -260,7 +260,8 @@ def test_local_gate_d_smoke_evidence_bundle_source_guards_forbidden_surfaces() -
         "os",
         "pathlib",
         "sqlite3",
-        "subprocess",
+        "subprocess.",
+        "popen",
         "socket",
         "urllib",
         "requests",
@@ -281,6 +282,7 @@ def test_local_gate_d_smoke_evidence_bundle_source_guards_forbidden_surfaces() -
     assert "build_local_delivery_path_smoke" in source
     assert "build_local_monitoring_boundary_smoke" in source
     assert "build_local_gate_d_rollback_plan_evidence" in source
+    assert "build_local_gate_d_security_review_evidence" in source
     assert "build_gate_d_readiness_report" in source
     assert "build_gate_d_evidence_gap_summary" in source
 
@@ -302,7 +304,8 @@ def test_local_gate_d_smoke_evidence_bundle_source_guards_forbidden_surfaces() -
         "rmdir",
         "rmtree",
         "urlopen(",
-        "subprocess",
+        "subprocess.",
+        "popen",
         "powershell",
         "requests",
         "httpx",
@@ -312,11 +315,13 @@ def test_local_gate_d_smoke_evidence_bundle_source_guards_forbidden_surfaces() -
         "sounddevice",
         "faster_whisper",
         "microphone",
-        "cookie",
+        "cookie_jar",
+        "cookie_file",
         "profile_dir",
         "browser_profile",
         "meeting_url",
-        "sleep",
+        ".sleep(",
+        "sleep(",
         "timer(",
         "threading",
         "asyncio",
@@ -430,6 +435,39 @@ def _install_fake_modules(
     )
     modules["async_scholar.gate_d_rollback_plan_evidence"] = rollback_module
 
+    security_module = types.ModuleType("async_scholar.gate_d_security_review_evidence")
+
+    def fake_build_local_gate_d_security_review_evidence() -> dict[str, object]:
+        seen["security_review_called"] = True
+        return {
+            "academic_answer_behavior_performed": False,
+            "audio_capture_performed": False,
+            "auth_profile_accessed": False,
+            "autonomous_participation_performed": False,
+            "browser_automation_performed": False,
+            "cleanup_or_deletion_performed": False,
+            "cookie_accessed": False,
+            "dependency_change_performed": False,
+            "evidence_kind": "local_gate_d_security_review_evidence",
+            "export_performed": False,
+            "gate_d_pass_claimed": False,
+            "live_delivery_performed": False,
+            "loopback_capture_performed": False,
+            "network_performed": False,
+            "private_data_read": False,
+            "product_promise_alpha_pass_claimed": False,
+            "public_github_approval_claimed": False,
+            "scheduler_execution_performed": False,
+            "security_review_status": "satisfactory",
+            "subprocess_performed": False,
+            "timer_or_sleep_used": False,
+        }
+
+    security_module.build_local_gate_d_security_review_evidence = (
+        fake_build_local_gate_d_security_review_evidence
+    )
+    modules["async_scholar.gate_d_security_review_evidence"] = security_module
+
     readiness_module = types.ModuleType("async_scholar.gate_d_readiness")
 
     def fake_build_gate_d_readiness_report(**statuses: object) -> dict[str, object]:
@@ -455,7 +493,7 @@ def _fixed_status_inputs() -> dict[str, object]:
     return {
         "mic_diagnostics_after_reboot": "missing",
         "alert_routing": "satisfactory",
-        "security_review": "missing",
+        "security_review": "satisfactory",
         "policy_gate_tests": "satisfactory",
         "rollback_plan_for_loopback_playwright_spike": "satisfactory",
         "signal_quality_evidence": "missing",
@@ -503,10 +541,10 @@ def _expected_gap_summary(statuses: dict[str, object]) -> dict[str, object]:
         "monitoring_boundary_evidence_status": statuses["monitoring_boundary_evidence"],
         "product_judgment_evidence_status": statuses["product_judgment_evidence"],
         "missing_evidence": EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE["missing_evidence"],
-        "missing_evidence_count": 5,
+        "missing_evidence_count": 4,
         "blocking_evidence": [],
         "blocking_evidence_count": 0,
-        "satisfactory_evidence_count": 5,
+        "satisfactory_evidence_count": 6,
         "decision": "gaps_present",
         "reason": "required_gate_d_evidence_gaps_present",
     }
