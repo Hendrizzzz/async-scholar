@@ -19,6 +19,7 @@ _GATE_D_READINESS_CLI_ERROR = "gate d readiness could not be built"
 _GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR = (
     "gate d evidence gap summary could not be built"
 )
+_ALERT_ROUTING_SMOKE_CLI_ERROR = "local alert routing smoke could not be built"
 _SCHEDULED_START_PREVIEW_CLI_ERROR = "scheduled start preview could not be built"
 _COURSE_SCHEDULE_SAVE_CLI_ERROR = "course schedule save could not be built"
 _COURSE_SCHEDULE_SUMMARY_CLI_ERROR = "course schedule summary could not be built"
@@ -500,6 +501,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_gate_d_readiness_local_arguments(gate_d_evidence_gaps)
     gate_d_evidence_gaps.set_defaults(handler=_run_gate_d_evidence_gaps_local_command)
+
+    alert_routing_smoke = subparsers.add_parser(
+        "alert-routing-smoke-local",
+        help="run a local in-process alert routing smoke",
+        description=(
+            "Route one controlled local alert through the existing in-process "
+            "dispatch boundary."
+        ),
+    )
+    _add_alert_routing_smoke_local_arguments(alert_routing_smoke)
+    alert_routing_smoke.set_defaults(handler=_run_alert_routing_smoke_local_command)
 
     scheduled_start_preview = subparsers.add_parser(
         "scheduled-start-preview-local",
@@ -989,6 +1001,13 @@ def main(argv: list[str] | None = None) -> int:
     if "gate-d-evidence-gaps-local" in argv:
         print(_GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR, file=sys.stderr)
         return 2
+    if argv[:1] == ["alert-routing-smoke-local"]:
+        return _run_alert_routing_smoke_local_argv(argv[1:])
+    if "alert-routing-smoke-local" in argv or any(
+        arg == "--event-type" or arg.startswith("--event-type=") for arg in argv
+    ):
+        print(_ALERT_ROUTING_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 2
     if "gate-d-readiness-local" in argv or any(
         arg == "--mic-diagnostics-after-reboot"
         or arg.startswith("--mic-diagnostics-after-reboot=")
@@ -1428,6 +1447,19 @@ def _add_gate_d_readiness_local_arguments(parser: argparse.ArgumentParser) -> No
         required=True,
         choices=_GATE_D_READINESS_STATUSES,
         help="fixed scalar status for rollback-plan readiness evidence",
+    )
+
+
+def _add_alert_routing_smoke_local_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--event-type",
+        required=True,
+        help="controlled lecture event type for the local smoke",
+    )
+    parser.add_argument(
+        "--disabled",
+        action="store_true",
+        help="build disabled metadata without calling the local dispatcher",
     )
 
 
@@ -2690,6 +2722,36 @@ def _run_gate_d_evidence_gaps_local_command(args: argparse.Namespace) -> int:
         )
     except (KeyError, TypeError, ValueError):
         print(_GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_alert_routing_smoke_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar alert-routing-smoke-local",
+        description=(
+            "Route one controlled local alert through the existing in-process "
+            "dispatch boundary."
+        ),
+        fixed_error_message=_ALERT_ROUTING_SMOKE_CLI_ERROR,
+    )
+    _add_alert_routing_smoke_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_alert_routing_smoke_local_command(args)
+
+
+def _run_alert_routing_smoke_local_command(args: argparse.Namespace) -> int:
+    from async_scholar.alert_routing_smoke import build_local_alert_routing_smoke
+
+    try:
+        payload = build_local_alert_routing_smoke(
+            args.event_type,
+            disabled=args.disabled,
+        )
+    except (KeyError, RuntimeError, TypeError, ValueError):
+        print(_ALERT_ROUTING_SMOKE_CLI_ERROR, file=sys.stderr)
         return 1
 
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))

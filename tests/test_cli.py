@@ -71,6 +71,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "archive-delete-dry-run-local" in result.stdout
     assert "gate-d-readiness-local" in result.stdout
     assert "gate-d-evidence-gaps-local" in result.stdout
+    assert "alert-routing-smoke-local" in result.stdout
     assert "scheduled-start-preview-local" in result.stdout
     assert "course-schedule-summary-local" in result.stdout
     assert "course-schedule-list-local" in result.stdout
@@ -12871,6 +12872,345 @@ def test_gate_d_evidence_gaps_local_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+def test_alert_routing_smoke_local_help_stays_lazy(monkeypatch) -> None:
+    module_name = "async_scholar.alert_routing_smoke"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "alert-routing-smoke-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar alert-routing-smoke-local" in result.stdout
+    assert "--event-type" in result.stdout
+    assert "--disabled" in result.stdout
+    assert module_name not in sys.modules
+
+
+def test_alert_routing_smoke_local_requires_event_type() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "async_scholar", "alert-routing-smoke-local"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "local alert routing smoke could not be built\n"
+
+
+def test_alert_routing_smoke_local_prints_compact_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "alert-routing-smoke-local",
+            "--event-type",
+            "attendance_prompt",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == (
+        '{"decision":"delivered","delivery_performed":true,'
+        '"error_kind":"none","event_type_known":true,'
+        '"provider":"local_console","reason":"local_console_dispatch_succeeded",'
+        '"requires_confirmation":true,"severity":"urgent",'
+        '"smoke_kind":"local_alert_routing","status":"sent"}\n'
+    )
+    _assert_alert_routing_smoke_output_is_safe(result.stdout, result.stderr)
+
+
+def test_alert_routing_smoke_local_sanitizes_unknown_event_type() -> None:
+    raw_event_type = (
+        "future_event transcript_text source_segment_id=seg-1 "
+        "C:\\Users\\student\\lecture.wav token=secret browser_cookie"
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "alert-routing-smoke-local",
+            "--event-type",
+            raw_event_type,
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert json.loads(result.stdout) == {
+        "decision": "delivered",
+        "delivery_performed": True,
+        "error_kind": "none",
+        "event_type_known": False,
+        "provider": "local_console",
+        "reason": "local_console_dispatch_succeeded",
+        "requires_confirmation": True,
+        "severity": "normal",
+        "smoke_kind": "local_alert_routing",
+        "status": "sent",
+    }
+    _assert_alert_routing_smoke_output_is_safe(result.stdout, result.stderr)
+    for forbidden_fragment in (
+        "future_event",
+        "transcript_text",
+        "source_segment_id",
+        "C:\\Users",
+        "student",
+        "lecture.wav",
+        "token",
+        "secret",
+        "browser_cookie",
+    ):
+        assert forbidden_fragment not in result.stdout
+
+
+def test_alert_routing_smoke_local_disabled_prints_no_delivery_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "alert-routing-smoke-local",
+            "--event-type",
+            "attendance_prompt",
+            "--disabled",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert json.loads(result.stdout) == {
+        "decision": "disabled",
+        "delivery_performed": False,
+        "error_kind": "none",
+        "event_type_known": True,
+        "provider": "local_console",
+        "reason": "local_alert_routing_smoke_disabled",
+        "requires_confirmation": True,
+        "severity": "urgent",
+        "smoke_kind": "local_alert_routing",
+        "status": "skipped",
+    }
+    _assert_alert_routing_smoke_output_is_safe(result.stdout, result.stderr)
+
+
+def test_alert_routing_smoke_local_sanitizes_parse_failure() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "alert-routing-smoke-local",
+            "--event-type",
+            "",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "local alert routing smoke could not be built\n"
+
+
+def test_alert_routing_smoke_local_misordered_uses_smoke_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--event-type",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "alert-routing-smoke-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "local alert routing smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_alert_routing_smoke_local_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    module_name = "async_scholar.alert_routing_smoke"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_alert_routing_smoke(
+        event_type: str,
+        *,
+        disabled: bool = False,
+    ) -> dict[str, object]:
+        received["event_type"] = event_type
+        received["disabled"] = disabled
+        return {
+            "decision": "delivered",
+            "delivery_performed": True,
+            "error_kind": "none",
+            "event_type_known": True,
+            "provider": "local_console",
+            "reason": "local_console_dispatch_succeeded",
+            "requires_confirmation": True,
+            "severity": "urgent",
+            "smoke_kind": "local_alert_routing",
+            "status": "sent",
+        }
+
+    fake_module.build_local_alert_routing_smoke = fake_build_local_alert_routing_smoke
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(
+        [
+            "alert-routing-smoke-local",
+            "--event-type",
+            "attendance_prompt",
+            "--disabled",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert received == {"event_type": "attendance_prompt", "disabled": True}
+    assert captured.err == ""
+    assert json.loads(captured.out) == {
+        "decision": "delivered",
+        "delivery_performed": True,
+        "error_kind": "none",
+        "event_type_known": True,
+        "provider": "local_console",
+        "reason": "local_console_dispatch_succeeded",
+        "requires_confirmation": True,
+        "severity": "urgent",
+        "smoke_kind": "local_alert_routing",
+        "status": "sent",
+    }
+
+
+def test_alert_routing_smoke_local_sanitizes_helper_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.alert_routing_smoke"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_alert_routing_smoke(
+        event_type: str,
+        *,
+        disabled: bool = False,
+    ) -> dict[str, object]:
+        raise RuntimeError("C:\\Users\\student\\.env BOT_TOKEN=secret traceback")
+
+    fake_module.build_local_alert_routing_smoke = fake_build_local_alert_routing_smoke
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(
+        [
+            "alert-routing-smoke-local",
+            "--event-type",
+            "attendance_prompt",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "local alert routing smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        ".env",
+        "BOT_TOKEN",
+        "secret",
+        "traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_alert_routing_smoke_local_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_alert_routing_smoke_local_command)
+
+    assert "build_local_alert_routing_smoke" in source
+    for forbidden_fragment in (
+        "dispatch_alert",
+        "build_alert_notification_payload",
+        "LectureEvent",
+        "telegram",
+        "desktop_notifier",
+        "subprocess",
+        "powershell",
+        "requests",
+        "httpx",
+        "urllib",
+        "socket",
+        "playwright",
+        "selenium",
+        "webbrowser",
+        "sounddevice",
+        "faster_whisper",
+        "vad",
+        "stt",
+        "mic",
+        "loopback",
+        "meeting",
+        "browser",
+        "auth",
+        "profile",
+        "cookie",
+        "open(",
+        "read_text",
+        "write_text",
+        "mkdir",
+        "unlink",
+        "remove",
+        "rmdir",
+        "rmtree",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_session_window_stop_receipt_from_store_local_help_stays_lazy(
     monkeypatch,
 ) -> None:
@@ -17116,6 +17456,52 @@ def _assert_session_window_alert_preview_output_is_safe(
         "scheduler execution",
         "gate d",
         "product promise",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_alert_routing_smoke_output_is_safe(stdout: str, stderr: str) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "transcript",
+        "source_segment",
+        "event_id",
+        "session_id",
+        "message",
+        "title",
+        "body",
+        "meeting",
+        "meet.example",
+        "google",
+        "http://",
+        "https://",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        ".env",
+        "token",
+        "secret",
+        "cookie",
+        "auth",
+        "profile",
+        "browser",
+        "raw",
+        "exception",
+        "traceback",
+        "telegram",
+        "desktop",
+        "notify",
+        "subprocess",
+        "powershell",
+        "playwright",
+        "loopback",
+        "audio",
+        "mic",
+        "camera",
+        "scheduler execution",
+        "gate d passed",
+        "product promise alpha passed",
+        "academic answer",
     ):
         assert forbidden_fragment not in combined_output
 
