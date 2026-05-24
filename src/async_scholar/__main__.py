@@ -16,6 +16,9 @@ _ARCHIVE_EXPORT_CLI_ERROR = "archive export could not be executed"
 _ARCHIVE_EXPORT_VERIFY_CLI_ERROR = "archive export verification could not be built"
 _ARCHIVE_DELETE_DRY_RUN_CLI_ERROR = "archive delete dry run could not be built"
 _GATE_D_READINESS_CLI_ERROR = "gate d readiness could not be built"
+_GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR = (
+    "gate d evidence gap summary could not be built"
+)
 _SCHEDULED_START_PREVIEW_CLI_ERROR = "scheduled start preview could not be built"
 _COURSE_SCHEDULE_SAVE_CLI_ERROR = "course schedule save could not be built"
 _COURSE_SCHEDULE_SUMMARY_CLI_ERROR = "course schedule summary could not be built"
@@ -484,6 +487,17 @@ def build_parser() -> argparse.ArgumentParser:
     _add_gate_d_readiness_local_arguments(gate_d_readiness)
     gate_d_readiness.set_defaults(handler=_run_gate_d_readiness_local_command)
 
+    gate_d_evidence_gaps = subparsers.add_parser(
+        "gate-d-evidence-gaps-local",
+        help="summarize Gate D evidence gaps without executing anything",
+        description=(
+            "Build a metadata-only Gate D evidence gap summary from explicit "
+            "scalar evidence status flags."
+        ),
+    )
+    _add_gate_d_readiness_local_arguments(gate_d_evidence_gaps)
+    gate_d_evidence_gaps.set_defaults(handler=_run_gate_d_evidence_gaps_local_command)
+
     scheduled_start_preview = subparsers.add_parser(
         "scheduled-start-preview-local",
         help="preview scheduled-start metadata without executing",
@@ -951,6 +965,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if argv[:1] == ["gate-d-readiness-local"]:
         return _run_gate_d_readiness_local_argv(argv[1:])
+    if argv[:1] == ["gate-d-evidence-gaps-local"]:
+        return _run_gate_d_evidence_gaps_local_argv(argv[1:])
+    if "gate-d-evidence-gaps-local" in argv:
+        print(_GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR, file=sys.stderr)
+        return 2
     if "gate-d-readiness-local" in argv or any(
         arg == "--mic-diagnostics-after-reboot"
         or arg.startswith("--mic-diagnostics-after-reboot=")
@@ -2560,6 +2579,41 @@ def _run_gate_d_readiness_local_command(args: argparse.Namespace) -> int:
         )
     except (KeyError, TypeError, ValueError):
         print(_GATE_D_READINESS_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_gate_d_evidence_gaps_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar gate-d-evidence-gaps-local",
+        description=(
+            "Build a metadata-only Gate D evidence gap summary from explicit "
+            "scalar evidence status flags."
+        ),
+        fixed_error_message=_GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR,
+    )
+    _add_gate_d_readiness_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_gate_d_evidence_gaps_local_command(args)
+
+
+def _run_gate_d_evidence_gaps_local_command(args: argparse.Namespace) -> int:
+    from async_scholar.gate_d_readiness import build_gate_d_evidence_gap_summary
+
+    try:
+        payload = build_gate_d_evidence_gap_summary(
+            mic_diagnostics_after_reboot=args.mic_diagnostics_after_reboot,
+            alert_routing=args.alert_routing,
+            security_review=args.security_review,
+            policy_gate_tests=args.policy_gate_tests,
+            rollback_plan_for_loopback_playwright_spike=(
+                args.rollback_plan_for_loopback_playwright_spike
+            ),
+        )
+    except (KeyError, TypeError, ValueError):
+        print(_GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR, file=sys.stderr)
         return 1
 
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))

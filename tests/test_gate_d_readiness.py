@@ -6,7 +6,9 @@ import json
 import pytest
 
 from async_scholar.gate_d_readiness import (
+    GATE_D_EVIDENCE_GAP_SUMMARY_ERROR,
     GATE_D_READINESS_ERROR,
+    build_gate_d_evidence_gap_summary,
     build_gate_d_readiness_report,
 )
 
@@ -18,6 +20,21 @@ READINESS_KEYS = (
     "policy_gate_tests_status",
     "rollback_plan_for_loopback_playwright_spike_status",
     "ready_for_gate_review",
+    "decision",
+    "reason",
+)
+EVIDENCE_GAP_SUMMARY_KEYS = (
+    "summary_kind",
+    "mic_diagnostics_after_reboot_status",
+    "alert_routing_status",
+    "security_review_status",
+    "policy_gate_tests_status",
+    "rollback_plan_for_loopback_playwright_spike_status",
+    "missing_evidence",
+    "missing_evidence_count",
+    "blocking_evidence",
+    "blocking_evidence_count",
+    "satisfactory_evidence_count",
     "decision",
     "reason",
 )
@@ -42,10 +59,35 @@ def _build(
     )
 
 
+def _build_gap(
+    *,
+    mic_diagnostics_after_reboot: object = "satisfactory",
+    alert_routing: object = "satisfactory",
+    security_review: object = "satisfactory",
+    policy_gate_tests: object = "satisfactory",
+    rollback_plan_for_loopback_playwright_spike: object = "satisfactory",
+) -> dict[str, object]:
+    return build_gate_d_evidence_gap_summary(
+        mic_diagnostics_after_reboot=mic_diagnostics_after_reboot,
+        alert_routing=alert_routing,
+        security_review=security_review,
+        policy_gate_tests=policy_gate_tests,
+        rollback_plan_for_loopback_playwright_spike=(
+            rollback_plan_for_loopback_playwright_spike
+        ),
+    )
+
+
 def _assert_readiness_error(**overrides: object) -> None:
     with pytest.raises(ValueError) as exc_info:
         _build(**overrides)
     assert str(exc_info.value) == GATE_D_READINESS_ERROR
+
+
+def _assert_gap_summary_error(**overrides: object) -> None:
+    with pytest.raises(ValueError) as exc_info:
+        _build_gap(**overrides)
+    assert str(exc_info.value) == GATE_D_EVIDENCE_GAP_SUMMARY_ERROR
 
 
 def _assert_payload_is_safe(*payloads: object) -> None:
@@ -136,12 +178,110 @@ def test_gate_d_readiness_rejects_malformed_values(
     _assert_readiness_error(**{field_name: bad_value})
 
 
+def test_gate_d_evidence_gap_summary_reports_no_gaps_when_all_statuses_pass() -> None:
+    result = _build_gap()
+
+    assert type(result) is dict
+    assert tuple(result) == EVIDENCE_GAP_SUMMARY_KEYS
+    assert result == {
+        "summary_kind": "gate_d_evidence_gap_summary",
+        "mic_diagnostics_after_reboot_status": "satisfactory",
+        "alert_routing_status": "satisfactory",
+        "security_review_status": "satisfactory",
+        "policy_gate_tests_status": "satisfactory",
+        "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
+        "missing_evidence": [],
+        "missing_evidence_count": 0,
+        "blocking_evidence": [],
+        "blocking_evidence_count": 0,
+        "satisfactory_evidence_count": 5,
+        "decision": "no_gaps",
+        "reason": "all_gate_d_evidence_categories_satisfactory",
+    }
+    _assert_payload_is_safe(result)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "category"),
+    (
+        ("mic_diagnostics_after_reboot", "mic_diagnostics_after_reboot"),
+        ("alert_routing", "alert_routing"),
+        ("security_review", "security_review"),
+        ("policy_gate_tests", "policy_gate_tests"),
+        (
+            "rollback_plan_for_loopback_playwright_spike",
+            "rollback_plan_for_loopback_playwright_spike",
+        ),
+    ),
+)
+@pytest.mark.parametrize("status", ("missing", "blocking"))
+def test_gate_d_evidence_gap_summary_lists_each_gap_category(
+    field_name: str,
+    category: str,
+    status: str,
+) -> None:
+    result = _build_gap(**{field_name: status})
+
+    assert result[f"{field_name}_status"] == status
+    assert result["decision"] == "gaps_present"
+    assert result["reason"] == "required_gate_d_evidence_gaps_present"
+    assert result["satisfactory_evidence_count"] == 4
+    if status == "missing":
+        assert result["missing_evidence"] == [category]
+        assert result["missing_evidence_count"] == 1
+        assert result["blocking_evidence"] == []
+        assert result["blocking_evidence_count"] == 0
+    else:
+        assert result["missing_evidence"] == []
+        assert result["missing_evidence_count"] == 0
+        assert result["blocking_evidence"] == [category]
+        assert result["blocking_evidence_count"] == 1
+    _assert_payload_is_safe(result)
+
+
+def test_gate_d_evidence_gap_summary_distinguishes_mixed_gaps() -> None:
+    result = _build_gap(
+        mic_diagnostics_after_reboot="missing",
+        security_review="blocking",
+        rollback_plan_for_loopback_playwright_spike="missing",
+    )
+
+    assert result["missing_evidence"] == [
+        "mic_diagnostics_after_reboot",
+        "rollback_plan_for_loopback_playwright_spike",
+    ]
+    assert result["missing_evidence_count"] == 2
+    assert result["blocking_evidence"] == ["security_review"]
+    assert result["blocking_evidence_count"] == 1
+    assert result["satisfactory_evidence_count"] == 2
+    assert result["decision"] == "gaps_present"
+    _assert_payload_is_safe(result)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "bad_value"),
+    (
+        ("mic_diagnostics_after_reboot", ""),
+        ("alert_routing", " yes "),
+        ("security_review", "passed"),
+        ("policy_gate_tests", True),
+        ("rollback_plan_for_loopback_playwright_spike", ["satisfactory"]),
+    ),
+)
+def test_gate_d_evidence_gap_summary_rejects_malformed_values(
+    field_name: str,
+    bad_value: object,
+) -> None:
+    _assert_gap_summary_error(**{field_name: bad_value})
+
+
 def test_gate_d_readiness_source_guards_forbidden_surfaces() -> None:
     import async_scholar.gate_d_readiness as gate_d_readiness
 
     source = inspect.getsource(gate_d_readiness)
 
     assert "build_gate_d_readiness_report" in source
+    assert "build_gate_d_evidence_gap_summary" in source
     for forbidden_fragment in (
         "Path",
         "open(",

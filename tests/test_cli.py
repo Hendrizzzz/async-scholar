@@ -70,6 +70,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "archive-export-verify-local" in result.stdout
     assert "archive-delete-dry-run-local" in result.stdout
     assert "gate-d-readiness-local" in result.stdout
+    assert "gate-d-evidence-gaps-local" in result.stdout
     assert "scheduled-start-preview-local" in result.stdout
     assert "course-schedule-summary-local" in result.stdout
     assert "course-schedule-list-local" in result.stdout
@@ -12048,6 +12049,331 @@ def test_gate_d_readiness_local_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+def test_gate_d_evidence_gaps_local_help_stays_lazy(monkeypatch) -> None:
+    readiness_module = "async_scholar.gate_d_readiness"
+    monkeypatch.delitem(sys.modules, readiness_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-evidence-gaps-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar gate-d-evidence-gaps-local" in result.stdout
+    assert "--mic-diagnostics-after-reboot" in result.stdout
+    assert "--rollback-plan-for-loopback-playwright-spike" in result.stdout
+    assert readiness_module not in sys.modules
+
+
+def test_gate_d_evidence_gaps_local_requires_scalar_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-evidence-gaps-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "gate d evidence gap summary could not be built\n"
+
+
+def test_gate_d_evidence_gaps_local_prints_compact_no_gaps_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-evidence-gaps-local",
+            "--mic-diagnostics-after-reboot",
+            "satisfactory",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    expected = {
+        "summary_kind": "gate_d_evidence_gap_summary",
+        "mic_diagnostics_after_reboot_status": "satisfactory",
+        "alert_routing_status": "satisfactory",
+        "security_review_status": "satisfactory",
+        "policy_gate_tests_status": "satisfactory",
+        "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
+        "missing_evidence": [],
+        "missing_evidence_count": 0,
+        "blocking_evidence": [],
+        "blocking_evidence_count": 0,
+        "satisfactory_evidence_count": 5,
+        "decision": "no_gaps",
+        "reason": "all_gate_d_evidence_categories_satisfactory",
+    }
+    expected_line = json.dumps(expected, sort_keys=True, separators=(",", ":"))
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == f"{expected_line}\n"
+    _assert_gate_d_evidence_gaps_output_is_safe(result.stdout, result.stderr)
+
+
+def test_gate_d_evidence_gaps_local_prints_gap_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-evidence-gaps-local",
+            "--mic-diagnostics-after-reboot",
+            "missing",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "blocking",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert payload["decision"] == "gaps_present"
+    assert payload["reason"] == "required_gate_d_evidence_gaps_present"
+    assert payload["missing_evidence"] == ["mic_diagnostics_after_reboot"]
+    assert payload["missing_evidence_count"] == 1
+    assert payload["blocking_evidence"] == ["security_review"]
+    assert payload["blocking_evidence_count"] == 1
+    assert payload["satisfactory_evidence_count"] == 3
+    _assert_gate_d_evidence_gaps_output_is_safe(result.stdout, result.stderr)
+
+
+def test_gate_d_evidence_gaps_local_sanitizes_parse_failure() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-evidence-gaps-local",
+            "--mic-diagnostics-after-reboot",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "gate d evidence gap summary could not be built\n"
+    _assert_gate_d_evidence_gaps_output_is_safe(result.stdout, result.stderr)
+
+
+def test_gate_d_evidence_gaps_local_misordered_uses_gap_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--mic-diagnostics-after-reboot",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "gate-d-evidence-gaps-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "gate d evidence gap summary could not be built\n"
+    _assert_gate_d_evidence_gaps_output_is_safe(result.stdout, result.stderr)
+
+
+def test_gate_d_evidence_gaps_local_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    readiness_module = "async_scholar.gate_d_readiness"
+    fake_readiness_module = types.ModuleType(readiness_module)
+
+    def fake_build(
+        *,
+        mic_diagnostics_after_reboot: str,
+        alert_routing: str,
+        security_review: str,
+        policy_gate_tests: str,
+        rollback_plan_for_loopback_playwright_spike: str,
+    ) -> dict[str, object]:
+        received["mic_diagnostics_after_reboot"] = mic_diagnostics_after_reboot
+        received["alert_routing"] = alert_routing
+        received["security_review"] = security_review
+        received["policy_gate_tests"] = policy_gate_tests
+        received["rollback_plan_for_loopback_playwright_spike"] = (
+            rollback_plan_for_loopback_playwright_spike
+        )
+        return {
+            "summary_kind": "gate_d_evidence_gap_summary",
+            "mic_diagnostics_after_reboot_status": "satisfactory",
+            "alert_routing_status": "satisfactory",
+            "security_review_status": "satisfactory",
+            "policy_gate_tests_status": "satisfactory",
+            "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
+            "missing_evidence": [],
+            "missing_evidence_count": 0,
+            "blocking_evidence": [],
+            "blocking_evidence_count": 0,
+            "satisfactory_evidence_count": 5,
+            "decision": "no_gaps",
+            "reason": "all_gate_d_evidence_categories_satisfactory",
+        }
+
+    fake_readiness_module.build_gate_d_evidence_gap_summary = fake_build  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, readiness_module, fake_readiness_module)
+
+    exit_code = cli.main(
+        [
+            "gate-d-evidence-gaps-local",
+            "--mic-diagnostics-after-reboot",
+            "satisfactory",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert exit_code == 0
+    assert captured.err == ""
+    assert received == {
+        "mic_diagnostics_after_reboot": "satisfactory",
+        "alert_routing": "satisfactory",
+        "security_review": "satisfactory",
+        "policy_gate_tests": "satisfactory",
+        "rollback_plan_for_loopback_playwright_spike": "satisfactory",
+    }
+    assert payload["decision"] == "no_gaps"
+    _assert_gate_d_evidence_gaps_output_is_safe(captured.out, captured.err)
+
+
+def test_gate_d_evidence_gaps_local_sanitizes_helper_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    readiness_module = "async_scholar.gate_d_readiness"
+    fake_readiness_module = types.ModuleType(readiness_module)
+
+    def fake_build(**_: object) -> dict[str, object]:
+        raise ValueError("C:\\Users\\student\\token-secret-auth-profile")
+
+    fake_readiness_module.build_gate_d_evidence_gap_summary = fake_build  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, readiness_module, fake_readiness_module)
+
+    exit_code = cli.main(
+        [
+            "gate-d-evidence-gaps-local",
+            "--mic-diagnostics-after-reboot",
+            "satisfactory",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ]
+    )
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "gate d evidence gap summary could not be built\n"
+    _assert_gate_d_evidence_gaps_output_is_safe(captured.out, captured.err)
+
+
+def test_gate_d_evidence_gaps_local_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_gate_d_evidence_gaps_local_command)
+
+    assert "build_gate_d_evidence_gap_summary" in source
+    for forbidden_fragment in (
+        "Path",
+        "open(",
+        "read_text",
+        "write_text",
+        "sqlite",
+        "jsonl",
+        "transcript",
+        "recording",
+        "ScheduledStartClock",
+        "session_window",
+        "write_stored_session_window",
+        "async_playwright",
+        "chromium",
+        "selenium",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "sounddevice",
+        "faster_whisper",
+        "vad",
+        "stt",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+        "telegram",
+        "desktop",
+        "notify",
+        "delete",
+        "archive_export",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_session_window_stop_receipt_from_store_local_help_stays_lazy(
     monkeypatch,
 ) -> None:
@@ -16230,6 +16556,61 @@ def _assert_session_window_alert_preview_output_is_safe(
         "scheduler execution",
         "gate d",
         "product promise",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_gate_d_evidence_gaps_output_is_safe(stdout: str, stderr: str) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "gate d passed",
+        "product promise alpha passed",
+        "online monitoring approved",
+        "execution approved",
+        "user approval",
+        "title",
+        "meeting",
+        "meet.example",
+        "meet.google",
+        "confidential",
+        "instructor",
+        "dr.",
+        "lecture",
+        "lab",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        str(Path.home()).lower(),
+        "token",
+        "secret",
+        "auth state",
+        "auth_state",
+        "auth-profile",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+        "session_dir",
+        "artifacts",
+        "filename",
+        "events.jsonl",
+        "alerts.log",
+        "reviewer.md",
+        "runtime.jsonl",
+        "benchmark-report.json",
+        "sqlite",
+        "checkpoint",
+        "traceback",
+        "live delivery",
+        "live-delivery",
+        "live_delivery",
+        "dispatch",
+        "notification",
+        "payload",
+        "body",
+        "target",
+        "scheduler execution",
     ):
         assert forbidden_fragment not in combined_output
 
