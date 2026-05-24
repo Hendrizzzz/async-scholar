@@ -73,6 +73,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "gate-d-evidence-gaps-local" in result.stdout
     assert "alert-routing-smoke-local" in result.stdout
     assert "policy-gate-smoke-local" in result.stdout
+    assert "session-window-lifecycle-smoke-local" in result.stdout
     assert "scheduled-start-preview-local" in result.stdout
     assert "course-schedule-summary-local" in result.stdout
     assert "course-schedule-list-local" in result.stdout
@@ -13451,6 +13452,367 @@ def test_policy_gate_smoke_local_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+def test_session_window_lifecycle_smoke_local_help_stays_lazy(monkeypatch) -> None:
+    module_name = "async_scholar.session_window_lifecycle_smoke"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-lifecycle-smoke-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar session-window-lifecycle-smoke-local" in (
+        result.stdout
+    )
+    assert "--db-path" in result.stdout
+    assert "--archive-root" in result.stdout
+    assert "--disabled" in result.stdout
+    assert module_name not in sys.modules
+
+
+def test_session_window_lifecycle_smoke_local_requires_paths() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-lifecycle-smoke-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "session window lifecycle smoke could not be built\n"
+
+
+def test_session_window_lifecycle_smoke_local_prints_compact_json(
+    tmp_path: Path,
+) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-lifecycle-smoke-local",
+            "--db-path",
+            str(tmp_path / "schedule.sqlite"),
+            "--archive-root",
+            str(tmp_path / "archive"),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == (
+        '{"gate_d_pass_claimed":false,'
+        '"lifecycle_kind":"local_session_window_lifecycle_smoke",'
+        '"product_promise_alpha_pass_claimed":false,'
+        '"start_decision":"executed",'
+        '"start_reason":"start_receipt_written",'
+        '"start_runtime_record_written":true,'
+        '"status":"completed",'
+        '"stop_decision":"executed",'
+        '"stop_reason":"stop_receipt_written",'
+        '"stop_runtime_record_written":true}\n'
+    )
+    _assert_session_window_lifecycle_smoke_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_session_window_lifecycle_smoke_local_disabled_prints_no_write_json(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "missing-parent" / "schedule.sqlite"
+    archive_root = tmp_path / "missing-archive"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-lifecycle-smoke-local",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--disabled",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert json.loads(result.stdout) == {
+        "lifecycle_kind": "local_session_window_lifecycle_smoke",
+        "status": "disabled",
+        "start_decision": "disabled",
+        "start_reason": "disabled",
+        "start_runtime_record_written": False,
+        "stop_decision": "disabled",
+        "stop_reason": "disabled",
+        "stop_runtime_record_written": False,
+        "gate_d_pass_claimed": False,
+        "product_promise_alpha_pass_claimed": False,
+    }
+    assert not db_path.exists()
+    assert not db_path.parent.exists()
+    assert not archive_root.exists()
+    _assert_session_window_lifecycle_smoke_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_session_window_lifecycle_smoke_local_sanitizes_build_failure(
+    tmp_path: Path,
+) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-lifecycle-smoke-local",
+            "--db-path",
+            str(tmp_path / "missing-parent-token-secret-auth-profile" / "db.sqlite"),
+            "--archive-root",
+            str(tmp_path / "archive"),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "session window lifecycle smoke could not be built\n"
+    for forbidden_fragment in (
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "missing-parent",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_lifecycle_smoke_local_misordered_uses_smoke_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--archive-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "session-window-lifecycle-smoke-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "session window lifecycle smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_lifecycle_smoke_local_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    received: dict[str, object] = {}
+    module_name = "async_scholar.session_window_lifecycle_smoke"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_session_window_lifecycle_smoke(
+        db_path: Path,
+        archive_root: Path,
+        *,
+        enabled: bool = True,
+    ) -> dict[str, object]:
+        received["db_path"] = db_path
+        received["archive_root"] = archive_root
+        received["enabled"] = enabled
+        return {
+            "lifecycle_kind": "local_session_window_lifecycle_smoke",
+            "status": "disabled",
+            "start_decision": "disabled",
+            "start_reason": "disabled",
+            "start_runtime_record_written": False,
+            "stop_decision": "disabled",
+            "stop_reason": "disabled",
+            "stop_runtime_record_written": False,
+            "gate_d_pass_claimed": False,
+            "product_promise_alpha_pass_claimed": False,
+        }
+
+    fake_module.build_local_session_window_lifecycle_smoke = (
+        fake_build_local_session_window_lifecycle_smoke
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive"
+
+    exit_code = cli.main(
+        [
+            "session-window-lifecycle-smoke-local",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--disabled",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert received == {
+        "db_path": db_path,
+        "archive_root": archive_root,
+        "enabled": False,
+    }
+    assert captured.err == ""
+    assert json.loads(captured.out) == {
+        "lifecycle_kind": "local_session_window_lifecycle_smoke",
+        "status": "disabled",
+        "start_decision": "disabled",
+        "start_reason": "disabled",
+        "start_runtime_record_written": False,
+        "stop_decision": "disabled",
+        "stop_reason": "disabled",
+        "stop_runtime_record_written": False,
+        "gate_d_pass_claimed": False,
+        "product_promise_alpha_pass_claimed": False,
+    }
+
+
+def test_session_window_lifecycle_smoke_local_sanitizes_helper_failure(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module_name = "async_scholar.session_window_lifecycle_smoke"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_session_window_lifecycle_smoke(
+        *_args: object,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        raise RuntimeError("C:\\Users\\student\\.env BOT_TOKEN=secret traceback")
+
+    fake_module.build_local_session_window_lifecycle_smoke = (
+        fake_build_local_session_window_lifecycle_smoke
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-lifecycle-smoke-local",
+            "--db-path",
+            str(tmp_path / "schedule.sqlite"),
+            "--archive-root",
+            str(tmp_path / "archive"),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "session window lifecycle smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        ".env",
+        "BOT_TOKEN",
+        "secret",
+        "traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_session_window_lifecycle_smoke_local_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_session_window_lifecycle_smoke_local_command)
+
+    assert "build_local_session_window_lifecycle_smoke" in source
+    for forbidden_fragment in (
+        "save_course_schedule",
+        "build_stored_session_window_execution_from_store",
+        "build_stored_session_window_stop_execution_from_store",
+        "write_stored_session_window_start_receipt",
+        "write_stored_session_window_stop_receipt",
+        "CourseMetadata",
+        "ScheduleConfig",
+        "ScheduledStartClock",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "subprocess",
+        "powershell",
+        "requests",
+        "httpx",
+        "urllib",
+        "socket",
+        "playwright",
+        "selenium",
+        "webbrowser",
+        "sounddevice",
+        "faster_whisper",
+        "vad",
+        "stt",
+        "transcript",
+        "audio",
+        "loopback",
+        "meeting",
+        "browser",
+        "auth",
+        "profile",
+        "cookie",
+        "open(",
+        "read_text",
+        "write_text",
+        "mkdir",
+        "unlink",
+        "remove",
+        "rmdir",
+        "rmtree",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_session_window_stop_receipt_from_store_local_help_stays_lazy(
     monkeypatch,
 ) -> None:
@@ -17792,6 +18154,59 @@ def _assert_policy_gate_smoke_output_is_safe(stdout: str, stderr: str) -> None:
         "playwright",
         "loopback",
         "scheduler execution",
+        "gate d passed",
+        "product promise alpha passed",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_session_window_lifecycle_smoke_output_is_safe(
+    stdout: str,
+    stderr: str,
+) -> None:
+    payload = json.loads(stdout)
+    assert payload["gate_d_pass_claimed"] is False
+    assert payload["product_promise_alpha_pass_claimed"] is False
+
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "db_path",
+        "archive_root",
+        "session_id",
+        "course_id",
+        "title",
+        "body",
+        "message",
+        "meeting",
+        "meet.example",
+        "google",
+        "http://",
+        "https://",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        ".env",
+        "token",
+        "secret",
+        "auth",
+        "cookie",
+        "browser",
+        "profile",
+        "transcript",
+        "audio",
+        "camera",
+        "raw",
+        "exception",
+        "traceback",
+        "telegram",
+        "desktop",
+        "notify",
+        "subprocess",
+        "powershell",
+        "playwright",
+        "loopback",
+        "delete",
+        "export",
         "gate d passed",
         "product promise alpha passed",
     ):

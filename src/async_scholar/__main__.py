@@ -21,6 +21,9 @@ _GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR = (
 )
 _ALERT_ROUTING_SMOKE_CLI_ERROR = "local alert routing smoke could not be built"
 _POLICY_GATE_SMOKE_CLI_ERROR = "policy gate smoke could not be built"
+_SESSION_WINDOW_LIFECYCLE_SMOKE_CLI_ERROR = (
+    "session window lifecycle smoke could not be built"
+)
 _SCHEDULED_START_PREVIEW_CLI_ERROR = "scheduled start preview could not be built"
 _COURSE_SCHEDULE_SAVE_CLI_ERROR = "course schedule save could not be built"
 _COURSE_SCHEDULE_SUMMARY_CLI_ERROR = "course schedule summary could not be built"
@@ -524,6 +527,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     policy_gate_smoke.set_defaults(handler=_run_policy_gate_smoke_local_command)
 
+    session_window_lifecycle_smoke = subparsers.add_parser(
+        "session-window-lifecycle-smoke-local",
+        help="run a local session-window lifecycle smoke",
+        description=(
+            "Run one bounded local session-window start and stop lifecycle with "
+            "fixed synthetic metadata."
+        ),
+    )
+    _add_session_window_lifecycle_smoke_local_arguments(session_window_lifecycle_smoke)
+    session_window_lifecycle_smoke.set_defaults(
+        handler=_run_session_window_lifecycle_smoke_local_command
+    )
+
     scheduled_start_preview = subparsers.add_parser(
         "scheduled-start-preview-local",
         help="preview scheduled-start metadata without executing",
@@ -1024,6 +1040,11 @@ def main(argv: list[str] | None = None) -> int:
     if "policy-gate-smoke-local" in argv:
         print(_POLICY_GATE_SMOKE_CLI_ERROR, file=sys.stderr)
         return 2
+    if argv[:1] == ["session-window-lifecycle-smoke-local"]:
+        return _run_session_window_lifecycle_smoke_local_argv(argv[1:])
+    if "session-window-lifecycle-smoke-local" in argv:
+        print(_SESSION_WINDOW_LIFECYCLE_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 2
     if "gate-d-readiness-local" in argv or any(
         arg == "--mic-diagnostics-after-reboot"
         or arg.startswith("--mic-diagnostics-after-reboot=")
@@ -1476,6 +1497,28 @@ def _add_alert_routing_smoke_local_arguments(parser: argparse.ArgumentParser) ->
         "--disabled",
         action="store_true",
         help="build disabled metadata without calling the local dispatcher",
+    )
+
+
+def _add_session_window_lifecycle_smoke_local_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        required=True,
+        help="explicit local SQLite course schedule database",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        required=True,
+        help="explicit local archive root",
+    )
+    parser.add_argument(
+        "--disabled",
+        action="store_true",
+        help="return disabled lifecycle smoke metadata without writing local state",
     )
 
 
@@ -2794,6 +2837,41 @@ def _run_policy_gate_smoke_local_command(args: argparse.Namespace) -> int:
         payload = build_local_policy_gate_smoke()
     except (KeyError, RuntimeError, TypeError, ValueError):
         print(_POLICY_GATE_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_session_window_lifecycle_smoke_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar session-window-lifecycle-smoke-local",
+        description=(
+            "Run one bounded local session-window start and stop lifecycle with "
+            "fixed synthetic metadata."
+        ),
+        fixed_error_message=_SESSION_WINDOW_LIFECYCLE_SMOKE_CLI_ERROR,
+    )
+    _add_session_window_lifecycle_smoke_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_session_window_lifecycle_smoke_local_command(args)
+
+
+def _run_session_window_lifecycle_smoke_local_command(
+    args: argparse.Namespace,
+) -> int:
+    from async_scholar.session_window_lifecycle_smoke import (
+        build_local_session_window_lifecycle_smoke,
+    )
+
+    try:
+        payload = build_local_session_window_lifecycle_smoke(
+            args.db_path,
+            args.archive_root,
+            enabled=not args.disabled,
+        )
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError):
+        print(_SESSION_WINDOW_LIFECYCLE_SMOKE_CLI_ERROR, file=sys.stderr)
         return 1
 
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
