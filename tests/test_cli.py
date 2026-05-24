@@ -85,6 +85,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "session-window-confirmation-response-from-store-local" in result.stdout
     assert "session-window-start-authorization-from-store-local" in result.stdout
     assert "session-window-execution-preflight-from-store-local" in result.stdout
+    assert "session-window-execute-from-store-local" in result.stdout
     assert "session-window-start-receipt-from-store-local" in result.stdout
     assert "session-window-stop-receipt-from-store-local" in result.stdout
     assert "session-window-runtime-summary-local" in result.stdout
@@ -10330,6 +10331,438 @@ def test_session_window_execution_preflight_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+def test_session_window_execute_from_store_local_help_stays_lazy(
+    monkeypatch,
+) -> None:
+    scheduled_start_module = "async_scholar.scheduled_start"
+    execution_module = "async_scholar.session_window_execution"
+    monkeypatch.delitem(sys.modules, scheduled_start_module, raising=False)
+    monkeypatch.delitem(sys.modules, execution_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-execute-from-store-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert (
+        "usage: async_scholar session-window-execute-from-store-local" in result.stdout
+    )
+    assert "--db-path" in result.stdout
+    assert "--archive-root" in result.stdout
+    assert "--source-kind" in result.stdout
+    assert "--clock-day-of-week" in result.stdout
+    assert "--clock-local-time" in result.stdout
+    assert "--confirmation-response" in result.stdout
+    assert "one-shot" in result.stdout
+    assert scheduled_start_module not in sys.modules
+    assert execution_module not in sys.modules
+
+
+def test_session_window_execute_from_store_local_requires_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-execute-from-store-local",
+            "session-001",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "stored session window execution could not be built\n"
+
+
+def test_session_window_execute_prints_compact_json_and_writes_runtime(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "confirmed",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    expected = {
+        "authorization_status": "authorized",
+        "authorized": True,
+        "authorized_start_count": 1,
+        "clock_day_of_week": "monday",
+        "clock_local_time": "09:00",
+        "decision": "executed",
+        "due_count": 1,
+        "execution_kind": "stored_session_window_execution",
+        "preflight_decision": "allow",
+        "preflight_reason": "ready_to_execute",
+        "reason": "start_receipt_written",
+        "recovery_review_status": "not_required",
+        "runtime_record_written": True,
+        "runtime_state": "not_started",
+        "session_id": "session-001",
+        "source_kind": "file",
+    }
+    expected_line = json.dumps(expected, sort_keys=True, separators=(",", ":"))
+    runtime_path = session_dir / "runtime.jsonl"
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == f"{expected_line}\n"
+    assert json.loads(result.stdout) == expected
+    assert len(runtime_path.read_text(encoding="utf-8").splitlines()) == 1
+    _assert_session_window_execute_output_is_safe(
+        result.stdout,
+        result.stderr,
+        runtime_path,
+    )
+
+
+def test_session_window_execute_prints_blocked_json_without_runtime_write(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive"
+    session_dir = archive_root / "session-001"
+    session_dir.mkdir(parents=True)
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "declined",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert payload["authorization_status"] == "blocked"
+    assert payload["runtime_record_written"] is False
+    assert payload["preflight_decision"] == "block"
+    assert payload["decision"] == "blocked"
+    assert payload["reason"] == "confirmation_declined"
+    assert not (session_dir / "runtime.jsonl").exists()
+    _assert_session_window_execute_output_is_safe(result.stdout, result.stderr)
+
+
+def test_session_window_execute_sanitizes_parse_failure() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            "C:\\Users\\student\\private.sqlite",
+            "--archive-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "yes please start my private lecture",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "stored session window execution could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "private",
+        "token",
+        "secret",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_execute_sanitizes_runtime_failure(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "schedule.sqlite"
+    archive_root = tmp_path / "archive-token-secret-auth-profile"
+    runtime_path = archive_root / "session-001" / "runtime.jsonl"
+    runtime_path.mkdir(parents=True)
+    _write_private_course_schedule(db_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "session-window-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            str(db_path),
+            "--archive-root",
+            str(archive_root),
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "confirmed",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "stored session window execution could not be built\n"
+    for forbidden_fragment in (
+        str(tmp_path),
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "runtime.jsonl",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_execute_misordered_uses_execution_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--archive-root",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "session-window-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            "C:\\Users\\student\\private.sqlite",
+            "--confirmation-response",
+            "confirmed",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "stored session window execution could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "token",
+        "secret",
+        "private.sqlite",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_session_window_execute_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    scheduled_start_module = "async_scholar.scheduled_start"
+    execution_module = "async_scholar.session_window_execution"
+    fake_scheduled_start_module = types.ModuleType(scheduled_start_module)
+    fake_execution_module = types.ModuleType(execution_module)
+    fake_clock = object()
+
+    class FakeClock:
+        def __new__(cls, **kwargs: object) -> object:
+            received["clock_kwargs"] = kwargs
+            return fake_clock
+
+    def fake_build(
+        db_path: Path,
+        archive_root: Path,
+        session_id: str,
+        source_kind: str,
+        clock: object,
+        confirmation_response: str,
+        *,
+        enabled: bool,
+    ) -> dict[str, object]:
+        received["db_path"] = db_path
+        received["archive_root"] = archive_root
+        received["session_id"] = session_id
+        received["source_kind"] = source_kind
+        received["clock"] = clock
+        received["confirmation_response"] = confirmation_response
+        received["enabled"] = enabled
+        return {
+            "execution_kind": "stored_session_window_execution",
+            "session_id": "session-001",
+            "source_kind": "file",
+            "clock_day_of_week": "monday",
+            "clock_local_time": "09:00",
+            "due_count": 1,
+            "authorization_status": "authorized",
+            "authorized": True,
+            "authorized_start_count": 1,
+            "runtime_state": "not_started",
+            "recovery_review_status": "not_required",
+            "preflight_decision": "allow",
+            "preflight_reason": "ready_to_execute",
+            "runtime_record_written": True,
+            "decision": "executed",
+            "reason": "start_receipt_written",
+        }
+
+    fake_scheduled_start_module.ScheduledStartClock = FakeClock
+    fake_execution_module.build_stored_session_window_execution_from_store = fake_build
+    monkeypatch.setitem(
+        sys.modules,
+        scheduled_start_module,
+        fake_scheduled_start_module,
+    )
+    monkeypatch.setitem(sys.modules, execution_module, fake_execution_module)
+
+    exit_code = cli.main(
+        [
+            "session-window-execute-from-store-local",
+            "session-001",
+            "--db-path",
+            "schedule.sqlite",
+            "--archive-root",
+            "archive-root",
+            "--source-kind",
+            "file",
+            "--clock-day-of-week",
+            "monday",
+            "--clock-local-time",
+            "09:00",
+            "--confirmation-response",
+            "confirmed",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.err == ""
+    assert json.loads(captured.out)["decision"] == "executed"
+    assert received == {
+        "clock_kwargs": {"day_of_week": "monday", "local_time": "09:00"},
+        "db_path": Path("schedule.sqlite"),
+        "archive_root": Path("archive-root"),
+        "session_id": "session-001",
+        "source_kind": "file",
+        "clock": fake_clock,
+        "confirmation_response": "confirmed",
+        "enabled": True,
+    }
+
+
+def test_session_window_execute_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_session_window_execute_from_store_local_command)
+
+    assert "ScheduledStartClock" in source
+    assert "build_stored_session_window_execution_from_store" in source
+    for forbidden_fragment in (
+        "list_course_schedule_session_window_inputs",
+        "build_session_window_confirmation_preflight_summary",
+        "build_session_window_confirmation_response_summary",
+        "build_session_window_start_authorization_summary",
+        "build_stored_session_window_execution_preflight_from_store",
+        "write_stored_session_window_start_receipt",
+        "write_stored_session_window_stop_receipt",
+        "datetime",
+        "now(",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+        "subprocess",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "playwright",
+        "selenium",
+        "sounddevice",
+        "faster_whisper",
+        "mic_recording",
+        "telegram",
+        "desktop_notifier",
+        "alert_dispatch",
+        "archive_delete",
+        ".open(",
+        ".read_text(",
+        ".write_text(",
+        ".mkdir(",
+        ".unlink(",
+        ".remove(",
+        ".rmdir(",
+        "rmtree",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_session_window_start_receipt_from_store_local_help_stays_lazy(
     monkeypatch,
 ) -> None:
@@ -14533,6 +14966,68 @@ def _assert_session_window_stop_receipt_output_is_safe(
         "body",
         "target",
         "scheduler execution",
+        "gate d",
+        "product promise",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_session_window_execute_output_is_safe(
+    stdout: str,
+    stderr: str,
+    runtime_path: Path | None = None,
+) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    if runtime_path is not None:
+        combined_output += runtime_path.read_text(encoding="utf-8").lower()
+    for forbidden_fragment in (
+        "result_kind",
+        "alert_preview",
+        "alert_preview_count",
+        "archive_",
+        "db_path",
+        "title",
+        "meeting",
+        "meet.example",
+        "timezone",
+        "duration",
+        "confidential",
+        "instructor",
+        "dr.",
+        "lecture",
+        "lab",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        str(Path.home()).lower(),
+        "token",
+        "secret",
+        "auth state",
+        "auth_state",
+        "auth-profile",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+        "session_dir",
+        "artifacts",
+        "filename",
+        "events.jsonl",
+        "alerts.log",
+        "reviewer.md",
+        "runtime.jsonl",
+        "benchmark-report.json",
+        "sqlite",
+        "traceback",
+        "live delivery",
+        "live-delivery",
+        "live_delivery",
+        "dispatch",
+        "notification",
+        "payload",
+        "body",
+        "target",
         "gate d",
         "product promise",
     ):
