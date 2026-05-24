@@ -23,6 +23,58 @@ _ALERT_ROUTING_SMOKE_CLI_ERROR = "local alert routing smoke could not be built"
 _POLICY_GATE_SMOKE_CLI_ERROR = "policy gate smoke could not be built"
 _DELIVERY_PATH_SMOKE_CLI_ERROR = "delivery path smoke could not be built"
 _MONITORING_BOUNDARY_SMOKE_CLI_ERROR = "monitoring boundary smoke could not be built"
+_GATE_D_ROLLBACK_PLAN_EVIDENCE_CLI_ERROR = (
+    "gate d rollback plan evidence could not be built"
+)
+_GATE_D_ROLLBACK_PLAN_EVIDENCE_KEYS = (
+    "evidence_kind",
+    "rollback_plan_for_loopback_playwright_spike_status",
+    "rollback_plan_document_status",
+    "rollback_trigger_coverage_status",
+    "disable_strategy_status",
+    "dependency_rollback_status",
+    "disposable_browser_state_cleanup_status",
+    "artifact_cleanup_status",
+    "private_data_handling_status",
+    "manual_checks_status",
+    "stop_conditions_status",
+    "browser_automation_performed",
+    "audio_capture_performed",
+    "loopback_capture_performed",
+    "network_performed",
+    "live_delivery_performed",
+    "filesystem_cleanup_performed",
+    "dependency_change_performed",
+    "external_platform_accessed",
+    "profile_state_accessed",
+    "gate_d_pass_claimed",
+    "product_promise_alpha_pass_claimed",
+)
+_GATE_D_ROLLBACK_PLAN_EVIDENCE_STATUSES = {
+    "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
+    "rollback_plan_document_status": "tracked",
+    "rollback_trigger_coverage_status": "documented",
+    "disable_strategy_status": "documented",
+    "dependency_rollback_status": "documented",
+    "disposable_browser_state_cleanup_status": "documented",
+    "artifact_cleanup_status": "documented",
+    "private_data_handling_status": "documented",
+    "manual_checks_status": "documented",
+    "stop_conditions_status": "documented",
+}
+_GATE_D_ROLLBACK_PLAN_EVIDENCE_FALSE_FLAGS = (
+    "browser_automation_performed",
+    "audio_capture_performed",
+    "loopback_capture_performed",
+    "network_performed",
+    "live_delivery_performed",
+    "filesystem_cleanup_performed",
+    "dependency_change_performed",
+    "external_platform_accessed",
+    "profile_state_accessed",
+    "gate_d_pass_claimed",
+    "product_promise_alpha_pass_claimed",
+)
 _GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR = (
     "gate d local evidence bundle could not be built"
 )
@@ -61,7 +113,7 @@ _GATE_D_LOCAL_EVIDENCE_BUNDLE_STATUSES = {
     "alert_routing_status": "satisfactory",
     "security_review_status": "missing",
     "policy_gate_tests_status": "satisfactory",
-    "rollback_plan_for_loopback_playwright_spike_status": "missing",
+    "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
     "signal_quality_evidence_status": "missing",
     "scheduler_lifecycle_evidence_status": "missing",
     "delivery_path_evidence_status": "satisfactory",
@@ -71,7 +123,6 @@ _GATE_D_LOCAL_EVIDENCE_BUNDLE_STATUSES = {
 _GATE_D_LOCAL_EVIDENCE_BUNDLE_MISSING = [
     "mic_diagnostics_after_reboot",
     "security_review",
-    "rollback_plan_for_loopback_playwright_spike",
     "signal_quality_evidence",
     "scheduler_lifecycle_evidence",
     "product_judgment_evidence",
@@ -614,6 +665,18 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_monitoring_boundary_smoke_local_command
     )
 
+    gate_d_rollback_plan_evidence = subparsers.add_parser(
+        "gate-d-rollback-plan-evidence-local",
+        help="summarize local Gate D rollback-plan evidence",
+        description=(
+            "Build a metadata-only local Gate D rollback-plan evidence summary "
+            "from fixed checks."
+        ),
+    )
+    gate_d_rollback_plan_evidence.set_defaults(
+        handler=_run_gate_d_rollback_plan_evidence_local_command
+    )
+
     gate_d_local_evidence_bundle = subparsers.add_parser(
         "gate-d-local-evidence-bundle",
         help="summarize local Gate D smoke evidence",
@@ -1148,6 +1211,11 @@ def main(argv: list[str] | None = None) -> int:
         return _run_monitoring_boundary_smoke_local_argv(argv[1:])
     if "monitoring-boundary-smoke-local" in argv:
         print(_MONITORING_BOUNDARY_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["gate-d-rollback-plan-evidence-local"]:
+        return _run_gate_d_rollback_plan_evidence_local_argv(argv[1:])
+    if "gate-d-rollback-plan-evidence-local" in argv:
+        print(_GATE_D_ROLLBACK_PLAN_EVIDENCE_CLI_ERROR, file=sys.stderr)
         return 2
     if argv[:1] == ["gate-d-local-evidence-bundle"]:
         return _run_gate_d_local_evidence_bundle_argv(argv[1:])
@@ -3061,6 +3129,56 @@ def _run_monitoring_boundary_smoke_local_command(args: argparse.Namespace) -> in
     return 0
 
 
+def _run_gate_d_rollback_plan_evidence_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar gate-d-rollback-plan-evidence-local",
+        description=(
+            "Build a metadata-only local Gate D rollback-plan evidence summary "
+            "from fixed checks."
+        ),
+        fixed_error_message=_GATE_D_ROLLBACK_PLAN_EVIDENCE_CLI_ERROR,
+    )
+    args = parser.parse_args(argv)
+    return _run_gate_d_rollback_plan_evidence_local_command(args)
+
+
+def _run_gate_d_rollback_plan_evidence_local_command(
+    args: argparse.Namespace,
+) -> int:
+    try:
+        from async_scholar.gate_d_rollback_plan_evidence import (
+            build_local_gate_d_rollback_plan_evidence,
+        )
+
+        payload = build_local_gate_d_rollback_plan_evidence()
+        output = _gate_d_rollback_plan_evidence_json(payload)
+    except (ImportError, KeyError, RuntimeError, TypeError, ValueError):
+        print(_GATE_D_ROLLBACK_PLAN_EVIDENCE_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(output)
+    return 0
+
+
+def _gate_d_rollback_plan_evidence_json(payload: object) -> str:
+    if (
+        type(payload) is not dict
+        or tuple(payload) != _GATE_D_ROLLBACK_PLAN_EVIDENCE_KEYS
+    ):
+        raise ValueError(_GATE_D_ROLLBACK_PLAN_EVIDENCE_CLI_ERROR)
+    if payload["evidence_kind"] != "local_gate_d_rollback_plan_evidence":
+        raise ValueError(_GATE_D_ROLLBACK_PLAN_EVIDENCE_CLI_ERROR)
+    for key, expected in _GATE_D_ROLLBACK_PLAN_EVIDENCE_STATUSES.items():
+        if payload[key] != expected:
+            raise ValueError(_GATE_D_ROLLBACK_PLAN_EVIDENCE_CLI_ERROR)
+    if any(
+        payload[flag] is not False
+        for flag in _GATE_D_ROLLBACK_PLAN_EVIDENCE_FALSE_FLAGS
+    ):
+        raise ValueError(_GATE_D_ROLLBACK_PLAN_EVIDENCE_CLI_ERROR)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
 def _run_gate_d_local_evidence_bundle_argv(argv: list[str]) -> int:
     parser = _FixedMessageArgumentParser(
         prog="async_scholar gate-d-local-evidence-bundle",
@@ -3103,10 +3221,10 @@ def _gate_d_local_evidence_bundle_json(payload: object) -> str:
             raise ValueError(_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR)
     if (
         payload["missing_evidence"] != _GATE_D_LOCAL_EVIDENCE_BUNDLE_MISSING
-        or payload["missing_evidence_count"] != 6
+        or payload["missing_evidence_count"] != 5
         or payload["blocking_evidence"] != []
         or payload["blocking_evidence_count"] != 0
-        or payload["satisfactory_evidence_count"] != 4
+        or payload["satisfactory_evidence_count"] != 5
         or payload["readiness_decision"] != "blocked"
         or payload["readiness_reason"]
         != "required_gate_d_readiness_evidence_missing_or_blocking"

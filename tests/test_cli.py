@@ -72,6 +72,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "archive-delete-dry-run-local" in result.stdout
     assert "gate-d-readiness-local" in result.stdout
     assert "gate-d-evidence-gaps-local" in result.stdout
+    assert "gate-d-rollback-plan-evidence-local" in result.stdout
     assert "gate-d-local-evidence-bundle" in result.stdout
     assert "alert-routing-smoke-local" in result.stdout
     assert "policy-gate-smoke-local" in result.stdout
@@ -14326,13 +14327,338 @@ def test_monitoring_boundary_smoke_local_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+EXPECTED_GATE_D_ROLLBACK_PLAN_EVIDENCE = {
+    "evidence_kind": "local_gate_d_rollback_plan_evidence",
+    "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
+    "rollback_plan_document_status": "tracked",
+    "rollback_trigger_coverage_status": "documented",
+    "disable_strategy_status": "documented",
+    "dependency_rollback_status": "documented",
+    "disposable_browser_state_cleanup_status": "documented",
+    "artifact_cleanup_status": "documented",
+    "private_data_handling_status": "documented",
+    "manual_checks_status": "documented",
+    "stop_conditions_status": "documented",
+    "browser_automation_performed": False,
+    "audio_capture_performed": False,
+    "loopback_capture_performed": False,
+    "network_performed": False,
+    "live_delivery_performed": False,
+    "filesystem_cleanup_performed": False,
+    "dependency_change_performed": False,
+    "external_platform_accessed": False,
+    "profile_state_accessed": False,
+    "gate_d_pass_claimed": False,
+    "product_promise_alpha_pass_claimed": False,
+}
+
+
+def test_gate_d_rollback_plan_evidence_local_help_stays_lazy(monkeypatch) -> None:
+    module_name = "async_scholar.gate_d_rollback_plan_evidence"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-rollback-plan-evidence-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar gate-d-rollback-plan-evidence-local" in (result.stdout)
+    assert module_name not in sys.modules
+
+
+def test_gate_d_rollback_plan_evidence_local_prints_compact_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-rollback-plan-evidence-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    expected_line = json.dumps(
+        EXPECTED_GATE_D_ROLLBACK_PLAN_EVIDENCE,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == f"{expected_line}\n"
+    _assert_gate_d_rollback_plan_evidence_output_is_safe(
+        result.stdout,
+        result.stderr,
+    )
+
+
+def test_gate_d_rollback_plan_evidence_local_rejects_extra_arguments_safely() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-rollback-plan-evidence-local",
+            "C:\\Users\\student\\token-secret-auth-profile",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "gate d rollback plan evidence could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_gate_d_rollback_plan_evidence_local_misordered_uses_fixed_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--private-path",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "gate-d-rollback-plan-evidence-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "gate d rollback plan evidence could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_gate_d_rollback_plan_evidence_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, bool] = {}
+    module_name = "async_scholar.gate_d_rollback_plan_evidence"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_gate_d_rollback_plan_evidence() -> dict[str, object]:
+        received["called"] = True
+        return EXPECTED_GATE_D_ROLLBACK_PLAN_EVIDENCE
+
+    fake_module.build_local_gate_d_rollback_plan_evidence = (
+        fake_build_local_gate_d_rollback_plan_evidence
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["gate-d-rollback-plan-evidence-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert received == {"called": True}
+    assert captured.err == ""
+    assert json.loads(captured.out) == EXPECTED_GATE_D_ROLLBACK_PLAN_EVIDENCE
+
+
+def test_gate_d_rollback_plan_evidence_local_sanitizes_helper_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.gate_d_rollback_plan_evidence"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_gate_d_rollback_plan_evidence() -> dict[str, object]:
+        raise RuntimeError("C:\\Users\\student\\.env BOT_TOKEN=secret traceback")
+
+    fake_module.build_local_gate_d_rollback_plan_evidence = (
+        fake_build_local_gate_d_rollback_plan_evidence
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["gate-d-rollback-plan-evidence-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "gate d rollback plan evidence could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        ".env",
+        "BOT_TOKEN",
+        "secret",
+        "traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_gate_d_rollback_plan_evidence_local_sanitizes_import_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "async_scholar.gate_d_rollback_plan_evidence":
+            raise ImportError(
+                "C:\\Users\\student\\.env BOT_TOKEN=secret import traceback"
+            )
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    exit_code = cli.main(["gate-d-rollback-plan-evidence-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "gate d rollback plan evidence could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        ".env",
+        "BOT_TOKEN",
+        "secret",
+        "traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_gate_d_rollback_plan_evidence_local_sanitizes_malformed_helper_output(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.gate_d_rollback_plan_evidence"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_gate_d_rollback_plan_evidence() -> dict[str, object]:
+        return {"private": object()}
+
+    fake_module.build_local_gate_d_rollback_plan_evidence = (
+        fake_build_local_gate_d_rollback_plan_evidence
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["gate-d-rollback-plan-evidence-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "gate d rollback plan evidence could not be built\n"
+
+
+def test_gate_d_rollback_plan_evidence_local_sanitizes_json_malformed_output(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.gate_d_rollback_plan_evidence"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_gate_d_rollback_plan_evidence() -> dict[str, object]:
+        return {"private": "C:/Users/student/token-secret-auth-profile"}
+
+    fake_module.build_local_gate_d_rollback_plan_evidence = (
+        fake_build_local_gate_d_rollback_plan_evidence
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["gate-d-rollback-plan-evidence-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "gate d rollback plan evidence could not be built\n"
+    for forbidden_fragment in (
+        "C:/Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "private",
+    ):
+        assert forbidden_fragment not in captured.out
+        assert forbidden_fragment not in captured.err
+
+
+def test_gate_d_rollback_plan_evidence_local_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_gate_d_rollback_plan_evidence_local_command)
+
+    assert "build_local_gate_d_rollback_plan_evidence" in source
+    assert "ImportError" in source
+    assert "except" in source
+    for forbidden_fragment in (
+        "Path",
+        "open(",
+        "read_text",
+        "write_text",
+        "mkdir",
+        "unlink",
+        "remove",
+        "rmdir",
+        "rmtree",
+        "subprocess",
+        "powershell",
+        "requests",
+        "httpx",
+        "urllib",
+        "socket",
+        "playwright",
+        "selenium",
+        "webbrowser",
+        "sounddevice",
+        "faster_whisper",
+        "vad",
+        "stt",
+        "loopback",
+        "meeting",
+        "browser",
+        "profile",
+        "cookie",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+    ):
+        assert forbidden_fragment not in source
+
+
 EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE = {
     "bundle_kind": "local_gate_d_smoke_evidence_bundle",
     "mic_diagnostics_after_reboot_status": "missing",
     "alert_routing_status": "satisfactory",
     "security_review_status": "missing",
     "policy_gate_tests_status": "satisfactory",
-    "rollback_plan_for_loopback_playwright_spike_status": "missing",
+    "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
     "signal_quality_evidence_status": "missing",
     "scheduler_lifecycle_evidence_status": "missing",
     "delivery_path_evidence_status": "satisfactory",
@@ -14341,15 +14667,14 @@ EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE = {
     "missing_evidence": [
         "mic_diagnostics_after_reboot",
         "security_review",
-        "rollback_plan_for_loopback_playwright_spike",
         "signal_quality_evidence",
         "scheduler_lifecycle_evidence",
         "product_judgment_evidence",
     ],
-    "missing_evidence_count": 6,
+    "missing_evidence_count": 5,
     "blocking_evidence": [],
     "blocking_evidence_count": 0,
-    "satisfactory_evidence_count": 4,
+    "satisfactory_evidence_count": 5,
     "ready_for_gate_review": False,
     "readiness_decision": "blocked",
     "readiness_reason": "required_gate_d_readiness_evidence_missing_or_blocking",
@@ -19497,6 +19822,67 @@ def _assert_monitoring_boundary_smoke_output_is_safe(
         "traceback",
         "gate d passed",
         "product promise alpha passed",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_gate_d_rollback_plan_evidence_output_is_safe(
+    stdout: str,
+    stderr: str,
+) -> None:
+    payload = json.loads(stdout)
+    assert payload["browser_automation_performed"] is False
+    assert payload["audio_capture_performed"] is False
+    assert payload["loopback_capture_performed"] is False
+    assert payload["network_performed"] is False
+    assert payload["live_delivery_performed"] is False
+    assert payload["filesystem_cleanup_performed"] is False
+    assert payload["dependency_change_performed"] is False
+    assert payload["external_platform_accessed"] is False
+    assert payload["profile_state_accessed"] is False
+    assert payload["gate_d_pass_claimed"] is False
+    assert payload["product_promise_alpha_pass_claimed"] is False
+    assert set(payload) == set(EXPECTED_GATE_D_ROLLBACK_PLAN_EVIDENCE)
+
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "title",
+        "body",
+        "provider",
+        "http_status",
+        "message",
+        "request",
+        "url",
+        "command",
+        "event_id",
+        "session_id",
+        "source_segment",
+        "course_id",
+        "meeting",
+        "meet.example",
+        "meet.google",
+        "http://",
+        "https://",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        ".env",
+        "token",
+        "secret",
+        "chat",
+        "cookie",
+        "auth-profile",
+        "raw",
+        "exception",
+        "traceback",
+        "powershell",
+        "selenium",
+        "loopback capture approved",
+        "browser automation approved",
+        "gate d passed",
+        "product promise alpha passed",
+        "online monitoring approved",
+        "execution approved",
     ):
         assert forbidden_fragment not in combined_output
 

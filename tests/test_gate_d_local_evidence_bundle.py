@@ -21,7 +21,7 @@ EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE = {
     "alert_routing_status": "satisfactory",
     "security_review_status": "missing",
     "policy_gate_tests_status": "satisfactory",
-    "rollback_plan_for_loopback_playwright_spike_status": "missing",
+    "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
     "signal_quality_evidence_status": "missing",
     "scheduler_lifecycle_evidence_status": "missing",
     "delivery_path_evidence_status": "satisfactory",
@@ -30,15 +30,14 @@ EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE = {
     "missing_evidence": [
         "mic_diagnostics_after_reboot",
         "security_review",
-        "rollback_plan_for_loopback_playwright_spike",
         "signal_quality_evidence",
         "scheduler_lifecycle_evidence",
         "product_judgment_evidence",
     ],
-    "missing_evidence_count": 6,
+    "missing_evidence_count": 5,
     "blocking_evidence": [],
     "blocking_evidence_count": 0,
-    "satisfactory_evidence_count": 4,
+    "satisfactory_evidence_count": 5,
     "ready_for_gate_review": False,
     "readiness_decision": "blocked",
     "readiness_reason": "required_gate_d_readiness_evidence_missing_or_blocking",
@@ -89,6 +88,8 @@ def test_local_gate_d_bundle_omits_raw_helper_payloads() -> None:
         "synthetic_fixture_status",
         "html_inspection_status",
         "session_history_status",
+        "evidence_kind",
+        "rollback_plan_document_status",
         "auth_profile_accessed",
         "network_performed",
         "subprocess_performed",
@@ -112,6 +113,7 @@ def test_local_gate_d_smoke_evidence_bundle_derives_statuses_from_nested_smokes(
         "policy_called": True,
         "delivery_called": True,
         "monitoring_called": True,
+        "rollback_plan_called": True,
         "readiness_statuses": _fixed_status_inputs(),
         "gap_statuses": _fixed_status_inputs(),
     }
@@ -134,13 +136,13 @@ def test_local_gate_d_bundle_maps_missing_and_satisfactory_categories() -> None:
     assert satisfactory_statuses == [
         "alert_routing_status",
         "policy_gate_tests_status",
+        "rollback_plan_for_loopback_playwright_spike_status",
         "delivery_path_evidence_status",
         "monitoring_boundary_evidence_status",
     ]
     assert missing_statuses == [
         "mic_diagnostics_after_reboot_status",
         "security_review_status",
-        "rollback_plan_for_loopback_playwright_spike_status",
         "signal_quality_evidence_status",
         "scheduler_lifecycle_evidence_status",
         "product_judgment_evidence_status",
@@ -148,7 +150,6 @@ def test_local_gate_d_bundle_maps_missing_and_satisfactory_categories() -> None:
     assert payload["missing_evidence"] == [
         "mic_diagnostics_after_reboot",
         "security_review",
-        "rollback_plan_for_loopback_playwright_spike",
         "signal_quality_evidence",
         "scheduler_lifecycle_evidence",
         "product_judgment_evidence",
@@ -168,9 +169,9 @@ def test_local_gate_d_smoke_evidence_bundle_reports_blocked_readiness_and_gaps()
     )
     assert payload["gap_decision"] == "gaps_present"
     assert payload["gap_reason"] == "required_gate_d_evidence_gaps_present"
-    assert payload["missing_evidence_count"] == 6
+    assert payload["missing_evidence_count"] == 5
     assert payload["blocking_evidence_count"] == 0
-    assert payload["satisfactory_evidence_count"] == 4
+    assert payload["satisfactory_evidence_count"] == 5
 
 
 def test_local_gate_d_smoke_evidence_bundle_sanitizes_helper_failures(
@@ -279,6 +280,7 @@ def test_local_gate_d_smoke_evidence_bundle_source_guards_forbidden_surfaces() -
     assert "build_local_policy_gate_smoke" in source
     assert "build_local_delivery_path_smoke" in source
     assert "build_local_monitoring_boundary_smoke" in source
+    assert "build_local_gate_d_rollback_plan_evidence" in source
     assert "build_gate_d_readiness_report" in source
     assert "build_gate_d_evidence_gap_summary" in source
 
@@ -406,6 +408,28 @@ def _install_fake_modules(
     )
     modules["async_scholar.monitoring_boundary_smoke"] = monitoring_module
 
+    rollback_module = types.ModuleType("async_scholar.gate_d_rollback_plan_evidence")
+
+    def fake_build_local_gate_d_rollback_plan_evidence() -> dict[str, object]:
+        seen["rollback_plan_called"] = True
+        return {
+            "audio_capture_performed": False,
+            "browser_automation_performed": False,
+            "evidence_kind": "local_gate_d_rollback_plan_evidence",
+            "external_platform_accessed": False,
+            "gate_d_pass_claimed": False,
+            "loopback_capture_performed": False,
+            "network_performed": False,
+            "product_promise_alpha_pass_claimed": False,
+            "profile_state_accessed": False,
+            "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
+        }
+
+    rollback_module.build_local_gate_d_rollback_plan_evidence = (
+        fake_build_local_gate_d_rollback_plan_evidence
+    )
+    modules["async_scholar.gate_d_rollback_plan_evidence"] = rollback_module
+
     readiness_module = types.ModuleType("async_scholar.gate_d_readiness")
 
     def fake_build_gate_d_readiness_report(**statuses: object) -> dict[str, object]:
@@ -433,7 +457,7 @@ def _fixed_status_inputs() -> dict[str, object]:
         "alert_routing": "satisfactory",
         "security_review": "missing",
         "policy_gate_tests": "satisfactory",
-        "rollback_plan_for_loopback_playwright_spike": "missing",
+        "rollback_plan_for_loopback_playwright_spike": "satisfactory",
         "signal_quality_evidence": "missing",
         "scheduler_lifecycle_evidence": "missing",
         "delivery_path_evidence": "satisfactory",
@@ -479,10 +503,10 @@ def _expected_gap_summary(statuses: dict[str, object]) -> dict[str, object]:
         "monitoring_boundary_evidence_status": statuses["monitoring_boundary_evidence"],
         "product_judgment_evidence_status": statuses["product_judgment_evidence"],
         "missing_evidence": EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE["missing_evidence"],
-        "missing_evidence_count": 6,
+        "missing_evidence_count": 5,
         "blocking_evidence": [],
         "blocking_evidence_count": 0,
-        "satisfactory_evidence_count": 4,
+        "satisfactory_evidence_count": 5,
         "decision": "gaps_present",
         "reason": "required_gate_d_evidence_gaps_present",
     }

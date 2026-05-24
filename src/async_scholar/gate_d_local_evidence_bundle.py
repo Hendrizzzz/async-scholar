@@ -15,7 +15,6 @@ _GAP_REASON = "required_gate_d_evidence_gaps_present"
 _MISSING_EVIDENCE = [
     "mic_diagnostics_after_reboot",
     "security_review",
-    "rollback_plan_for_loopback_playwright_spike",
     "signal_quality_evidence",
     "scheduler_lifecycle_evidence",
     "product_judgment_evidence",
@@ -23,7 +22,6 @@ _MISSING_EVIDENCE = [
 _FIXED_STATUSES = {
     "mic_diagnostics_after_reboot": _STATUS_MISSING,
     "security_review": _STATUS_MISSING,
-    "rollback_plan_for_loopback_playwright_spike": _STATUS_MISSING,
     "signal_quality_evidence": _STATUS_MISSING,
     "scheduler_lifecycle_evidence": _STATUS_MISSING,
     "product_judgment_evidence": _STATUS_MISSING,
@@ -74,6 +72,9 @@ def build_local_gate_d_smoke_evidence_bundle() -> dict[str, object]:
             build_gate_d_evidence_gap_summary,
             build_gate_d_readiness_report,
         )
+        from async_scholar.gate_d_rollback_plan_evidence import (
+            build_local_gate_d_rollback_plan_evidence,
+        )
         from async_scholar.monitoring_boundary_smoke import (
             build_local_monitoring_boundary_smoke,
         )
@@ -91,10 +92,14 @@ def build_local_gate_d_smoke_evidence_bundle() -> dict[str, object]:
         monitoring_boundary_evidence_status = _monitoring_boundary_evidence_status(
             build_local_monitoring_boundary_smoke()
         )
+        rollback_plan_status = _rollback_plan_status(
+            build_local_gate_d_rollback_plan_evidence()
+        )
         statuses = {
             **_FIXED_STATUSES,
             "alert_routing": alert_routing_status,
             "policy_gate_tests": policy_gate_tests_status,
+            "rollback_plan_for_loopback_playwright_spike": rollback_plan_status,
             "delivery_path_evidence": delivery_path_evidence_status,
             "monitoring_boundary_evidence": monitoring_boundary_evidence_status,
         }
@@ -154,6 +159,26 @@ def _monitoring_boundary_evidence_status(payload: object) -> str:
         or payload.get("real_online_monitoring_performed") is not False
         or payload.get("browser_automation_performed") is not False
         or payload.get("audio_capture_performed") is not False
+    ):
+        _fail()
+    return _STATUS_SATISFACTORY
+
+
+def _rollback_plan_status(payload: object) -> str:
+    if type(payload) is not dict:
+        _fail()
+    if (
+        payload.get("evidence_kind") != "local_gate_d_rollback_plan_evidence"
+        or payload.get("rollback_plan_for_loopback_playwright_spike_status")
+        != _STATUS_SATISFACTORY
+        or payload.get("browser_automation_performed") is not False
+        or payload.get("audio_capture_performed") is not False
+        or payload.get("loopback_capture_performed") is not False
+        or payload.get("network_performed") is not False
+        or payload.get("external_platform_accessed") is not False
+        or payload.get("profile_state_accessed") is not False
+        or payload.get("gate_d_pass_claimed") is not False
+        or payload.get("product_promise_alpha_pass_claimed") is not False
     ):
         _fail()
     return _STATUS_SATISFACTORY
@@ -227,10 +252,10 @@ def _safe_gap_summary(payload: object) -> dict[str, object]:
     if (
         payload["summary_kind"] != "gate_d_evidence_gap_summary"
         or payload["missing_evidence"] != _MISSING_EVIDENCE
-        or payload["missing_evidence_count"] != 6
+        or payload["missing_evidence_count"] != 5
         or payload["blocking_evidence"] != []
         or payload["blocking_evidence_count"] != 0
-        or payload["satisfactory_evidence_count"] != 4
+        or payload["satisfactory_evidence_count"] != 5
         or payload["decision"] != _GAP_DECISION
         or payload["reason"] != _GAP_REASON
     ):
@@ -245,7 +270,7 @@ def _validate_status_fields(payload: dict[str, object]) -> None:
         "alert_routing_status": _STATUS_SATISFACTORY,
         "security_review_status": _STATUS_MISSING,
         "policy_gate_tests_status": _STATUS_SATISFACTORY,
-        "rollback_plan_for_loopback_playwright_spike_status": _STATUS_MISSING,
+        "rollback_plan_for_loopback_playwright_spike_status": _STATUS_SATISFACTORY,
         "signal_quality_evidence_status": _STATUS_MISSING,
         "scheduler_lifecycle_evidence_status": _STATUS_MISSING,
         "delivery_path_evidence_status": _STATUS_SATISFACTORY,
@@ -266,17 +291,17 @@ def _safe_bundle(payload: object) -> dict[str, object]:
         "alert_routing_status": _STATUS_SATISFACTORY,
         "security_review_status": _STATUS_MISSING,
         "policy_gate_tests_status": _STATUS_SATISFACTORY,
-        "rollback_plan_for_loopback_playwright_spike_status": _STATUS_MISSING,
+        "rollback_plan_for_loopback_playwright_spike_status": _STATUS_SATISFACTORY,
         "signal_quality_evidence_status": _STATUS_MISSING,
         "scheduler_lifecycle_evidence_status": _STATUS_MISSING,
         "delivery_path_evidence_status": _STATUS_SATISFACTORY,
         "monitoring_boundary_evidence_status": _STATUS_SATISFACTORY,
         "product_judgment_evidence_status": _STATUS_MISSING,
         "missing_evidence": _MISSING_EVIDENCE,
-        "missing_evidence_count": 6,
+        "missing_evidence_count": 5,
         "blocking_evidence": [],
         "blocking_evidence_count": 0,
-        "satisfactory_evidence_count": 4,
+        "satisfactory_evidence_count": 5,
         "ready_for_gate_review": False,
         "readiness_decision": _READINESS_DECISION,
         "readiness_reason": _READINESS_REASON,
