@@ -69,6 +69,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "archive-export-local" in result.stdout
     assert "archive-export-verify-local" in result.stdout
     assert "archive-delete-dry-run-local" in result.stdout
+    assert "gate-d-readiness-local" in result.stdout
     assert "scheduled-start-preview-local" in result.stdout
     assert "course-schedule-summary-local" in result.stdout
     assert "course-schedule-list-local" in result.stdout
@@ -11772,6 +11773,281 @@ def test_session_window_stop_execution_preflight_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+def test_gate_d_readiness_local_help_stays_lazy(monkeypatch) -> None:
+    readiness_module = "async_scholar.gate_d_readiness"
+    monkeypatch.delitem(sys.modules, readiness_module, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-readiness-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar gate-d-readiness-local" in result.stdout
+    assert "--mic-diagnostics-after-reboot" in result.stdout
+    assert "--rollback-plan-for-loopback-playwright-spike" in result.stdout
+    assert readiness_module not in sys.modules
+
+
+def test_gate_d_readiness_local_requires_scalar_metadata() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-readiness-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "gate d readiness could not be built\n"
+
+
+def test_gate_d_readiness_local_prints_compact_ready_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-readiness-local",
+            "--mic-diagnostics-after-reboot",
+            "satisfactory",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    expected = {
+        "readiness_kind": "gate_d_readiness",
+        "mic_diagnostics_after_reboot_status": "satisfactory",
+        "alert_routing_status": "satisfactory",
+        "security_review_status": "satisfactory",
+        "policy_gate_tests_status": "satisfactory",
+        "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
+        "ready_for_gate_review": True,
+        "decision": "ready_for_gate_review",
+        "reason": "all_required_gate_d_readiness_evidence_satisfactory",
+    }
+    expected_line = json.dumps(expected, sort_keys=True, separators=(",", ":"))
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == f"{expected_line}\n"
+    _assert_gate_d_readiness_output_is_safe(result.stdout, result.stderr)
+
+
+def test_gate_d_readiness_local_prints_blocked_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-readiness-local",
+            "--mic-diagnostics-after-reboot",
+            "missing",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert payload["decision"] == "blocked"
+    assert payload["reason"] == "required_gate_d_readiness_evidence_missing_or_blocking"
+    assert payload["ready_for_gate_review"] is False
+    _assert_gate_d_readiness_output_is_safe(result.stdout, result.stderr)
+
+
+def test_gate_d_readiness_local_sanitizes_parse_failure() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-readiness-local",
+            "--mic-diagnostics-after-reboot",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "gate d readiness could not be built\n"
+    _assert_gate_d_readiness_output_is_safe(result.stdout, result.stderr)
+
+
+def test_gate_d_readiness_local_misordered_uses_readiness_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--mic-diagnostics-after-reboot",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "gate-d-readiness-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "gate d readiness could not be built\n"
+    _assert_gate_d_readiness_output_is_safe(result.stdout, result.stderr)
+
+
+def test_gate_d_readiness_local_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, object] = {}
+    readiness_module = "async_scholar.gate_d_readiness"
+    fake_readiness_module = types.ModuleType(readiness_module)
+
+    def fake_build(
+        *,
+        mic_diagnostics_after_reboot: str,
+        alert_routing: str,
+        security_review: str,
+        policy_gate_tests: str,
+        rollback_plan_for_loopback_playwright_spike: str,
+    ) -> dict[str, object]:
+        received["mic_diagnostics_after_reboot"] = mic_diagnostics_after_reboot
+        received["alert_routing"] = alert_routing
+        received["security_review"] = security_review
+        received["policy_gate_tests"] = policy_gate_tests
+        received["rollback_plan_for_loopback_playwright_spike"] = (
+            rollback_plan_for_loopback_playwright_spike
+        )
+        return {
+            "readiness_kind": "gate_d_readiness",
+            "mic_diagnostics_after_reboot_status": "satisfactory",
+            "alert_routing_status": "satisfactory",
+            "security_review_status": "satisfactory",
+            "policy_gate_tests_status": "satisfactory",
+            "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
+            "ready_for_gate_review": True,
+            "decision": "ready_for_gate_review",
+            "reason": "all_required_gate_d_readiness_evidence_satisfactory",
+        }
+
+    fake_readiness_module.build_gate_d_readiness_report = fake_build  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, readiness_module, fake_readiness_module)
+
+    exit_code = cli.main(
+        [
+            "gate-d-readiness-local",
+            "--mic-diagnostics-after-reboot",
+            "satisfactory",
+            "--alert-routing",
+            "satisfactory",
+            "--security-review",
+            "satisfactory",
+            "--policy-gate-tests",
+            "satisfactory",
+            "--rollback-plan-for-loopback-playwright-spike",
+            "satisfactory",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert exit_code == 0
+    assert captured.err == ""
+    assert received == {
+        "mic_diagnostics_after_reboot": "satisfactory",
+        "alert_routing": "satisfactory",
+        "security_review": "satisfactory",
+        "policy_gate_tests": "satisfactory",
+        "rollback_plan_for_loopback_playwright_spike": "satisfactory",
+    }
+    assert payload["decision"] == "ready_for_gate_review"
+
+
+def test_gate_d_readiness_local_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_gate_d_readiness_local_command)
+
+    assert "build_gate_d_readiness_report" in source
+    for forbidden_fragment in (
+        "Path",
+        "open(",
+        "read_text",
+        "write_text",
+        "sqlite",
+        "jsonl",
+        "transcript",
+        "recording",
+        "ScheduledStartClock",
+        "session_window",
+        "write_stored_session_window",
+        "async_playwright",
+        "chromium",
+        "selenium",
+        "webbrowser",
+        "requests",
+        "httpx",
+        "sounddevice",
+        "faster_whisper",
+        "vad",
+        "stt",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+        "telegram",
+        "desktop",
+        "notify",
+        "delete",
+        "archive_export",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_session_window_stop_receipt_from_store_local_help_stays_lazy(
     monkeypatch,
 ) -> None:
@@ -15455,6 +15731,61 @@ def _assert_session_window_stop_execution_preflight_output_is_safe(
         assert forbidden_fragment not in combined_output
 
 
+def _assert_gate_d_readiness_output_is_safe(stdout: str, stderr: str) -> None:
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "gate d passed",
+        "product promise alpha passed",
+        "online monitoring approved",
+        "execution approved",
+        "user approval",
+        "title",
+        "meeting",
+        "meet.example",
+        "meet.google",
+        "confidential",
+        "instructor",
+        "dr.",
+        "lecture",
+        "lab",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        str(Path.home()).lower(),
+        "token",
+        "secret",
+        "auth state",
+        "auth_state",
+        "auth-profile",
+        "cookie",
+        "profile",
+        "transcript",
+        "audio",
+        "browser",
+        "session_dir",
+        "artifacts",
+        "filename",
+        "events.jsonl",
+        "alerts.log",
+        "reviewer.md",
+        "runtime.jsonl",
+        "benchmark-report.json",
+        "sqlite",
+        "checkpoint",
+        "traceback",
+        "live delivery",
+        "live-delivery",
+        "live_delivery",
+        "dispatch",
+        "notification",
+        "payload",
+        "body",
+        "target",
+        "scheduler execution",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
 def _assert_session_window_execute_output_is_safe(
     stdout: str,
     stderr: str,
@@ -16418,6 +16749,8 @@ def test_scheduled_start_preview_local_handler_does_not_execute_scheduler() -> N
 
 def test_archive_export_cli_source_does_not_call_forbidden_surfaces() -> None:
     source = Path("src/async_scholar/__main__.py").read_text(encoding="utf-8")
+    source = source.replace("loopback-playwright-spike", "loopback-spike")
+    source = source.replace("loopback_playwright_spike", "loopback_spike")
 
     for forbidden_fragment in (
         "archive_delete_confirmation",

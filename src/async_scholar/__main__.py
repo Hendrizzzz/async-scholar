@@ -15,6 +15,7 @@ _ARCHIVE_EXPORT_PREFLIGHT_CLI_ERROR = "archive export preflight could not be bui
 _ARCHIVE_EXPORT_CLI_ERROR = "archive export could not be executed"
 _ARCHIVE_EXPORT_VERIFY_CLI_ERROR = "archive export verification could not be built"
 _ARCHIVE_DELETE_DRY_RUN_CLI_ERROR = "archive delete dry run could not be built"
+_GATE_D_READINESS_CLI_ERROR = "gate d readiness could not be built"
 _SCHEDULED_START_PREVIEW_CLI_ERROR = "scheduled start preview could not be built"
 _COURSE_SCHEDULE_SAVE_CLI_ERROR = "course schedule save could not be built"
 _COURSE_SCHEDULE_SUMMARY_CLI_ERROR = "course schedule summary could not be built"
@@ -100,6 +101,7 @@ _SESSION_WINDOW_RECOVERY_REPORT_FILE_ACTION_CLI_ERROR = (
 _SESSION_WINDOW_RECOVERY_REPORT_FILE_STATUS_CLI_ERROR = (
     "stored session window recovery report file status could not be built"
 )
+_GATE_D_READINESS_STATUSES = ("satisfactory", "blocking", "missing")
 _COURSE_SCHEDULE_SAFE_SUMMARY_KEYS = ("course_id", "class_time_count")
 _STORED_SCHEDULED_START_PREVIEW_KEYS = (
     "status",
@@ -470,6 +472,17 @@ def build_parser() -> argparse.ArgumentParser:
     archive_delete_dry_run.set_defaults(
         handler=_run_archive_delete_dry_run_local_command
     )
+
+    gate_d_readiness = subparsers.add_parser(
+        "gate-d-readiness-local",
+        help="summarize Gate D readiness metadata without executing anything",
+        description=(
+            "Build a metadata-only Gate D readiness report from explicit scalar "
+            "evidence status flags."
+        ),
+    )
+    _add_gate_d_readiness_local_arguments(gate_d_readiness)
+    gate_d_readiness.set_defaults(handler=_run_gate_d_readiness_local_command)
 
     scheduled_start_preview = subparsers.add_parser(
         "scheduled-start-preview-local",
@@ -936,6 +949,23 @@ def main(argv: list[str] | None = None) -> int:
     if "archive-delete-dry-run-local" in argv:
         print(_ARCHIVE_DELETE_DRY_RUN_CLI_ERROR, file=sys.stderr)
         return 2
+    if argv[:1] == ["gate-d-readiness-local"]:
+        return _run_gate_d_readiness_local_argv(argv[1:])
+    if "gate-d-readiness-local" in argv or any(
+        arg == "--mic-diagnostics-after-reboot"
+        or arg.startswith("--mic-diagnostics-after-reboot=")
+        or arg == "--alert-routing"
+        or arg.startswith("--alert-routing=")
+        or arg == "--security-review"
+        or arg.startswith("--security-review=")
+        or arg == "--policy-gate-tests"
+        or arg.startswith("--policy-gate-tests=")
+        or arg == "--rollback-plan-for-loopback-playwright-spike"
+        or arg.startswith("--rollback-plan-for-loopback-playwright-spike=")
+        for arg in argv
+    ):
+        print(_GATE_D_READINESS_CLI_ERROR, file=sys.stderr)
+        return 2
     if argv[:1] == ["scheduled-start-preview-local"]:
         return _run_scheduled_start_preview_local_argv(argv[1:])
     if argv[:1] == ["scheduled-start-preview-from-store-local"]:
@@ -1319,6 +1349,39 @@ def _add_archive_delete_dry_run_local_arguments(
         type=Path,
         required=True,
         help="explicit root directory containing session archive directories",
+    )
+
+
+def _add_gate_d_readiness_local_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--mic-diagnostics-after-reboot",
+        required=True,
+        choices=_GATE_D_READINESS_STATUSES,
+        help="fixed scalar status for reboot-era mic diagnostic evidence",
+    )
+    parser.add_argument(
+        "--alert-routing",
+        required=True,
+        choices=_GATE_D_READINESS_STATUSES,
+        help="fixed scalar status for alert-routing readiness evidence",
+    )
+    parser.add_argument(
+        "--security-review",
+        required=True,
+        choices=_GATE_D_READINESS_STATUSES,
+        help="fixed scalar status for security review evidence",
+    )
+    parser.add_argument(
+        "--policy-gate-tests",
+        required=True,
+        choices=_GATE_D_READINESS_STATUSES,
+        help="fixed scalar status for policy gate test evidence",
+    )
+    parser.add_argument(
+        "--rollback-plan-for-loopback-playwright-spike",
+        required=True,
+        choices=_GATE_D_READINESS_STATUSES,
+        help="fixed scalar status for rollback-plan readiness evidence",
     )
 
 
@@ -2465,6 +2528,41 @@ def _run_archive_delete_dry_run_local_command(args: argparse.Namespace) -> int:
         return 1
 
     print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+def _run_gate_d_readiness_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar gate-d-readiness-local",
+        description=(
+            "Build a metadata-only Gate D readiness report from explicit scalar "
+            "evidence status flags."
+        ),
+        fixed_error_message=_GATE_D_READINESS_CLI_ERROR,
+    )
+    _add_gate_d_readiness_local_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_gate_d_readiness_local_command(args)
+
+
+def _run_gate_d_readiness_local_command(args: argparse.Namespace) -> int:
+    from async_scholar.gate_d_readiness import build_gate_d_readiness_report
+
+    try:
+        payload = build_gate_d_readiness_report(
+            mic_diagnostics_after_reboot=args.mic_diagnostics_after_reboot,
+            alert_routing=args.alert_routing,
+            security_review=args.security_review,
+            policy_gate_tests=args.policy_gate_tests,
+            rollback_plan_for_loopback_playwright_spike=(
+                args.rollback_plan_for_loopback_playwright_spike
+            ),
+        )
+    except (KeyError, TypeError, ValueError):
+        print(_GATE_D_READINESS_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
     return 0
 
 
