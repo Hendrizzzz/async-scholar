@@ -23,6 +23,69 @@ _ALERT_ROUTING_SMOKE_CLI_ERROR = "local alert routing smoke could not be built"
 _POLICY_GATE_SMOKE_CLI_ERROR = "policy gate smoke could not be built"
 _DELIVERY_PATH_SMOKE_CLI_ERROR = "delivery path smoke could not be built"
 _MONITORING_BOUNDARY_SMOKE_CLI_ERROR = "monitoring boundary smoke could not be built"
+_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR = (
+    "gate d local evidence bundle could not be built"
+)
+_GATE_D_LOCAL_EVIDENCE_BUNDLE_KEYS = (
+    "bundle_kind",
+    "mic_diagnostics_after_reboot_status",
+    "alert_routing_status",
+    "security_review_status",
+    "policy_gate_tests_status",
+    "rollback_plan_for_loopback_playwright_spike_status",
+    "signal_quality_evidence_status",
+    "scheduler_lifecycle_evidence_status",
+    "delivery_path_evidence_status",
+    "monitoring_boundary_evidence_status",
+    "product_judgment_evidence_status",
+    "missing_evidence",
+    "missing_evidence_count",
+    "blocking_evidence",
+    "blocking_evidence_count",
+    "satisfactory_evidence_count",
+    "ready_for_gate_review",
+    "readiness_decision",
+    "readiness_reason",
+    "gap_decision",
+    "gap_reason",
+    "live_delivery_performed",
+    "real_online_monitoring_performed",
+    "browser_automation_performed",
+    "audio_capture_performed",
+    "scheduler_execution_performed",
+    "gate_d_pass_claimed",
+    "product_promise_alpha_pass_claimed",
+)
+_GATE_D_LOCAL_EVIDENCE_BUNDLE_STATUSES = {
+    "mic_diagnostics_after_reboot_status": "missing",
+    "alert_routing_status": "satisfactory",
+    "security_review_status": "missing",
+    "policy_gate_tests_status": "satisfactory",
+    "rollback_plan_for_loopback_playwright_spike_status": "missing",
+    "signal_quality_evidence_status": "missing",
+    "scheduler_lifecycle_evidence_status": "missing",
+    "delivery_path_evidence_status": "satisfactory",
+    "monitoring_boundary_evidence_status": "satisfactory",
+    "product_judgment_evidence_status": "missing",
+}
+_GATE_D_LOCAL_EVIDENCE_BUNDLE_MISSING = [
+    "mic_diagnostics_after_reboot",
+    "security_review",
+    "rollback_plan_for_loopback_playwright_spike",
+    "signal_quality_evidence",
+    "scheduler_lifecycle_evidence",
+    "product_judgment_evidence",
+]
+_GATE_D_LOCAL_EVIDENCE_BUNDLE_FALSE_FLAGS = (
+    "ready_for_gate_review",
+    "live_delivery_performed",
+    "real_online_monitoring_performed",
+    "browser_automation_performed",
+    "audio_capture_performed",
+    "scheduler_execution_performed",
+    "gate_d_pass_claimed",
+    "product_promise_alpha_pass_claimed",
+)
 _SESSION_WINDOW_LIFECYCLE_SMOKE_CLI_ERROR = (
     "session window lifecycle smoke could not be built"
 )
@@ -551,6 +614,18 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_monitoring_boundary_smoke_local_command
     )
 
+    gate_d_local_evidence_bundle = subparsers.add_parser(
+        "gate-d-local-evidence-bundle",
+        help="summarize local Gate D smoke evidence",
+        description=(
+            "Build a metadata-only local Gate D smoke evidence bundle from "
+            "fixed synthetic checks."
+        ),
+    )
+    gate_d_local_evidence_bundle.set_defaults(
+        handler=_run_gate_d_local_evidence_bundle_command
+    )
+
     session_window_lifecycle_smoke = subparsers.add_parser(
         "session-window-lifecycle-smoke-local",
         help="run a local session-window lifecycle smoke",
@@ -1073,6 +1148,11 @@ def main(argv: list[str] | None = None) -> int:
         return _run_monitoring_boundary_smoke_local_argv(argv[1:])
     if "monitoring-boundary-smoke-local" in argv:
         print(_MONITORING_BOUNDARY_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["gate-d-local-evidence-bundle"]:
+        return _run_gate_d_local_evidence_bundle_argv(argv[1:])
+    if "gate-d-local-evidence-bundle" in argv:
+        print(_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR, file=sys.stderr)
         return 2
     if argv[:1] == ["session-window-lifecycle-smoke-local"]:
         return _run_session_window_lifecycle_smoke_local_argv(argv[1:])
@@ -2979,6 +3059,66 @@ def _run_monitoring_boundary_smoke_local_command(args: argparse.Namespace) -> in
 
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
     return 0
+
+
+def _run_gate_d_local_evidence_bundle_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar gate-d-local-evidence-bundle",
+        description=(
+            "Build a metadata-only local Gate D smoke evidence bundle from "
+            "fixed synthetic checks."
+        ),
+        fixed_error_message=_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR,
+    )
+    args = parser.parse_args(argv)
+    return _run_gate_d_local_evidence_bundle_command(args)
+
+
+def _run_gate_d_local_evidence_bundle_command(args: argparse.Namespace) -> int:
+    try:
+        from async_scholar.gate_d_local_evidence_bundle import (
+            build_local_gate_d_smoke_evidence_bundle,
+        )
+
+        payload = build_local_gate_d_smoke_evidence_bundle()
+        output = _gate_d_local_evidence_bundle_json(payload)
+    except (ImportError, KeyError, RuntimeError, TypeError, ValueError):
+        print(_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(output)
+    return 0
+
+
+def _gate_d_local_evidence_bundle_json(payload: object) -> str:
+    if (
+        type(payload) is not dict
+        or tuple(payload) != _GATE_D_LOCAL_EVIDENCE_BUNDLE_KEYS
+    ):
+        raise ValueError(_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR)
+    if payload["bundle_kind"] != "local_gate_d_smoke_evidence_bundle":
+        raise ValueError(_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR)
+    for key, expected in _GATE_D_LOCAL_EVIDENCE_BUNDLE_STATUSES.items():
+        if payload[key] != expected:
+            raise ValueError(_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR)
+    if (
+        payload["missing_evidence"] != _GATE_D_LOCAL_EVIDENCE_BUNDLE_MISSING
+        or payload["missing_evidence_count"] != 6
+        or payload["blocking_evidence"] != []
+        or payload["blocking_evidence_count"] != 0
+        or payload["satisfactory_evidence_count"] != 4
+        or payload["readiness_decision"] != "blocked"
+        or payload["readiness_reason"]
+        != "required_gate_d_readiness_evidence_missing_or_blocking"
+        or payload["gap_decision"] != "gaps_present"
+        or payload["gap_reason"] != "required_gate_d_evidence_gaps_present"
+    ):
+        raise ValueError(_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR)
+    if any(
+        payload[flag] is not False for flag in _GATE_D_LOCAL_EVIDENCE_BUNDLE_FALSE_FLAGS
+    ):
+        raise ValueError(_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
 def _run_session_window_lifecycle_smoke_local_argv(argv: list[str]) -> int:
