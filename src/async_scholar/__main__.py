@@ -21,6 +21,7 @@ _GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR = (
 )
 _ALERT_ROUTING_SMOKE_CLI_ERROR = "local alert routing smoke could not be built"
 _POLICY_GATE_SMOKE_CLI_ERROR = "policy gate smoke could not be built"
+_DELIVERY_PATH_SMOKE_CLI_ERROR = "delivery path smoke could not be built"
 _SESSION_WINDOW_LIFECYCLE_SMOKE_CLI_ERROR = (
     "session window lifecycle smoke could not be built"
 )
@@ -526,6 +527,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     policy_gate_smoke.set_defaults(handler=_run_policy_gate_smoke_local_command)
+
+    delivery_path_smoke = subparsers.add_parser(
+        "delivery-path-smoke-local",
+        help="summarize local delivery-path smoke evidence",
+        description=(
+            "Build a metadata-only local delivery-path smoke summary from fixed "
+            "synthetic checks."
+        ),
+    )
+    delivery_path_smoke.set_defaults(handler=_run_delivery_path_smoke_local_command)
 
     session_window_lifecycle_smoke = subparsers.add_parser(
         "session-window-lifecycle-smoke-local",
@@ -1039,6 +1050,11 @@ def main(argv: list[str] | None = None) -> int:
         return _run_policy_gate_smoke_local_argv(argv[1:])
     if "policy-gate-smoke-local" in argv:
         print(_POLICY_GATE_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["delivery-path-smoke-local"]:
+        return _run_delivery_path_smoke_local_argv(argv[1:])
+    if "delivery-path-smoke-local" in argv:
+        print(_DELIVERY_PATH_SMOKE_CLI_ERROR, file=sys.stderr)
         return 2
     if argv[:1] == ["session-window-lifecycle-smoke-local"]:
         return _run_session_window_lifecycle_smoke_local_argv(argv[1:])
@@ -2887,6 +2903,32 @@ def _run_policy_gate_smoke_local_command(args: argparse.Namespace) -> int:
         payload = build_local_policy_gate_smoke()
     except (KeyError, RuntimeError, TypeError, ValueError):
         print(_POLICY_GATE_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_delivery_path_smoke_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar delivery-path-smoke-local",
+        description=(
+            "Build a metadata-only local delivery-path smoke summary from fixed "
+            "synthetic checks."
+        ),
+        fixed_error_message=_DELIVERY_PATH_SMOKE_CLI_ERROR,
+    )
+    args = parser.parse_args(argv)
+    return _run_delivery_path_smoke_local_command(args)
+
+
+def _run_delivery_path_smoke_local_command(args: argparse.Namespace) -> int:
+    try:
+        from async_scholar.delivery_path_smoke import build_local_delivery_path_smoke
+
+        payload = build_local_delivery_path_smoke()
+    except (ImportError, KeyError, RuntimeError, TypeError, ValueError):
+        print(_DELIVERY_PATH_SMOKE_CLI_ERROR, file=sys.stderr)
         return 1
 
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))

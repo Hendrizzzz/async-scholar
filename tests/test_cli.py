@@ -74,6 +74,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "gate-d-evidence-gaps-local" in result.stdout
     assert "alert-routing-smoke-local" in result.stdout
     assert "policy-gate-smoke-local" in result.stdout
+    assert "delivery-path-smoke-local" in result.stdout
     assert "session-window-lifecycle-smoke-local" in result.stdout
     assert "scheduled-start-preview-local" in result.stdout
     assert "course-schedule-summary-local" in result.stdout
@@ -13792,6 +13793,264 @@ def test_policy_gate_smoke_local_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+def test_delivery_path_smoke_local_help_stays_lazy(monkeypatch) -> None:
+    module_name = "async_scholar.delivery_path_smoke"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "delivery-path-smoke-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar delivery-path-smoke-local" in result.stdout
+    assert module_name not in sys.modules
+
+
+def test_delivery_path_smoke_local_prints_compact_json() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "async_scholar", "delivery-path-smoke-local"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == (
+        '{"delivery_path_evidence_status":"satisfactory",'
+        '"desktop_path_status":"sent",'
+        '"gate_d_pass_claimed":false,'
+        '"live_delivery_performed":false,'
+        '"network_performed":false,'
+        '"product_promise_alpha_pass_claimed":false,'
+        '"smoke_kind":"local_delivery_path",'
+        '"subprocess_performed":false,'
+        '"telegram_path_status":"sent"}\n'
+    )
+    _assert_delivery_path_smoke_output_is_safe(result.stdout, result.stderr)
+
+
+def test_delivery_path_smoke_local_rejects_extra_arguments_safely() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "delivery-path-smoke-local",
+            "C:\\Users\\student\\token-secret-auth-profile",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "delivery path smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_delivery_path_smoke_local_misordered_uses_smoke_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--private-path",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "delivery-path-smoke-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "delivery path smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_delivery_path_smoke_local_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, bool] = {}
+    module_name = "async_scholar.delivery_path_smoke"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_delivery_path_smoke() -> dict[str, object]:
+        received["called"] = True
+        return {
+            "delivery_path_evidence_status": "satisfactory",
+            "desktop_path_status": "sent",
+            "gate_d_pass_claimed": False,
+            "live_delivery_performed": False,
+            "network_performed": False,
+            "product_promise_alpha_pass_claimed": False,
+            "smoke_kind": "local_delivery_path",
+            "subprocess_performed": False,
+            "telegram_path_status": "sent",
+        }
+
+    fake_module.build_local_delivery_path_smoke = fake_build_local_delivery_path_smoke
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["delivery-path-smoke-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert received == {"called": True}
+    assert captured.err == ""
+    assert json.loads(captured.out) == {
+        "delivery_path_evidence_status": "satisfactory",
+        "desktop_path_status": "sent",
+        "gate_d_pass_claimed": False,
+        "live_delivery_performed": False,
+        "network_performed": False,
+        "product_promise_alpha_pass_claimed": False,
+        "smoke_kind": "local_delivery_path",
+        "subprocess_performed": False,
+        "telegram_path_status": "sent",
+    }
+
+
+def test_delivery_path_smoke_local_sanitizes_helper_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.delivery_path_smoke"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_delivery_path_smoke() -> dict[str, object]:
+        raise RuntimeError("C:\\Users\\student\\.env BOT_TOKEN=secret traceback")
+
+    fake_module.build_local_delivery_path_smoke = fake_build_local_delivery_path_smoke
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["delivery-path-smoke-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "delivery path smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        ".env",
+        "BOT_TOKEN",
+        "secret",
+        "traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_delivery_path_smoke_local_sanitizes_import_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "async_scholar.delivery_path_smoke":
+            raise ImportError(
+                "C:\\Users\\student\\.env BOT_TOKEN=secret import traceback"
+            )
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    exit_code = cli.main(["delivery-path-smoke-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "delivery path smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        ".env",
+        "BOT_TOKEN",
+        "secret",
+        "traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_delivery_path_smoke_local_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_delivery_path_smoke_local_command)
+
+    assert "build_local_delivery_path_smoke" in source
+    assert "ImportError" in source
+    assert "except" in source
+    for forbidden_fragment in (
+        "dispatch_desktop_notification",
+        "dispatch_telegram_alert_notification",
+        "build_alert_notification_payload",
+        "dispatch_alert",
+        "subprocess",
+        "powershell",
+        "requests",
+        "httpx",
+        "urllib",
+        "socket",
+        "playwright",
+        "selenium",
+        "webbrowser",
+        "sounddevice",
+        "faster_whisper",
+        "vad",
+        "stt",
+        "loopback",
+        "meeting",
+        "browser",
+        "profile",
+        "cookie",
+        "open(",
+        "read_text",
+        "write_text",
+        "mkdir",
+        "unlink",
+        "remove",
+        "rmdir",
+        "rmtree",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_session_window_lifecycle_smoke_local_help_stays_lazy(monkeypatch) -> None:
     module_name = "async_scholar.session_window_lifecycle_smoke"
     monkeypatch.delitem(sys.modules, module_name, raising=False)
@@ -18494,6 +18753,69 @@ def _assert_policy_gate_smoke_output_is_safe(stdout: str, stderr: str) -> None:
         "playwright",
         "loopback",
         "scheduler execution",
+        "gate d passed",
+        "product promise alpha passed",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_delivery_path_smoke_output_is_safe(stdout: str, stderr: str) -> None:
+    payload = json.loads(stdout)
+    assert payload["live_delivery_performed"] is False
+    assert payload["network_performed"] is False
+    assert payload["subprocess_performed"] is False
+    assert payload["gate_d_pass_claimed"] is False
+    assert payload["product_promise_alpha_pass_claimed"] is False
+    assert set(payload) == {
+        "smoke_kind",
+        "desktop_path_status",
+        "telegram_path_status",
+        "delivery_path_evidence_status",
+        "live_delivery_performed",
+        "network_performed",
+        "subprocess_performed",
+        "gate_d_pass_claimed",
+        "product_promise_alpha_pass_claimed",
+    }
+
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "title",
+        "body",
+        "provider",
+        "http_status",
+        "message",
+        "request",
+        "url",
+        "command",
+        "event_id",
+        "session_id",
+        "source_segment",
+        "course_id",
+        "meeting",
+        "meet.example",
+        "google",
+        "http://",
+        "https://",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        ".env",
+        "token",
+        "secret",
+        "chat",
+        "cookie",
+        "browser",
+        "profile",
+        "transcript",
+        "audio",
+        "camera",
+        "raw",
+        "exception",
+        "traceback",
+        "powershell",
+        "playwright",
+        "loopback",
         "gate d passed",
         "product promise alpha passed",
     ):
