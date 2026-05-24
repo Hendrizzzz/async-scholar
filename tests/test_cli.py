@@ -72,6 +72,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "gate-d-readiness-local" in result.stdout
     assert "gate-d-evidence-gaps-local" in result.stdout
     assert "alert-routing-smoke-local" in result.stdout
+    assert "policy-gate-smoke-local" in result.stdout
     assert "scheduled-start-preview-local" in result.stdout
     assert "course-schedule-summary-local" in result.stdout
     assert "course-schedule-list-local" in result.stdout
@@ -13211,6 +13212,245 @@ def test_alert_routing_smoke_local_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+def test_policy_gate_smoke_local_help_stays_lazy(monkeypatch) -> None:
+    module_name = "async_scholar.policy_gate_smoke"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "policy-gate-smoke-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar policy-gate-smoke-local" in result.stdout
+    assert module_name not in sys.modules
+
+
+def test_policy_gate_smoke_local_prints_compact_json() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "async_scholar", "policy-gate-smoke-local"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == (
+        '{"academic_answer_generated":false,'
+        '"alert_requires_confirmation":true,'
+        '"declined_confirmation_blocks_authorization":true,'
+        '"gate_d_pass_claimed":false,'
+        '"live_delivery_performed":false,'
+        '"malformed_authorization_rejected":true,'
+        '"malformed_confirmation_rejected":true,'
+        '"participation_action_performed":false,'
+        '"policy_gate_tests_status":"satisfactory",'
+        '"product_promise_alpha_pass_claimed":false,'
+        '"smoke_kind":"local_policy_gate",'
+        '"start_authorization_status":"blocked",'
+        '"start_block_reason":"confirmation_declined"}\n'
+    )
+    _assert_policy_gate_smoke_output_is_safe(result.stdout, result.stderr)
+
+
+def test_policy_gate_smoke_local_rejects_extra_arguments_safely() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "policy-gate-smoke-local",
+            "C:\\Users\\student\\token-secret-auth-profile",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "policy gate smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_policy_gate_smoke_local_misordered_uses_smoke_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--private-path",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "policy-gate-smoke-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "policy gate smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_policy_gate_smoke_local_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, bool] = {}
+    module_name = "async_scholar.policy_gate_smoke"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_policy_gate_smoke() -> dict[str, object]:
+        received["called"] = True
+        return {
+            "academic_answer_generated": False,
+            "alert_requires_confirmation": True,
+            "declined_confirmation_blocks_authorization": True,
+            "gate_d_pass_claimed": False,
+            "live_delivery_performed": False,
+            "malformed_authorization_rejected": True,
+            "malformed_confirmation_rejected": True,
+            "participation_action_performed": False,
+            "policy_gate_tests_status": "satisfactory",
+            "product_promise_alpha_pass_claimed": False,
+            "smoke_kind": "local_policy_gate",
+            "start_authorization_status": "blocked",
+            "start_block_reason": "confirmation_declined",
+        }
+
+    fake_module.build_local_policy_gate_smoke = fake_build_local_policy_gate_smoke
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["policy-gate-smoke-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert received == {"called": True}
+    assert captured.err == ""
+    assert json.loads(captured.out) == {
+        "academic_answer_generated": False,
+        "alert_requires_confirmation": True,
+        "declined_confirmation_blocks_authorization": True,
+        "gate_d_pass_claimed": False,
+        "live_delivery_performed": False,
+        "malformed_authorization_rejected": True,
+        "malformed_confirmation_rejected": True,
+        "participation_action_performed": False,
+        "policy_gate_tests_status": "satisfactory",
+        "product_promise_alpha_pass_claimed": False,
+        "smoke_kind": "local_policy_gate",
+        "start_authorization_status": "blocked",
+        "start_block_reason": "confirmation_declined",
+    }
+
+
+def test_policy_gate_smoke_local_sanitizes_helper_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.policy_gate_smoke"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_policy_gate_smoke() -> dict[str, object]:
+        raise RuntimeError("C:\\Users\\student\\.env BOT_TOKEN=secret traceback")
+
+    fake_module.build_local_policy_gate_smoke = fake_build_local_policy_gate_smoke
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["policy-gate-smoke-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "policy gate smoke could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        ".env",
+        "BOT_TOKEN",
+        "secret",
+        "traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_policy_gate_smoke_local_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_policy_gate_smoke_local_command)
+
+    assert "build_local_policy_gate_smoke" in source
+    for forbidden_fragment in (
+        "build_alert_notification_payload",
+        "build_session_window_confirmation_response_summary",
+        "build_session_window_start_authorization_summary",
+        "session_window_start_authorization_safe_summary",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "subprocess",
+        "powershell",
+        "requests",
+        "httpx",
+        "urllib",
+        "socket",
+        "playwright",
+        "selenium",
+        "webbrowser",
+        "sounddevice",
+        "faster_whisper",
+        "vad",
+        "stt",
+        "loopback",
+        "meeting",
+        "browser",
+        "profile",
+        "cookie",
+        "open(",
+        "read_text",
+        "write_text",
+        "mkdir",
+        "unlink",
+        "remove",
+        "rmdir",
+        "rmtree",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+    ):
+        assert forbidden_fragment not in source
+
+
 def test_session_window_stop_receipt_from_store_local_help_stays_lazy(
     monkeypatch,
 ) -> None:
@@ -17502,6 +17742,58 @@ def _assert_alert_routing_smoke_output_is_safe(stdout: str, stderr: str) -> None
         "gate d passed",
         "product promise alpha passed",
         "academic answer",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_policy_gate_smoke_output_is_safe(stdout: str, stderr: str) -> None:
+    payload = json.loads(stdout)
+    assert payload["participation_action_performed"] is False
+    assert payload["academic_answer_generated"] is False
+    assert payload["live_delivery_performed"] is False
+    assert payload["gate_d_pass_claimed"] is False
+    assert payload["product_promise_alpha_pass_claimed"] is False
+
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "title",
+        "body",
+        "message",
+        "event_id",
+        "session_id",
+        "source_segment",
+        "course_id",
+        "courses",
+        "meeting",
+        "meet.example",
+        "google",
+        "http://",
+        "https://",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        ".env",
+        "token",
+        "secret",
+        "cookie",
+        "browser",
+        "profile",
+        "transcript",
+        "audio",
+        "camera",
+        "raw",
+        "exception",
+        "traceback",
+        "telegram",
+        "desktop",
+        "notify",
+        "subprocess",
+        "powershell",
+        "playwright",
+        "loopback",
+        "scheduler execution",
+        "gate d passed",
+        "product promise alpha passed",
     ):
         assert forbidden_fragment not in combined_output
 

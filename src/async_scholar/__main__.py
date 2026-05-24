@@ -20,6 +20,7 @@ _GATE_D_EVIDENCE_GAP_SUMMARY_CLI_ERROR = (
     "gate d evidence gap summary could not be built"
 )
 _ALERT_ROUTING_SMOKE_CLI_ERROR = "local alert routing smoke could not be built"
+_POLICY_GATE_SMOKE_CLI_ERROR = "policy gate smoke could not be built"
 _SCHEDULED_START_PREVIEW_CLI_ERROR = "scheduled start preview could not be built"
 _COURSE_SCHEDULE_SAVE_CLI_ERROR = "course schedule save could not be built"
 _COURSE_SCHEDULE_SUMMARY_CLI_ERROR = "course schedule summary could not be built"
@@ -512,6 +513,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_alert_routing_smoke_local_arguments(alert_routing_smoke)
     alert_routing_smoke.set_defaults(handler=_run_alert_routing_smoke_local_command)
+
+    policy_gate_smoke = subparsers.add_parser(
+        "policy-gate-smoke-local",
+        help="summarize local policy-gate smoke evidence",
+        description=(
+            "Build a metadata-only local policy-gate smoke summary from fixed "
+            "synthetic checks."
+        ),
+    )
+    policy_gate_smoke.set_defaults(handler=_run_policy_gate_smoke_local_command)
 
     scheduled_start_preview = subparsers.add_parser(
         "scheduled-start-preview-local",
@@ -1007,6 +1018,11 @@ def main(argv: list[str] | None = None) -> int:
         arg == "--event-type" or arg.startswith("--event-type=") for arg in argv
     ):
         print(_ALERT_ROUTING_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["policy-gate-smoke-local"]:
+        return _run_policy_gate_smoke_local_argv(argv[1:])
+    if "policy-gate-smoke-local" in argv:
+        print(_POLICY_GATE_SMOKE_CLI_ERROR, file=sys.stderr)
         return 2
     if "gate-d-readiness-local" in argv or any(
         arg == "--mic-diagnostics-after-reboot"
@@ -2752,6 +2768,32 @@ def _run_alert_routing_smoke_local_command(args: argparse.Namespace) -> int:
         )
     except (KeyError, RuntimeError, TypeError, ValueError):
         print(_ALERT_ROUTING_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_policy_gate_smoke_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar policy-gate-smoke-local",
+        description=(
+            "Build a metadata-only local policy-gate smoke summary from fixed "
+            "synthetic checks."
+        ),
+        fixed_error_message=_POLICY_GATE_SMOKE_CLI_ERROR,
+    )
+    args = parser.parse_args(argv)
+    return _run_policy_gate_smoke_local_command(args)
+
+
+def _run_policy_gate_smoke_local_command(args: argparse.Namespace) -> int:
+    from async_scholar.policy_gate_smoke import build_local_policy_gate_smoke
+
+    try:
+        payload = build_local_policy_gate_smoke()
+    except (KeyError, RuntimeError, TypeError, ValueError):
+        print(_POLICY_GATE_SMOKE_CLI_ERROR, file=sys.stderr)
         return 1
 
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
