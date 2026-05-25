@@ -22,19 +22,18 @@ EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE = {
     "security_review_status": "satisfactory",
     "policy_gate_tests_status": "satisfactory",
     "rollback_plan_for_loopback_playwright_spike_status": "satisfactory",
-    "signal_quality_evidence_status": "missing",
+    "signal_quality_evidence_status": "satisfactory",
     "scheduler_lifecycle_evidence_status": "satisfactory",
     "delivery_path_evidence_status": "satisfactory",
     "monitoring_boundary_evidence_status": "satisfactory",
     "product_judgment_evidence_status": "missing",
     "missing_evidence": [
-        "signal_quality_evidence",
         "product_judgment_evidence",
     ],
-    "missing_evidence_count": 2,
+    "missing_evidence_count": 1,
     "blocking_evidence": [],
     "blocking_evidence_count": 0,
-    "satisfactory_evidence_count": 8,
+    "satisfactory_evidence_count": 9,
     "ready_for_gate_review": False,
     "readiness_decision": "blocked",
     "readiness_reason": "required_gate_d_readiness_evidence_missing_or_blocking",
@@ -90,6 +89,11 @@ def test_local_gate_d_bundle_omits_raw_helper_payloads() -> None:
         "privacy_boundary_review_status",
         "explicit_invocation_boundary_status",
         "recorded_scalar_post_reboot_evidence_status",
+        "ticket_126_public_open_evidence_status",
+        "public_open_sample_rate_hz",
+        "public_open_vad_segment_count",
+        "public_open_stt_segment_count",
+        "artifact_presence_checks_passed",
         "auth_profile_accessed",
         "device_name_exposed",
         "sqlite_accessed",
@@ -116,6 +120,7 @@ def test_local_gate_d_smoke_evidence_bundle_derives_statuses_from_nested_smokes(
         "delivery_called": True,
         "monitoring_called": True,
         "mic_after_reboot_called": True,
+        "signal_quality_called": True,
         "rollback_plan_called": True,
         "security_review_called": True,
         "scheduler_lifecycle_called": True,
@@ -144,16 +149,15 @@ def test_local_gate_d_bundle_maps_missing_and_satisfactory_categories() -> None:
         "security_review_status",
         "policy_gate_tests_status",
         "rollback_plan_for_loopback_playwright_spike_status",
+        "signal_quality_evidence_status",
         "scheduler_lifecycle_evidence_status",
         "delivery_path_evidence_status",
         "monitoring_boundary_evidence_status",
     ]
     assert missing_statuses == [
-        "signal_quality_evidence_status",
         "product_judgment_evidence_status",
     ]
     assert payload["missing_evidence"] == [
-        "signal_quality_evidence",
         "product_judgment_evidence",
     ]
     assert payload["blocking_evidence"] == []
@@ -171,9 +175,9 @@ def test_local_gate_d_smoke_evidence_bundle_reports_blocked_readiness_and_gaps()
     )
     assert payload["gap_decision"] == "gaps_present"
     assert payload["gap_reason"] == "required_gate_d_evidence_gaps_present"
-    assert payload["missing_evidence_count"] == 2
+    assert payload["missing_evidence_count"] == 1
     assert payload["blocking_evidence_count"] == 0
-    assert payload["satisfactory_evidence_count"] == 8
+    assert payload["satisfactory_evidence_count"] == 9
 
 
 def test_local_gate_d_smoke_evidence_bundle_sanitizes_helper_failures(
@@ -284,6 +288,7 @@ def test_local_gate_d_smoke_evidence_bundle_source_guards_forbidden_surfaces() -
     assert "build_local_delivery_path_smoke" in source
     assert "build_local_monitoring_boundary_smoke" in source
     assert "build_local_gate_d_mic_diagnostics_after_reboot_evidence" in source
+    assert "build_local_gate_d_signal_quality_evidence" in source
     assert "build_local_gate_d_rollback_plan_evidence" in source
     assert "build_local_gate_d_security_review_evidence" in source
     assert "build_local_gate_d_scheduler_lifecycle_evidence" in source
@@ -320,7 +325,7 @@ def test_local_gate_d_smoke_evidence_bundle_source_guards_forbidden_surfaces() -
         "webbrowser",
         "sounddevice",
         "faster_whisper",
-        "microphone",
+        "microphone(",
         "cookie_jar",
         "cookie_file",
         "profile_dir",
@@ -463,6 +468,63 @@ def _install_fake_modules(
     )
     modules["async_scholar.gate_d_mic_diagnostics_after_reboot_evidence"] = mic_module
 
+    signal_module = types.ModuleType("async_scholar.gate_d_signal_quality_evidence")
+
+    def fake_build_local_gate_d_signal_quality_evidence() -> dict[str, object]:
+        seen["signal_quality_called"] = True
+        return {
+            "academic_answer_behavior_performed": False,
+            "artifact_created": False,
+            "artifact_presence_checks_passed": True,
+            "artifact_read": False,
+            "audio_capture_performed": False,
+            "auth_profile_accessed": False,
+            "autonomous_participation_performed": False,
+            "browser_automation_performed": False,
+            "cleanup_or_deletion_performed": False,
+            "cookie_accessed": False,
+            "dependency_change_performed": False,
+            "download_performed": False,
+            "evidence_kind": "local_gate_d_public_open_signal_quality_evidence",
+            "export_performed": False,
+            "file_io_performed": False,
+            "gate_d_pass_claimed": False,
+            "hardware_or_device_enumeration_performed": False,
+            "live_alert_delivery_claimed": False,
+            "live_delivery_performed": False,
+            "local_microphone_quality_claimed": False,
+            "metadata_only_evidence_status": "documented",
+            "model_loaded": False,
+            "network_performed": False,
+            "no_live_delivery_claim_status": "documented",
+            "no_local_microphone_quality_claim_status": "documented",
+            "no_real_online_monitoring_claim_status": "documented",
+            "no_transcript_usefulness_claim_status": "documented",
+            "private_data_read": False,
+            "product_promise_alpha_pass_claimed": False,
+            "public_open_duration_seconds": 68.370375,
+            "public_open_elapsed_seconds": 4.515231,
+            "public_open_evidence_status": "documented",
+            "public_open_real_time_factor": 0.066041,
+            "public_open_sample_rate_hz": 16000,
+            "public_open_stt_segment_count": 16,
+            "public_open_vad_segment_count": 32,
+            "real_online_monitoring_claimed": False,
+            "recording_performed": False,
+            "scheduler_execution_performed": False,
+            "signal_quality_evidence_status": "satisfactory",
+            "stt_execution_performed": False,
+            "subprocess_performed": False,
+            "ticket_126_public_open_evidence_status": "documented",
+            "transcript_usefulness_claimed": False,
+            "vad_execution_performed": False,
+        }
+
+    signal_module.build_local_gate_d_signal_quality_evidence = (
+        fake_build_local_gate_d_signal_quality_evidence
+    )
+    modules["async_scholar.gate_d_signal_quality_evidence"] = signal_module
+
     rollback_module = types.ModuleType("async_scholar.gate_d_rollback_plan_evidence")
 
     def fake_build_local_gate_d_rollback_plan_evidence() -> dict[str, object]:
@@ -586,7 +648,7 @@ def _fixed_status_inputs() -> dict[str, object]:
         "security_review": "satisfactory",
         "policy_gate_tests": "satisfactory",
         "rollback_plan_for_loopback_playwright_spike": "satisfactory",
-        "signal_quality_evidence": "missing",
+        "signal_quality_evidence": "satisfactory",
         "scheduler_lifecycle_evidence": "satisfactory",
         "delivery_path_evidence": "satisfactory",
         "monitoring_boundary_evidence": "satisfactory",
@@ -631,10 +693,10 @@ def _expected_gap_summary(statuses: dict[str, object]) -> dict[str, object]:
         "monitoring_boundary_evidence_status": statuses["monitoring_boundary_evidence"],
         "product_judgment_evidence_status": statuses["product_judgment_evidence"],
         "missing_evidence": EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE["missing_evidence"],
-        "missing_evidence_count": 2,
+        "missing_evidence_count": 1,
         "blocking_evidence": [],
         "blocking_evidence_count": 0,
-        "satisfactory_evidence_count": 8,
+        "satisfactory_evidence_count": 9,
         "decision": "gaps_present",
         "reason": "required_gate_d_evidence_gaps_present",
     }
