@@ -163,6 +163,11 @@ local metadata blocker and does not replace, record, or prove human product
 judgment; it is not product judgment evidence, a Gate D pass, or a Product
 Promise Alpha pass.
 
+For personal Gate D human demo inspection, use
+`docs/public/gate-d-human-demo-inspection-runbook.md`. The runbook keeps the review
+blocked on `product_judgment_evidence` until a fresh human product judgment is
+recorded.
+
 Show read-only crash recovery preflight metadata for one explicit local session root:
 
 ```powershell
