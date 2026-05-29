@@ -459,6 +459,101 @@ _GATE_D_PRODUCT_JUDGMENT_PACKET_FALSE_FLAGS = (
     "autonomous_participation_performed",
     "academic_answer_behavior_performed",
 )
+_GATE_D_HANDOFF_PACKET_CLI_ERROR = "gate d handoff packet could not be built"
+_GATE_D_HANDOFF_PACKET_KEYS = (
+    "packet_kind",
+    "handoff_packet_status",
+    "handoff_packet_scope_status",
+    "local_gate_d_bundle_status",
+    "product_judgment_packet_status",
+    "manual_product_judgment_required",
+    "manual_product_judgment_recorded",
+    "review_requires_human_product_judgment",
+    "review_can_be_completed_by_ai",
+    "ready_for_gate_review",
+    "readiness_decision",
+    "readiness_reason",
+    "gap_decision",
+    "gap_reason",
+    "missing_evidence",
+    "missing_evidence_count",
+    "blocking_evidence",
+    "blocking_evidence_count",
+    "satisfactory_evidence_count",
+    "product_judgment_evidence_status",
+    "gate_d_pass_claimed",
+    "product_promise_alpha_pass_claimed",
+    "real_online_monitoring_performed",
+    "browser_automation_performed",
+    "auth_profile_accessed",
+    "cookie_accessed",
+    "private_data_read",
+    "audio_capture_performed",
+    "recording_performed",
+    "vad_execution_performed",
+    "stt_execution_performed",
+    "model_loaded",
+    "scheduler_execution_performed",
+    "live_delivery_performed",
+    "cleanup_or_deletion_performed",
+    "export_performed",
+    "dependency_change_performed",
+    "online_monitoring_approved",
+    "transcript_usefulness_claimed",
+    "local_microphone_quality_claimed",
+    "live_alert_delivery_claimed",
+    "browser_readiness_claimed",
+    "scheduler_execution_claimed",
+    "participation_approval_claimed",
+    "autonomous_participation_performed",
+    "academic_answer_behavior_performed",
+)
+_GATE_D_HANDOFF_PACKET_STATUSES = {
+    "handoff_packet_status": "ready_for_manual_review",
+    "handoff_packet_scope_status": "metadata_only",
+    "local_gate_d_bundle_status": "blocked",
+    "product_judgment_packet_status": "ready_for_manual_review",
+    "readiness_decision": "blocked",
+    "readiness_reason": "required_gate_d_readiness_evidence_missing_or_blocking",
+    "gap_decision": "gaps_present",
+    "gap_reason": "required_gate_d_evidence_gaps_present",
+    "product_judgment_evidence_status": "blocking",
+}
+_GATE_D_HANDOFF_PACKET_TRUE_FLAGS = (
+    "manual_product_judgment_required",
+    "review_requires_human_product_judgment",
+)
+_GATE_D_HANDOFF_PACKET_FALSE_FLAGS = (
+    "manual_product_judgment_recorded",
+    "review_can_be_completed_by_ai",
+    "ready_for_gate_review",
+    "gate_d_pass_claimed",
+    "product_promise_alpha_pass_claimed",
+    "real_online_monitoring_performed",
+    "browser_automation_performed",
+    "auth_profile_accessed",
+    "cookie_accessed",
+    "private_data_read",
+    "audio_capture_performed",
+    "recording_performed",
+    "vad_execution_performed",
+    "stt_execution_performed",
+    "model_loaded",
+    "scheduler_execution_performed",
+    "live_delivery_performed",
+    "cleanup_or_deletion_performed",
+    "export_performed",
+    "dependency_change_performed",
+    "online_monitoring_approved",
+    "transcript_usefulness_claimed",
+    "local_microphone_quality_claimed",
+    "live_alert_delivery_claimed",
+    "browser_readiness_claimed",
+    "scheduler_execution_claimed",
+    "participation_approval_claimed",
+    "autonomous_participation_performed",
+    "academic_answer_behavior_performed",
+)
 _GATE_D_SCHEDULER_LIFECYCLE_EVIDENCE_CLI_ERROR = (
     "gate d scheduler lifecycle evidence could not be built"
 )
@@ -1230,6 +1325,15 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_gate_d_product_judgment_packet_local_command
     )
 
+    gate_d_handoff_packet = subparsers.add_parser(
+        "gate-d-handoff-packet-local",
+        help="summarize local Gate D human handoff packet",
+        description=(
+            "Build a metadata-only local Gate D human handoff packet from fixed checks."
+        ),
+    )
+    gate_d_handoff_packet.set_defaults(handler=_run_gate_d_handoff_packet_local_command)
+
     gate_d_scheduler_lifecycle_evidence = subparsers.add_parser(
         "gate-d-scheduler-lifecycle-evidence-local",
         help="summarize local Gate D scheduler-lifecycle evidence",
@@ -1816,6 +1920,11 @@ def main(argv: list[str] | None = None) -> int:
         return _run_gate_d_product_judgment_packet_local_argv(argv[1:])
     if "gate-d-product-judgment-packet-local" in argv:
         print(_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["gate-d-handoff-packet-local"]:
+        return _run_gate_d_handoff_packet_local_argv(argv[1:])
+    if "gate-d-handoff-packet-local" in argv:
+        print(_GATE_D_HANDOFF_PACKET_CLI_ERROR, file=sys.stderr)
         return 2
     if argv[:1] == ["gate-d-scheduler-lifecycle-evidence-local"]:
         return _run_gate_d_scheduler_lifecycle_evidence_local_argv(argv[1:])
@@ -4008,6 +4117,57 @@ def _gate_d_product_judgment_packet_json(payload: object) -> str:
         for flag in _GATE_D_PRODUCT_JUDGMENT_PACKET_FALSE_FLAGS
     ):
         raise ValueError(_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _run_gate_d_handoff_packet_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar gate-d-handoff-packet-local",
+        description=(
+            "Build a metadata-only local Gate D human handoff packet from fixed checks."
+        ),
+        fixed_error_message=_GATE_D_HANDOFF_PACKET_CLI_ERROR,
+    )
+    args = parser.parse_args(argv)
+    return _run_gate_d_handoff_packet_local_command(args)
+
+
+def _run_gate_d_handoff_packet_local_command(args: argparse.Namespace) -> int:
+    try:
+        from async_scholar.gate_d_handoff_packet import (
+            build_local_gate_d_handoff_packet,
+        )
+
+        payload = build_local_gate_d_handoff_packet()
+        output = _gate_d_handoff_packet_json(payload)
+    except (ImportError, KeyError, RuntimeError, TypeError, ValueError):
+        print(_GATE_D_HANDOFF_PACKET_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(output)
+    return 0
+
+
+def _gate_d_handoff_packet_json(payload: object) -> str:
+    if type(payload) is not dict or tuple(payload) != _GATE_D_HANDOFF_PACKET_KEYS:
+        raise ValueError(_GATE_D_HANDOFF_PACKET_CLI_ERROR)
+    if payload["packet_kind"] != "local_gate_d_handoff_packet":
+        raise ValueError(_GATE_D_HANDOFF_PACKET_CLI_ERROR)
+    for key, expected in _GATE_D_HANDOFF_PACKET_STATUSES.items():
+        if payload[key] != expected:
+            raise ValueError(_GATE_D_HANDOFF_PACKET_CLI_ERROR)
+    if (
+        payload["missing_evidence"] != []
+        or payload["missing_evidence_count"] != 0
+        or payload["blocking_evidence"] != ["product_judgment_evidence"]
+        or payload["blocking_evidence_count"] != 1
+        or payload["satisfactory_evidence_count"] != 9
+    ):
+        raise ValueError(_GATE_D_HANDOFF_PACKET_CLI_ERROR)
+    if any(payload[flag] is not True for flag in _GATE_D_HANDOFF_PACKET_TRUE_FLAGS):
+        raise ValueError(_GATE_D_HANDOFF_PACKET_CLI_ERROR)
+    if any(payload[flag] is not False for flag in _GATE_D_HANDOFF_PACKET_FALSE_FLAGS):
+        raise ValueError(_GATE_D_HANDOFF_PACKET_CLI_ERROR)
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 

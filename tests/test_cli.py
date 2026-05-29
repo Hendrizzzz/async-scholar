@@ -77,6 +77,7 @@ def test_module_help_prints_useful_output() -> None:
     assert "gate-d-signal-quality-evidence-local" in result.stdout
     assert "gate-d-product-judgment-evidence-local" in result.stdout
     assert "gate-d-product-judgment-packet-local" in result.stdout
+    assert "gate-d-handoff-packet-local" in result.stdout
     assert "gate-d-scheduler-lifecycle-evidence-local" in result.stdout
     assert "gate-d-rollback-plan-evidence-local" in result.stdout
     assert "gate-d-local-evidence-bundle" in result.stdout
@@ -16440,6 +16441,362 @@ def test_gate_d_product_judgment_packet_local_handler_stays_thin() -> None:
         assert forbidden_fragment not in source
 
 
+EXPECTED_GATE_D_HANDOFF_PACKET = {
+    "packet_kind": "local_gate_d_handoff_packet",
+    "handoff_packet_status": "ready_for_manual_review",
+    "handoff_packet_scope_status": "metadata_only",
+    "local_gate_d_bundle_status": "blocked",
+    "product_judgment_packet_status": "ready_for_manual_review",
+    "manual_product_judgment_required": True,
+    "manual_product_judgment_recorded": False,
+    "review_requires_human_product_judgment": True,
+    "review_can_be_completed_by_ai": False,
+    "ready_for_gate_review": False,
+    "readiness_decision": "blocked",
+    "readiness_reason": "required_gate_d_readiness_evidence_missing_or_blocking",
+    "gap_decision": "gaps_present",
+    "gap_reason": "required_gate_d_evidence_gaps_present",
+    "missing_evidence": [],
+    "missing_evidence_count": 0,
+    "blocking_evidence": [
+        "product_judgment_evidence",
+    ],
+    "blocking_evidence_count": 1,
+    "satisfactory_evidence_count": 9,
+    "product_judgment_evidence_status": "blocking",
+    "gate_d_pass_claimed": False,
+    "product_promise_alpha_pass_claimed": False,
+    "real_online_monitoring_performed": False,
+    "browser_automation_performed": False,
+    "auth_profile_accessed": False,
+    "cookie_accessed": False,
+    "private_data_read": False,
+    "audio_capture_performed": False,
+    "recording_performed": False,
+    "vad_execution_performed": False,
+    "stt_execution_performed": False,
+    "model_loaded": False,
+    "scheduler_execution_performed": False,
+    "live_delivery_performed": False,
+    "cleanup_or_deletion_performed": False,
+    "export_performed": False,
+    "dependency_change_performed": False,
+    "online_monitoring_approved": False,
+    "transcript_usefulness_claimed": False,
+    "local_microphone_quality_claimed": False,
+    "live_alert_delivery_claimed": False,
+    "browser_readiness_claimed": False,
+    "scheduler_execution_claimed": False,
+    "participation_approval_claimed": False,
+    "autonomous_participation_performed": False,
+    "academic_answer_behavior_performed": False,
+}
+
+
+def test_gate_d_handoff_packet_local_help_stays_lazy(monkeypatch) -> None:
+    module_name = "async_scholar.gate_d_handoff_packet"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-handoff-packet-local",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar gate-d-handoff-packet-local" in result.stdout
+    assert module_name not in sys.modules
+
+
+def test_gate_d_handoff_packet_local_prints_compact_json() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-handoff-packet-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    expected_line = json.dumps(
+        EXPECTED_GATE_D_HANDOFF_PACKET,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == f"{expected_line}\n"
+    _assert_gate_d_handoff_packet_output_is_safe(result.stdout, result.stderr)
+
+
+def test_gate_d_handoff_packet_local_rejects_extra_args_safely() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "gate-d-handoff-packet-local",
+            "C:\\Users\\student\\token-secret-auth-profile",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "gate d handoff packet could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "unrecognized arguments",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_gate_d_handoff_packet_local_misordered_uses_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "--private-path",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "gate-d-handoff-packet-local",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == "gate d handoff packet could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "invalid choice",
+        "Traceback",
+    ):
+        assert forbidden_fragment not in result.stderr
+
+
+def test_gate_d_handoff_packet_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+) -> None:
+    received: dict[str, bool] = {}
+    module_name = "async_scholar.gate_d_handoff_packet"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_gate_d_handoff_packet() -> dict[str, object]:
+        received["called"] = True
+        return EXPECTED_GATE_D_HANDOFF_PACKET
+
+    fake_module.build_local_gate_d_handoff_packet = (
+        fake_build_local_gate_d_handoff_packet
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["gate-d-handoff-packet-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert received == {"called": True}
+    assert captured.err == ""
+    assert json.loads(captured.out) == EXPECTED_GATE_D_HANDOFF_PACKET
+
+
+def test_gate_d_handoff_packet_local_sanitizes_helper_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.gate_d_handoff_packet"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_gate_d_handoff_packet() -> dict[str, object]:
+        raise RuntimeError("C:\\Users\\student\\.env BOT_TOKEN=secret traceback")
+
+    fake_module.build_local_gate_d_handoff_packet = (
+        fake_build_local_gate_d_handoff_packet
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["gate-d-handoff-packet-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "gate d handoff packet could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        ".env",
+        "BOT_TOKEN",
+        "secret",
+        "traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_gate_d_handoff_packet_local_sanitizes_import_failure(
+    capsys,
+    monkeypatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "async_scholar.gate_d_handoff_packet":
+            raise ImportError(
+                "C:\\Users\\student\\.env BOT_TOKEN=secret import traceback"
+            )
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    exit_code = cli.main(["gate-d-handoff-packet-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "gate d handoff packet could not be built\n"
+    for forbidden_fragment in (
+        "C:\\Users",
+        "student",
+        ".env",
+        "BOT_TOKEN",
+        "secret",
+        "traceback",
+    ):
+        assert forbidden_fragment not in captured.err
+
+
+def test_gate_d_handoff_packet_local_sanitizes_malformed_output(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.gate_d_handoff_packet"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_gate_d_handoff_packet() -> dict[str, object]:
+        return {"private": object()}
+
+    fake_module.build_local_gate_d_handoff_packet = (
+        fake_build_local_gate_d_handoff_packet
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["gate-d-handoff-packet-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "gate d handoff packet could not be built\n"
+
+
+def test_gate_d_handoff_packet_local_sanitizes_json_malformed_output(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.gate_d_handoff_packet"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_local_gate_d_handoff_packet() -> dict[str, object]:
+        return {"private": "C:/Users/student/token-secret-auth-profile"}
+
+    fake_module.build_local_gate_d_handoff_packet = (
+        fake_build_local_gate_d_handoff_packet
+    )
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["gate-d-handoff-packet-local"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == "gate d handoff packet could not be built\n"
+    for forbidden_fragment in (
+        "C:/Users",
+        "student",
+        "token",
+        "secret",
+        "auth",
+        "profile",
+        "private",
+    ):
+        assert forbidden_fragment not in captured.out
+        assert forbidden_fragment not in captured.err
+
+
+def test_gate_d_handoff_packet_local_handler_stays_thin() -> None:
+    source = inspect.getsource(cli._run_gate_d_handoff_packet_local_command)
+
+    assert "build_local_gate_d_handoff_packet" in source
+    assert "ImportError" in source
+    assert "except" in source
+    for forbidden_fragment in (
+        "Path",
+        "open(",
+        "read_text",
+        "write_text",
+        "mkdir",
+        "unlink",
+        "remove",
+        "rmdir",
+        "rmtree",
+        "sqlite",
+        "build_local_gate_d_smoke_evidence_bundle",
+        "build_local_gate_d_product_judgment_packet",
+        "build_gate_d_readiness_report",
+        "build_gate_d_evidence_gap_summary",
+        "schedule_store",
+        "scheduled_start",
+        "session_window",
+        "subprocess",
+        "powershell",
+        "requests",
+        "httpx",
+        "urllib",
+        "socket",
+        "playwright",
+        "selenium",
+        "webbrowser",
+        "sounddevice",
+        "faster_whisper",
+        "vad",
+        "stt",
+        "loopback",
+        "meeting",
+        "browser",
+        "profile",
+        "cookie",
+        "sleep",
+        "Timer(",
+        "threading",
+        "asyncio",
+    ):
+        assert forbidden_fragment not in source
+
+
 EXPECTED_GATE_D_SCHEDULER_LIFECYCLE_EVIDENCE = {
     "evidence_kind": "local_gate_d_scheduler_lifecycle_evidence",
     "scheduler_lifecycle_evidence_status": "satisfactory",
@@ -22301,6 +22658,88 @@ def _assert_gate_d_product_judgment_packet_output_is_safe(
     assert payload["autonomous_participation_performed"] is False
     assert payload["academic_answer_behavior_performed"] is False
     assert set(payload) == set(EXPECTED_GATE_D_PRODUCT_JUDGMENT_PACKET)
+
+    combined_output = f"{stdout}\n{stderr}".lower()
+    for forbidden_fragment in (
+        "title",
+        "body",
+        "provider",
+        "http_status",
+        "message",
+        "request",
+        "url",
+        "command",
+        "event_id",
+        "session_id",
+        "source_segment",
+        "course_id",
+        "meeting",
+        "meet.example",
+        "meet.google",
+        "http://",
+        "https://",
+        "c:\\",
+        "\\\\server",
+        "/users",
+        ".env",
+        "token",
+        "chat",
+        "raw",
+        "exception",
+        "traceback",
+        "powershell",
+        "playwright",
+        "selenium",
+        "sounddevice",
+        "faster_whisper",
+        "microphone name",
+        "device name",
+        "gate d passed",
+        "product promise alpha passed",
+        "online monitoring approved",
+        "execution approved",
+        "transcript text",
+        "artifact path",
+    ):
+        assert forbidden_fragment not in combined_output
+
+
+def _assert_gate_d_handoff_packet_output_is_safe(
+    stdout: str,
+    stderr: str,
+) -> None:
+    payload = json.loads(stdout)
+    assert payload["manual_product_judgment_required"] is True
+    assert payload["manual_product_judgment_recorded"] is False
+    assert payload["review_requires_human_product_judgment"] is True
+    assert payload["review_can_be_completed_by_ai"] is False
+    assert payload["ready_for_gate_review"] is False
+    assert payload["missing_evidence"] == []
+    assert payload["blocking_evidence"] == [
+        "product_judgment_evidence",
+    ]
+    assert payload["product_judgment_evidence_status"] == "blocking"
+    assert payload["gate_d_pass_claimed"] is False
+    assert payload["product_promise_alpha_pass_claimed"] is False
+    assert payload["real_online_monitoring_performed"] is False
+    assert payload["browser_automation_performed"] is False
+    assert payload["auth_profile_accessed"] is False
+    assert payload["cookie_accessed"] is False
+    assert payload["private_data_read"] is False
+    assert payload["audio_capture_performed"] is False
+    assert payload["recording_performed"] is False
+    assert payload["vad_execution_performed"] is False
+    assert payload["stt_execution_performed"] is False
+    assert payload["model_loaded"] is False
+    assert payload["scheduler_execution_performed"] is False
+    assert payload["live_delivery_performed"] is False
+    assert payload["cleanup_or_deletion_performed"] is False
+    assert payload["export_performed"] is False
+    assert payload["dependency_change_performed"] is False
+    assert payload["online_monitoring_approved"] is False
+    assert payload["autonomous_participation_performed"] is False
+    assert payload["academic_answer_behavior_performed"] is False
+    assert set(payload) == set(EXPECTED_GATE_D_HANDOFF_PACKET)
 
     combined_output = f"{stdout}\n{stderr}".lower()
     for forbidden_fragment in (
