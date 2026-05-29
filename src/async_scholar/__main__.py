@@ -349,6 +349,116 @@ _GATE_D_PRODUCT_JUDGMENT_EVIDENCE_FALSE_FLAGS = (
     "autonomous_participation_performed",
     "academic_answer_behavior_performed",
 )
+_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR = (
+    "gate d product judgment packet could not be built"
+)
+_GATE_D_PRODUCT_JUDGMENT_PACKET_KEYS = (
+    "packet_kind",
+    "product_judgment_packet_status",
+    "manual_product_judgment_required",
+    "manual_product_judgment_recorded",
+    "product_judgment_evidence_status",
+    "review_packet_scope_status",
+    "recommended_manual_review_action",
+    "review_requires_human_product_judgment",
+    "review_can_be_completed_by_ai",
+    "local_gate_d_bundle_expected_blocking_evidence",
+    "local_gate_d_bundle_expected_missing_evidence",
+    "local_gate_d_bundle_expected_ready_for_gate_review",
+    "no_gate_d_pass_claim_status",
+    "no_product_promise_alpha_pass_claim_status",
+    "no_online_monitoring_approval_status",
+    "no_transcript_usefulness_claim_status",
+    "no_local_microphone_quality_claim_status",
+    "no_live_alert_delivery_claim_status",
+    "no_browser_readiness_claim_status",
+    "no_scheduler_execution_claim_status",
+    "no_participation_approval_claim_status",
+    "file_io_performed",
+    "artifact_read",
+    "artifact_created",
+    "network_performed",
+    "subprocess_performed",
+    "browser_automation_performed",
+    "auth_profile_accessed",
+    "cookie_accessed",
+    "private_data_read",
+    "audio_capture_performed",
+    "recording_performed",
+    "vad_execution_performed",
+    "stt_execution_performed",
+    "model_loaded",
+    "scheduler_execution_performed",
+    "live_delivery_performed",
+    "cleanup_or_deletion_performed",
+    "export_performed",
+    "dependency_change_performed",
+    "gate_d_pass_claimed",
+    "product_promise_alpha_pass_claimed",
+    "online_monitoring_approved",
+    "transcript_usefulness_claimed",
+    "local_microphone_quality_claimed",
+    "live_alert_delivery_claimed",
+    "browser_readiness_claimed",
+    "scheduler_execution_claimed",
+    "participation_approval_claimed",
+    "autonomous_participation_performed",
+    "academic_answer_behavior_performed",
+)
+_GATE_D_PRODUCT_JUDGMENT_PACKET_STATUSES = {
+    "product_judgment_packet_status": "ready_for_manual_review",
+    "product_judgment_evidence_status": "blocking",
+    "review_packet_scope_status": "metadata_only",
+    "recommended_manual_review_action": "review_product_promise_alpha_manually",
+    "no_gate_d_pass_claim_status": "documented",
+    "no_product_promise_alpha_pass_claim_status": "documented",
+    "no_online_monitoring_approval_status": "documented",
+    "no_transcript_usefulness_claim_status": "documented",
+    "no_local_microphone_quality_claim_status": "documented",
+    "no_live_alert_delivery_claim_status": "documented",
+    "no_browser_readiness_claim_status": "documented",
+    "no_scheduler_execution_claim_status": "documented",
+    "no_participation_approval_claim_status": "documented",
+}
+_GATE_D_PRODUCT_JUDGMENT_PACKET_TRUE_FLAGS = (
+    "manual_product_judgment_required",
+    "review_requires_human_product_judgment",
+)
+_GATE_D_PRODUCT_JUDGMENT_PACKET_FALSE_FLAGS = (
+    "manual_product_judgment_recorded",
+    "review_can_be_completed_by_ai",
+    "local_gate_d_bundle_expected_ready_for_gate_review",
+    "file_io_performed",
+    "artifact_read",
+    "artifact_created",
+    "network_performed",
+    "subprocess_performed",
+    "browser_automation_performed",
+    "auth_profile_accessed",
+    "cookie_accessed",
+    "private_data_read",
+    "audio_capture_performed",
+    "recording_performed",
+    "vad_execution_performed",
+    "stt_execution_performed",
+    "model_loaded",
+    "scheduler_execution_performed",
+    "live_delivery_performed",
+    "cleanup_or_deletion_performed",
+    "export_performed",
+    "dependency_change_performed",
+    "gate_d_pass_claimed",
+    "product_promise_alpha_pass_claimed",
+    "online_monitoring_approved",
+    "transcript_usefulness_claimed",
+    "local_microphone_quality_claimed",
+    "live_alert_delivery_claimed",
+    "browser_readiness_claimed",
+    "scheduler_execution_claimed",
+    "participation_approval_claimed",
+    "autonomous_participation_performed",
+    "academic_answer_behavior_performed",
+)
 _GATE_D_SCHEDULER_LIFECYCLE_EVIDENCE_CLI_ERROR = (
     "gate d scheduler lifecycle evidence could not be built"
 )
@@ -1108,6 +1218,18 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_gate_d_product_judgment_evidence_local_command
     )
 
+    gate_d_product_judgment_packet = subparsers.add_parser(
+        "gate-d-product-judgment-packet-local",
+        help="summarize local Gate D product-judgment review packet",
+        description=(
+            "Build a metadata-only local Gate D product-judgment review "
+            "packet from fixed checks."
+        ),
+    )
+    gate_d_product_judgment_packet.set_defaults(
+        handler=_run_gate_d_product_judgment_packet_local_command
+    )
+
     gate_d_scheduler_lifecycle_evidence = subparsers.add_parser(
         "gate-d-scheduler-lifecycle-evidence-local",
         help="summarize local Gate D scheduler-lifecycle evidence",
@@ -1689,6 +1811,11 @@ def main(argv: list[str] | None = None) -> int:
         return _run_gate_d_product_judgment_evidence_local_argv(argv[1:])
     if "gate-d-product-judgment-evidence-local" in argv:
         print(_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["gate-d-product-judgment-packet-local"]:
+        return _run_gate_d_product_judgment_packet_local_argv(argv[1:])
+    if "gate-d-product-judgment-packet-local" in argv:
+        print(_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR, file=sys.stderr)
         return 2
     if argv[:1] == ["gate-d-scheduler-lifecycle-evidence-local"]:
         return _run_gate_d_scheduler_lifecycle_evidence_local_argv(argv[1:])
@@ -3821,6 +3948,66 @@ def _gate_d_product_judgment_evidence_json(payload: object) -> str:
         for flag in _GATE_D_PRODUCT_JUDGMENT_EVIDENCE_FALSE_FLAGS
     ):
         raise ValueError(_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_CLI_ERROR)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _run_gate_d_product_judgment_packet_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar gate-d-product-judgment-packet-local",
+        description=(
+            "Build a metadata-only local Gate D product-judgment review "
+            "packet from fixed checks."
+        ),
+        fixed_error_message=_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR,
+    )
+    args = parser.parse_args(argv)
+    return _run_gate_d_product_judgment_packet_local_command(args)
+
+
+def _run_gate_d_product_judgment_packet_local_command(
+    args: argparse.Namespace,
+) -> int:
+    try:
+        from async_scholar.gate_d_product_judgment_packet import (
+            build_local_gate_d_product_judgment_packet,
+        )
+
+        payload = build_local_gate_d_product_judgment_packet()
+        output = _gate_d_product_judgment_packet_json(payload)
+    except (ImportError, KeyError, RuntimeError, TypeError, ValueError):
+        print(_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(output)
+    return 0
+
+
+def _gate_d_product_judgment_packet_json(payload: object) -> str:
+    if (
+        type(payload) is not dict
+        or tuple(payload) != _GATE_D_PRODUCT_JUDGMENT_PACKET_KEYS
+    ):
+        raise ValueError(_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR)
+    if payload["packet_kind"] != "local_gate_d_product_judgment_review_packet":
+        raise ValueError(_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR)
+    for key, expected in _GATE_D_PRODUCT_JUDGMENT_PACKET_STATUSES.items():
+        if payload[key] != expected:
+            raise ValueError(_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR)
+    if (
+        payload["local_gate_d_bundle_expected_blocking_evidence"]
+        != ["product_judgment_evidence"]
+        or payload["local_gate_d_bundle_expected_missing_evidence"] != []
+    ):
+        raise ValueError(_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR)
+    if any(
+        payload[flag] is not True for flag in _GATE_D_PRODUCT_JUDGMENT_PACKET_TRUE_FLAGS
+    ):
+        raise ValueError(_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR)
+    if any(
+        payload[flag] is not False
+        for flag in _GATE_D_PRODUCT_JUDGMENT_PACKET_FALSE_FLAGS
+    ):
+        raise ValueError(_GATE_D_PRODUCT_JUDGMENT_PACKET_CLI_ERROR)
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
