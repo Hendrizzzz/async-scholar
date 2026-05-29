@@ -26,13 +26,13 @@ EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE = {
     "scheduler_lifecycle_evidence_status": "satisfactory",
     "delivery_path_evidence_status": "satisfactory",
     "monitoring_boundary_evidence_status": "satisfactory",
-    "product_judgment_evidence_status": "missing",
-    "missing_evidence": [
+    "product_judgment_evidence_status": "blocking",
+    "missing_evidence": [],
+    "missing_evidence_count": 0,
+    "blocking_evidence": [
         "product_judgment_evidence",
     ],
-    "missing_evidence_count": 1,
-    "blocking_evidence": [],
-    "blocking_evidence_count": 0,
+    "blocking_evidence_count": 1,
     "satisfactory_evidence_count": 9,
     "ready_for_gate_review": False,
     "readiness_decision": "blocked",
@@ -97,6 +97,10 @@ def test_local_gate_d_bundle_omits_raw_helper_payloads() -> None:
         "auth_profile_accessed",
         "device_name_exposed",
         "sqlite_accessed",
+        "manual_product_judgment_required_status",
+        "manual_product_judgment_recorded",
+        "no_gate_d_pass_claim_status",
+        "no_product_promise_alpha_pass_claim_status",
         "network_performed",
         "subprocess_performed",
         "readiness_kind",
@@ -121,6 +125,7 @@ def test_local_gate_d_smoke_evidence_bundle_derives_statuses_from_nested_smokes(
         "monitoring_called": True,
         "mic_after_reboot_called": True,
         "signal_quality_called": True,
+        "product_judgment_called": True,
         "rollback_plan_called": True,
         "security_review_called": True,
         "scheduler_lifecycle_called": True,
@@ -143,6 +148,11 @@ def test_local_gate_d_bundle_maps_missing_and_satisfactory_categories() -> None:
         for key, value in payload.items()
         if key.endswith("_status") and value == "missing"
     ]
+    blocking_statuses = [
+        key
+        for key, value in payload.items()
+        if key.endswith("_status") and value == "blocking"
+    ]
     assert satisfactory_statuses == [
         "mic_diagnostics_after_reboot_status",
         "alert_routing_status",
@@ -154,13 +164,14 @@ def test_local_gate_d_bundle_maps_missing_and_satisfactory_categories() -> None:
         "delivery_path_evidence_status",
         "monitoring_boundary_evidence_status",
     ]
-    assert missing_statuses == [
+    assert missing_statuses == []
+    assert blocking_statuses == [
         "product_judgment_evidence_status",
     ]
-    assert payload["missing_evidence"] == [
+    assert payload["missing_evidence"] == []
+    assert payload["blocking_evidence"] == [
         "product_judgment_evidence",
     ]
-    assert payload["blocking_evidence"] == []
 
 
 def test_local_gate_d_smoke_evidence_bundle_reports_blocked_readiness_and_gaps() -> (
@@ -175,8 +186,8 @@ def test_local_gate_d_smoke_evidence_bundle_reports_blocked_readiness_and_gaps()
     )
     assert payload["gap_decision"] == "gaps_present"
     assert payload["gap_reason"] == "required_gate_d_evidence_gaps_present"
-    assert payload["missing_evidence_count"] == 1
-    assert payload["blocking_evidence_count"] == 0
+    assert payload["missing_evidence_count"] == 0
+    assert payload["blocking_evidence_count"] == 1
     assert payload["satisfactory_evidence_count"] == 9
 
 
@@ -289,6 +300,7 @@ def test_local_gate_d_smoke_evidence_bundle_source_guards_forbidden_surfaces() -
     assert "build_local_monitoring_boundary_smoke" in source
     assert "build_local_gate_d_mic_diagnostics_after_reboot_evidence" in source
     assert "build_local_gate_d_signal_quality_evidence" in source
+    assert "build_local_gate_d_product_judgment_evidence" in source
     assert "build_local_gate_d_rollback_plan_evidence" in source
     assert "build_local_gate_d_security_review_evidence" in source
     assert "build_local_gate_d_scheduler_lifecycle_evidence" in source
@@ -525,6 +537,59 @@ def _install_fake_modules(
     )
     modules["async_scholar.gate_d_signal_quality_evidence"] = signal_module
 
+    product_judgment_module = types.ModuleType(
+        "async_scholar.gate_d_product_judgment_evidence"
+    )
+
+    def fake_build_local_gate_d_product_judgment_evidence() -> dict[str, object]:
+        seen["product_judgment_called"] = True
+        return {
+            "academic_answer_behavior_performed": False,
+            "artifact_created": False,
+            "artifact_read": False,
+            "audio_capture_performed": False,
+            "auth_profile_accessed": False,
+            "autonomous_participation_performed": False,
+            "browser_automation_performed": False,
+            "cleanup_or_deletion_performed": False,
+            "cookie_accessed": False,
+            "dependency_change_performed": False,
+            "download_performed": False,
+            "evidence_kind": "local_gate_d_product_judgment_evidence",
+            "export_performed": False,
+            "file_io_performed": False,
+            "gate_d_pass_claimed": False,
+            "live_alert_delivery_claimed": False,
+            "live_delivery_performed": False,
+            "local_microphone_quality_claimed": False,
+            "manual_product_judgment_recorded": False,
+            "manual_product_judgment_required_status": "required",
+            "metadata_only_evidence_status": "documented",
+            "model_loaded": False,
+            "network_performed": False,
+            "no_gate_d_pass_claim_status": "documented",
+            "no_live_delivery_claim_status": "documented",
+            "no_local_microphone_quality_claim_status": "documented",
+            "no_product_promise_alpha_pass_claim_status": "documented",
+            "no_real_online_monitoring_claim_status": "documented",
+            "no_transcript_usefulness_claim_status": "documented",
+            "private_data_read": False,
+            "product_judgment_evidence_status": "blocking",
+            "product_promise_alpha_pass_claimed": False,
+            "real_online_monitoring_claimed": False,
+            "recording_performed": False,
+            "scheduler_execution_performed": False,
+            "stt_execution_performed": False,
+            "subprocess_performed": False,
+            "transcript_usefulness_claimed": False,
+            "vad_execution_performed": False,
+        }
+
+    product_judgment_module.build_local_gate_d_product_judgment_evidence = (
+        fake_build_local_gate_d_product_judgment_evidence
+    )
+    modules["async_scholar.gate_d_product_judgment_evidence"] = product_judgment_module
+
     rollback_module = types.ModuleType("async_scholar.gate_d_rollback_plan_evidence")
 
     def fake_build_local_gate_d_rollback_plan_evidence() -> dict[str, object]:
@@ -652,7 +717,7 @@ def _fixed_status_inputs() -> dict[str, object]:
         "scheduler_lifecycle_evidence": "satisfactory",
         "delivery_path_evidence": "satisfactory",
         "monitoring_boundary_evidence": "satisfactory",
-        "product_judgment_evidence": "missing",
+        "product_judgment_evidence": "blocking",
     }
 
 
@@ -693,9 +758,9 @@ def _expected_gap_summary(statuses: dict[str, object]) -> dict[str, object]:
         "monitoring_boundary_evidence_status": statuses["monitoring_boundary_evidence"],
         "product_judgment_evidence_status": statuses["product_judgment_evidence"],
         "missing_evidence": EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE["missing_evidence"],
-        "missing_evidence_count": 1,
-        "blocking_evidence": [],
-        "blocking_evidence_count": 0,
+        "missing_evidence_count": 0,
+        "blocking_evidence": EXPECTED_GATE_D_LOCAL_EVIDENCE_BUNDLE["blocking_evidence"],
+        "blocking_evidence_count": 1,
         "satisfactory_evidence_count": 9,
         "decision": "gaps_present",
         "reason": "required_gate_d_evidence_gaps_present",

@@ -6,18 +6,16 @@ GATE_D_LOCAL_EVIDENCE_BUNDLE_ERROR = "gate d local evidence bundle could not be 
 
 _BUNDLE_KIND = "local_gate_d_smoke_evidence_bundle"
 _STATUS_SATISFACTORY = "satisfactory"
-_STATUS_MISSING = "missing"
+_STATUS_BLOCKING = "blocking"
 _READY_FALSE = False
 _READINESS_DECISION = "blocked"
 _READINESS_REASON = "required_gate_d_readiness_evidence_missing_or_blocking"
 _GAP_DECISION = "gaps_present"
 _GAP_REASON = "required_gate_d_evidence_gaps_present"
-_MISSING_EVIDENCE = [
+_MISSING_EVIDENCE: list[str] = []
+_BLOCKING_EVIDENCE = [
     "product_judgment_evidence",
 ]
-_FIXED_STATUSES = {
-    "product_judgment_evidence": _STATUS_MISSING,
-}
 _READINESS_KEYS = (
     "readiness_kind",
     "mic_diagnostics_after_reboot_status",
@@ -63,6 +61,9 @@ def build_local_gate_d_smoke_evidence_bundle() -> dict[str, object]:
         from async_scholar.gate_d_mic_diagnostics_after_reboot_evidence import (
             build_local_gate_d_mic_diagnostics_after_reboot_evidence,
         )
+        from async_scholar.gate_d_product_judgment_evidence import (
+            build_local_gate_d_product_judgment_evidence,
+        )
         from async_scholar.gate_d_readiness import (
             build_gate_d_evidence_gap_summary,
             build_gate_d_readiness_report,
@@ -102,6 +103,9 @@ def build_local_gate_d_smoke_evidence_bundle() -> dict[str, object]:
         signal_quality_evidence_status = _signal_quality_evidence_status(
             build_local_gate_d_signal_quality_evidence()
         )
+        product_judgment_evidence_status = _product_judgment_evidence_status(
+            build_local_gate_d_product_judgment_evidence()
+        )
         rollback_plan_status = _rollback_plan_status(
             build_local_gate_d_rollback_plan_evidence()
         )
@@ -112,7 +116,6 @@ def build_local_gate_d_smoke_evidence_bundle() -> dict[str, object]:
             build_local_gate_d_scheduler_lifecycle_evidence()
         )
         statuses = {
-            **_FIXED_STATUSES,
             "mic_diagnostics_after_reboot": mic_diagnostics_after_reboot_status,
             "alert_routing": alert_routing_status,
             "security_review": security_review_status,
@@ -122,6 +125,7 @@ def build_local_gate_d_smoke_evidence_bundle() -> dict[str, object]:
             "scheduler_lifecycle_evidence": scheduler_lifecycle_status,
             "delivery_path_evidence": delivery_path_evidence_status,
             "monitoring_boundary_evidence": monitoring_boundary_evidence_status,
+            "product_judgment_evidence": product_judgment_evidence_status,
         }
         readiness_report = build_gate_d_readiness_report(**statuses)
         gap_summary = build_gate_d_evidence_gap_summary(**statuses)
@@ -277,6 +281,54 @@ def _signal_quality_evidence_status(payload: object) -> str:
     return _STATUS_SATISFACTORY
 
 
+def _product_judgment_evidence_status(payload: object) -> str:
+    if type(payload) is not dict:
+        _fail()
+    if (
+        payload.get("evidence_kind") != "local_gate_d_product_judgment_evidence"
+        or payload.get("product_judgment_evidence_status") != _STATUS_BLOCKING
+        or payload.get("manual_product_judgment_required_status") != "required"
+        or payload.get("manual_product_judgment_recorded") is not False
+        or payload.get("metadata_only_evidence_status") != "documented"
+        or payload.get("no_gate_d_pass_claim_status") != "documented"
+        or payload.get("no_product_promise_alpha_pass_claim_status") != "documented"
+        or payload.get("no_real_online_monitoring_claim_status") != "documented"
+        or payload.get("no_live_delivery_claim_status") != "documented"
+        or payload.get("no_transcript_usefulness_claim_status") != "documented"
+        or payload.get("no_local_microphone_quality_claim_status") != "documented"
+        or payload.get("file_io_performed") is not False
+        or payload.get("artifact_read") is not False
+        or payload.get("artifact_created") is not False
+        or payload.get("download_performed") is not False
+        or payload.get("audio_capture_performed") is not False
+        or payload.get("recording_performed") is not False
+        or payload.get("vad_execution_performed") is not False
+        or payload.get("stt_execution_performed") is not False
+        or payload.get("model_loaded") is not False
+        or payload.get("subprocess_performed") is not False
+        or payload.get("network_performed") is not False
+        or payload.get("browser_automation_performed") is not False
+        or payload.get("auth_profile_accessed") is not False
+        or payload.get("cookie_accessed") is not False
+        or payload.get("private_data_read") is not False
+        or payload.get("scheduler_execution_performed") is not False
+        or payload.get("live_delivery_performed") is not False
+        or payload.get("cleanup_or_deletion_performed") is not False
+        or payload.get("export_performed") is not False
+        or payload.get("dependency_change_performed") is not False
+        or payload.get("real_online_monitoring_claimed") is not False
+        or payload.get("live_alert_delivery_claimed") is not False
+        or payload.get("transcript_usefulness_claimed") is not False
+        or payload.get("local_microphone_quality_claimed") is not False
+        or payload.get("gate_d_pass_claimed") is not False
+        or payload.get("product_promise_alpha_pass_claimed") is not False
+        or payload.get("autonomous_participation_performed") is not False
+        or payload.get("academic_answer_behavior_performed") is not False
+    ):
+        _fail()
+    return _STATUS_BLOCKING
+
+
 def _rollback_plan_status(payload: object) -> str:
     if type(payload) is not dict:
         _fail()
@@ -430,9 +482,9 @@ def _safe_gap_summary(payload: object) -> dict[str, object]:
     if (
         payload["summary_kind"] != "gate_d_evidence_gap_summary"
         or payload["missing_evidence"] != _MISSING_EVIDENCE
-        or payload["missing_evidence_count"] != 1
-        or payload["blocking_evidence"] != []
-        or payload["blocking_evidence_count"] != 0
+        or payload["missing_evidence_count"] != 0
+        or payload["blocking_evidence"] != _BLOCKING_EVIDENCE
+        or payload["blocking_evidence_count"] != 1
         or payload["satisfactory_evidence_count"] != 9
         or payload["decision"] != _GAP_DECISION
         or payload["reason"] != _GAP_REASON
@@ -453,7 +505,7 @@ def _validate_status_fields(payload: dict[str, object]) -> None:
         "scheduler_lifecycle_evidence_status": _STATUS_SATISFACTORY,
         "delivery_path_evidence_status": _STATUS_SATISFACTORY,
         "monitoring_boundary_evidence_status": _STATUS_SATISFACTORY,
-        "product_judgment_evidence_status": _STATUS_MISSING,
+        "product_judgment_evidence_status": _STATUS_BLOCKING,
     }
     for key, value in expected.items():
         if payload[key] != value:
@@ -474,11 +526,11 @@ def _safe_bundle(payload: object) -> dict[str, object]:
         "scheduler_lifecycle_evidence_status": _STATUS_SATISFACTORY,
         "delivery_path_evidence_status": _STATUS_SATISFACTORY,
         "monitoring_boundary_evidence_status": _STATUS_SATISFACTORY,
-        "product_judgment_evidence_status": _STATUS_MISSING,
+        "product_judgment_evidence_status": _STATUS_BLOCKING,
         "missing_evidence": _MISSING_EVIDENCE,
-        "missing_evidence_count": 1,
-        "blocking_evidence": [],
-        "blocking_evidence_count": 0,
+        "missing_evidence_count": 0,
+        "blocking_evidence": _BLOCKING_EVIDENCE,
+        "blocking_evidence_count": 1,
         "satisfactory_evidence_count": 9,
         "ready_for_gate_review": False,
         "readiness_decision": _READINESS_DECISION,

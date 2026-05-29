@@ -263,6 +263,92 @@ _GATE_D_SIGNAL_QUALITY_EVIDENCE_FALSE_FLAGS = (
     "autonomous_participation_performed",
     "academic_answer_behavior_performed",
 )
+_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_CLI_ERROR = (
+    "gate d product judgment evidence could not be built"
+)
+_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_KEYS = (
+    "evidence_kind",
+    "product_judgment_evidence_status",
+    "manual_product_judgment_required_status",
+    "manual_product_judgment_recorded",
+    "metadata_only_evidence_status",
+    "no_gate_d_pass_claim_status",
+    "no_product_promise_alpha_pass_claim_status",
+    "no_real_online_monitoring_claim_status",
+    "no_live_delivery_claim_status",
+    "no_transcript_usefulness_claim_status",
+    "no_local_microphone_quality_claim_status",
+    "file_io_performed",
+    "artifact_read",
+    "artifact_created",
+    "download_performed",
+    "audio_capture_performed",
+    "recording_performed",
+    "vad_execution_performed",
+    "stt_execution_performed",
+    "model_loaded",
+    "subprocess_performed",
+    "network_performed",
+    "browser_automation_performed",
+    "auth_profile_accessed",
+    "cookie_accessed",
+    "private_data_read",
+    "scheduler_execution_performed",
+    "live_delivery_performed",
+    "cleanup_or_deletion_performed",
+    "export_performed",
+    "dependency_change_performed",
+    "real_online_monitoring_claimed",
+    "live_alert_delivery_claimed",
+    "transcript_usefulness_claimed",
+    "local_microphone_quality_claimed",
+    "gate_d_pass_claimed",
+    "product_promise_alpha_pass_claimed",
+    "autonomous_participation_performed",
+    "academic_answer_behavior_performed",
+)
+_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_STATUSES = {
+    "product_judgment_evidence_status": "blocking",
+    "manual_product_judgment_required_status": "required",
+    "metadata_only_evidence_status": "documented",
+    "no_gate_d_pass_claim_status": "documented",
+    "no_product_promise_alpha_pass_claim_status": "documented",
+    "no_real_online_monitoring_claim_status": "documented",
+    "no_live_delivery_claim_status": "documented",
+    "no_transcript_usefulness_claim_status": "documented",
+    "no_local_microphone_quality_claim_status": "documented",
+}
+_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_FALSE_FLAGS = (
+    "manual_product_judgment_recorded",
+    "file_io_performed",
+    "artifact_read",
+    "artifact_created",
+    "download_performed",
+    "audio_capture_performed",
+    "recording_performed",
+    "vad_execution_performed",
+    "stt_execution_performed",
+    "model_loaded",
+    "subprocess_performed",
+    "network_performed",
+    "browser_automation_performed",
+    "auth_profile_accessed",
+    "cookie_accessed",
+    "private_data_read",
+    "scheduler_execution_performed",
+    "live_delivery_performed",
+    "cleanup_or_deletion_performed",
+    "export_performed",
+    "dependency_change_performed",
+    "real_online_monitoring_claimed",
+    "live_alert_delivery_claimed",
+    "transcript_usefulness_claimed",
+    "local_microphone_quality_claimed",
+    "gate_d_pass_claimed",
+    "product_promise_alpha_pass_claimed",
+    "autonomous_participation_performed",
+    "academic_answer_behavior_performed",
+)
 _GATE_D_SCHEDULER_LIFECYCLE_EVIDENCE_CLI_ERROR = (
     "gate d scheduler lifecycle evidence could not be built"
 )
@@ -430,9 +516,10 @@ _GATE_D_LOCAL_EVIDENCE_BUNDLE_STATUSES = {
     "scheduler_lifecycle_evidence_status": "satisfactory",
     "delivery_path_evidence_status": "satisfactory",
     "monitoring_boundary_evidence_status": "satisfactory",
-    "product_judgment_evidence_status": "missing",
+    "product_judgment_evidence_status": "blocking",
 }
-_GATE_D_LOCAL_EVIDENCE_BUNDLE_MISSING = [
+_GATE_D_LOCAL_EVIDENCE_BUNDLE_MISSING: list[str] = []
+_GATE_D_LOCAL_EVIDENCE_BUNDLE_BLOCKING = [
     "product_judgment_evidence",
 ]
 _GATE_D_LOCAL_EVIDENCE_BUNDLE_FALSE_FLAGS = (
@@ -1007,6 +1094,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     gate_d_signal_quality_evidence.set_defaults(
         handler=_run_gate_d_signal_quality_evidence_local_command
+    )
+
+    gate_d_product_judgment_evidence = subparsers.add_parser(
+        "gate-d-product-judgment-evidence-local",
+        help="summarize local Gate D product-judgment evidence",
+        description=(
+            "Build a metadata-only local Gate D product-judgment evidence "
+            "summary from fixed checks."
+        ),
+    )
+    gate_d_product_judgment_evidence.set_defaults(
+        handler=_run_gate_d_product_judgment_evidence_local_command
     )
 
     gate_d_scheduler_lifecycle_evidence = subparsers.add_parser(
@@ -1585,6 +1684,11 @@ def main(argv: list[str] | None = None) -> int:
         return _run_gate_d_signal_quality_evidence_local_argv(argv[1:])
     if "gate-d-signal-quality-evidence-local" in argv:
         print(_GATE_D_SIGNAL_QUALITY_EVIDENCE_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["gate-d-product-judgment-evidence-local"]:
+        return _run_gate_d_product_judgment_evidence_local_argv(argv[1:])
+    if "gate-d-product-judgment-evidence-local" in argv:
+        print(_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_CLI_ERROR, file=sys.stderr)
         return 2
     if argv[:1] == ["gate-d-scheduler-lifecycle-evidence-local"]:
         return _run_gate_d_scheduler_lifecycle_evidence_local_argv(argv[1:])
@@ -3670,6 +3774,56 @@ def _gate_d_signal_quality_evidence_json(payload: object) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
+def _run_gate_d_product_judgment_evidence_local_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar gate-d-product-judgment-evidence-local",
+        description=(
+            "Build a metadata-only local Gate D product-judgment evidence "
+            "summary from fixed checks."
+        ),
+        fixed_error_message=_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_CLI_ERROR,
+    )
+    args = parser.parse_args(argv)
+    return _run_gate_d_product_judgment_evidence_local_command(args)
+
+
+def _run_gate_d_product_judgment_evidence_local_command(
+    args: argparse.Namespace,
+) -> int:
+    try:
+        from async_scholar.gate_d_product_judgment_evidence import (
+            build_local_gate_d_product_judgment_evidence,
+        )
+
+        payload = build_local_gate_d_product_judgment_evidence()
+        output = _gate_d_product_judgment_evidence_json(payload)
+    except (ImportError, KeyError, RuntimeError, TypeError, ValueError):
+        print(_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(output)
+    return 0
+
+
+def _gate_d_product_judgment_evidence_json(payload: object) -> str:
+    if (
+        type(payload) is not dict
+        or tuple(payload) != _GATE_D_PRODUCT_JUDGMENT_EVIDENCE_KEYS
+    ):
+        raise ValueError(_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_CLI_ERROR)
+    if payload["evidence_kind"] != "local_gate_d_product_judgment_evidence":
+        raise ValueError(_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_CLI_ERROR)
+    for key, expected in _GATE_D_PRODUCT_JUDGMENT_EVIDENCE_STATUSES.items():
+        if payload[key] != expected:
+            raise ValueError(_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_CLI_ERROR)
+    if any(
+        payload[flag] is not False
+        for flag in _GATE_D_PRODUCT_JUDGMENT_EVIDENCE_FALSE_FLAGS
+    ):
+        raise ValueError(_GATE_D_PRODUCT_JUDGMENT_EVIDENCE_CLI_ERROR)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
 def _run_gate_d_scheduler_lifecycle_evidence_local_argv(argv: list[str]) -> int:
     parser = _FixedMessageArgumentParser(
         prog="async_scholar gate-d-scheduler-lifecycle-evidence-local",
@@ -3812,9 +3966,9 @@ def _gate_d_local_evidence_bundle_json(payload: object) -> str:
             raise ValueError(_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR)
     if (
         payload["missing_evidence"] != _GATE_D_LOCAL_EVIDENCE_BUNDLE_MISSING
-        or payload["missing_evidence_count"] != 1
-        or payload["blocking_evidence"] != []
-        or payload["blocking_evidence_count"] != 0
+        or payload["missing_evidence_count"] != 0
+        or payload["blocking_evidence"] != _GATE_D_LOCAL_EVIDENCE_BUNDLE_BLOCKING
+        or payload["blocking_evidence_count"] != 1
         or payload["satisfactory_evidence_count"] != 9
         or payload["readiness_decision"] != "blocked"
         or payload["readiness_reason"]
