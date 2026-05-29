@@ -68,6 +68,101 @@ browser, access audio, send notifications, read or write artifacts, or approve
 Gate D / Product Promise Alpha behavior. Real scheduler execution and live
 delivery remain blocked.
 
+## Local Scheduler And Archive Workflow
+
+The scheduler/archive commands are local, explicit, and manual. Use safe local
+paths such as `data\async-scholar-local.sqlite`, `data\sessions`, and
+`data\recovery-reports`; do not place secrets, private meeting URLs, private
+transcript or audio contents, generated media contents, auth profiles, cookies,
+or tokens in README examples or committed artifacts.
+
+Save a manually entered course schedule into an explicit local SQLite path:
+
+```powershell
+uv run python -m async_scholar course-schedule-save-local --db-path data\async-scholar-local.sqlite --course-id cs101 --title "CS 101" --class-time monday,09:00,75,Asia/Manila,lecture
+```
+
+List the stored local course schedule metadata:
+
+```powershell
+uv run python -m async_scholar course-schedule-list-local --db-path data\async-scholar-local.sqlite
+```
+
+Preview which stored schedules are due by providing an explicit local clock:
+
+```powershell
+uv run python -m async_scholar scheduled-start-due-list-from-store-local session-001 --db-path data\async-scholar-local.sqlite --source-kind file --clock-day-of-week monday --clock-local-time 09:00
+```
+
+Preflight a due session window against local archive readiness:
+
+```powershell
+uv run python -m async_scholar session-window-readiness-preflight-from-store-local session-001 --db-path data\async-scholar-local.sqlite --archive-root data\sessions --source-kind file --clock-day-of-week monday --clock-local-time 09:00
+```
+
+Preflight the same due session window for user confirmation:
+
+```powershell
+uv run python -m async_scholar session-window-confirmation-preflight-from-store-local session-001 --db-path data\async-scholar-local.sqlite --archive-root data\sessions --source-kind file --clock-day-of-week monday --clock-local-time 09:00
+```
+
+Build non-executing start authorization metadata from a fixed user response:
+
+```powershell
+uv run python -m async_scholar session-window-start-authorization-from-store-local session-001 --db-path data\async-scholar-local.sqlite --archive-root data\sessions --source-kind file --clock-day-of-week monday --clock-local-time 09:00 --confirmation-response confirmed
+```
+
+Preflight a one-shot session-window execution decision without running it:
+
+```powershell
+uv run python -m async_scholar session-window-execution-preflight-from-store-local session-001 --db-path data\async-scholar-local.sqlite --archive-root data\sessions --source-kind file --clock-day-of-week monday --clock-local-time 09:00 --confirmation-response confirmed
+```
+
+Preflight a stored session-window stop decision without writing a stop receipt:
+
+```powershell
+uv run python -m async_scholar session-window-stop-execution-preflight-from-store-local session-001 --db-path data\async-scholar-local.sqlite --archive-root data\sessions --course-id cs101 --class-time-index 0 --source-kind file
+```
+
+Render read-only recovery report metadata for explicit local sessions:
+
+```powershell
+uv run python -m async_scholar session-window-recovery-report-local session-001 --archive-root data\sessions
+```
+
+Write a local metadata recovery report file under an explicit output root:
+
+```powershell
+uv run python -m async_scholar session-window-recovery-report-write-local session-001 --archive-root data\sessions --output-root data\recovery-reports
+```
+
+The schedule save command writes only manually entered schedule metadata to the
+explicit SQLite path, and the recovery report write command writes only a local
+metadata report file under the explicit output root. The preview, list,
+preflight, authorization, and read-only recovery commands do not start a
+background scheduler loop, create timers, run daemons, perform real online
+monitoring, automate a browser, access browser auth/profile/cookie data, capture
+audio, capture loopback or system audio, deliver live notifications, perform
+real deletion, participate autonomously, answer academic questions, pass Gate D,
+or pass Product Promise Alpha.
+
+Build the current local Gate D evidence bundle metadata:
+
+```powershell
+uv run python -m async_scholar gate-d-local-evidence-bundle
+```
+
+Build the local Gate D human handoff packet for blocked human review:
+
+```powershell
+uv run python -m async_scholar gate-d-handoff-packet-local
+```
+
+The Gate D handoff packet is a blocked human-review aid only. It summarizes the
+local metadata blocker and does not replace, record, or prove human product
+judgment; it is not product judgment evidence, a Gate D pass, or a Product
+Promise Alpha pass.
+
 Show read-only crash recovery preflight metadata for one explicit local session root:
 
 ```powershell
