@@ -260,9 +260,10 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 6
+    assert html.count("<section") == 7
     expected_headings = (
         "Gate D safety",
+        "Evidence digest",
         "Session status",
         "Detected events",
         "Alert preview",
@@ -282,6 +283,16 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Human product judgment: deferred" in gate_section
     assert "Manual judgment required: yes" in gate_section
     assert "Manual judgment recorded: no" in gate_section
+
+    digest_section = _section_text(html, "Evidence digest")
+    assert "Handoff status: Ready for manual review" in digest_section
+    assert "Local bundle status: Blocked" in digest_section
+    assert "Satisfactory evidence: 9" in digest_section
+    assert "Missing evidence: 0" in digest_section
+    assert "Blocking evidence: product_judgment_evidence" in digest_section
+    assert "Manual product judgment required: yes" in digest_section
+    assert "Manual product judgment recorded: no" in digest_section
+    assert "AI can complete product judgment: no" in digest_section
 
     session_section = _section_text(html, "Session status")
     assert "Server started: no" in session_section
@@ -314,6 +325,54 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "live delivery" in safety_section
     assert "participation" in safety_section
     assert "academic answers" in safety_section
+
+
+def test_static_demo_evidence_digest_fails_closed_for_pass_like_helper(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_packet() -> dict[str, object]:
+        return {
+            "handoff_packet_status": "passed C:\\Users\\student\\.env token",
+            "local_gate_d_bundle_status": "passed",
+            "satisfactory_evidence_count": True,
+            "missing_evidence_count": "C:\\Users\\student\\secret.txt",
+            "blocking_evidence": ["product_judgment_evidence", "auth-token"],
+            "manual_product_judgment_required": False,
+            "manual_product_judgment_recorded": True,
+            "review_can_be_completed_by_ai": True,
+            "gate_d_pass_claimed": True,
+            "product_promise_alpha_pass_claimed": True,
+        }
+
+    monkeypatch.setattr(demo, "_build_local_gate_d_handoff_packet", fake_packet)
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    digest_section = _section_text(html, "Evidence digest")
+    assert "Handoff status: Ready for manual review" in digest_section
+    assert "Local bundle status: Blocked" in digest_section
+    assert "Satisfactory evidence: 0" in digest_section
+    assert "Missing evidence: 0" in digest_section
+    assert "Blocking evidence: product_judgment_evidence" in digest_section
+    assert "Manual product judgment required: yes" in digest_section
+    assert "Manual product judgment recorded: no" in digest_section
+    assert "AI can complete product judgment: no" in digest_section
+
+    lowered = digest_section.casefold()
+    for forbidden in (
+        "passed",
+        "secret",
+        "token",
+        "auth",
+        ".env",
+        "c:\\",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
 
 
 def test_static_demo_html_helper_does_not_use_live_runner() -> None:

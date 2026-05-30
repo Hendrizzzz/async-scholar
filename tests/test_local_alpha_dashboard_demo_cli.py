@@ -209,6 +209,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert html.startswith("<!doctype html>\n")
     assert "AsyncScholar local alpha static demo" in html
     assert "<h2>Gate D safety</h2>" in html
+    assert "<h2>Evidence digest</h2>" in html
     assert "<h2>Session status</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
@@ -219,6 +220,9 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Gate D not passed" in html
     assert "Blocked on product_judgment_evidence" in html
     assert "Human product judgment: deferred" in html
+    assert "Handoff status: Ready for manual review" in html
+    assert "Local bundle status: Blocked" in html
+    assert "AI can complete product judgment: no" in html
     assert "Run status: Completed" in html
     assert "Attendance prompt - 42s - 94% confidence" in html
     assert "Important event - 185s - 88% confidence" in html

@@ -221,6 +221,7 @@ def _assert_static_html_safe(html: str) -> None:
     assert "AsyncScholar local alpha static demo" in html
     for heading in (
         "Gate D safety",
+        "Evidence digest",
         "Session status",
         "Detected events",
         "Alert preview",
@@ -228,7 +229,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 6
+    assert html.count("<section") == 7
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -236,6 +237,9 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Human product judgment: deferred" in html
     assert "Manual judgment required: yes" in html
     assert "Manual judgment recorded: no" in html
+    assert "Handoff status: Ready for manual review" in html
+    assert "Local bundle status: Blocked" in html
+    assert "AI can complete product judgment: no" in html
     assert "Run status: Completed" in html
     assert "Attendance prompt - 42s - 94% confidence" in html
     assert "Important event - 185s - 88% confidence" in html

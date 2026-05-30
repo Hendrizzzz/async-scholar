@@ -24,6 +24,7 @@ _CAPTURE_FLAG = "a" + "udio_capture_performed"
 _TIMED_RUNNER_FLAG = "sche" + "duler_loop_performed"
 _STATIC_DEMO_SECTION_HEADINGS = (
     "Gate D safety",
+    "Evidence digest",
     "Session status",
     "Detected events",
     "Alert preview",
@@ -256,11 +257,7 @@ def _format_local_url(*, host: str, port: int) -> str:
 
 def _build_demo_gate_d_metadata() -> dict[str, object]:
     try:
-        from async_scholar.gate_d_handoff_packet import (
-            build_local_gate_d_handoff_packet,
-        )
-
-        packet = build_local_gate_d_handoff_packet()
+        packet = _build_local_gate_d_handoff_packet()
     except Exception:
         return _fallback_gate_d_metadata()
 
@@ -325,6 +322,7 @@ def _build_static_demo_sections(
 
     if intro_lines:
         grouped["Session status"] = intro_lines + grouped["Session status"]
+    grouped["Evidence digest"] = list(_build_static_demo_evidence_digest_lines())
 
     return tuple(
         (heading, tuple(grouped[heading])) for heading in _STATIC_DEMO_SECTION_HEADINGS
@@ -345,6 +343,89 @@ def _render_static_demo_section(heading: str, lines: tuple[str, ...]) -> str:
         f"{body}"
         "      </section>"
     )
+
+
+def _build_static_demo_evidence_digest_lines() -> tuple[str, ...]:
+    digest = _build_static_demo_evidence_digest()
+    return (
+        f"Handoff status: {digest['handoff_status']}",
+        f"Local bundle status: {digest['local_bundle_status']}",
+        f"Satisfactory evidence: {digest['satisfactory_evidence_count']}",
+        f"Missing evidence: {digest['missing_evidence_count']}",
+        f"Blocking evidence: {digest['blocking_evidence']}",
+        "Manual product judgment required: "
+        f"{digest['manual_product_judgment_required']}",
+        "Manual product judgment recorded: "
+        f"{digest['manual_product_judgment_recorded']}",
+        f"AI can complete product judgment: {digest['review_can_be_completed_by_ai']}",
+    )
+
+
+def _build_static_demo_evidence_digest() -> dict[str, object]:
+    try:
+        packet = _build_local_gate_d_handoff_packet()
+    except Exception:
+        return _fallback_static_demo_evidence_digest()
+
+    if not isinstance(packet, dict):
+        return _fallback_static_demo_evidence_digest()
+    if packet.get("product_judgment_evidence_status") != "blocking":
+        return _fallback_static_demo_evidence_digest()
+    if packet.get("handoff_packet_status") != "ready_for_manual_review":
+        return _fallback_static_demo_evidence_digest()
+    if packet.get("local_gate_d_bundle_status") != "blocked":
+        return _fallback_static_demo_evidence_digest()
+    if packet.get("manual_product_judgment_required") is not True:
+        return _fallback_static_demo_evidence_digest()
+    if packet.get("manual_product_judgment_recorded") is not False:
+        return _fallback_static_demo_evidence_digest()
+    if packet.get("review_can_be_completed_by_ai") is not False:
+        return _fallback_static_demo_evidence_digest()
+    if packet.get("gate_d_pass_claimed") is True:
+        return _fallback_static_demo_evidence_digest()
+    if packet.get("product_promise_alpha_pass_claimed") is True:
+        return _fallback_static_demo_evidence_digest()
+    blockers = packet.get("blocking_evidence")
+    if (
+        not isinstance(blockers, list | tuple)
+        or len(blockers) != 1
+        or blockers[0] != _GATE_D_BLOCKER
+    ):
+        return _fallback_static_demo_evidence_digest()
+
+    return {
+        "handoff_status": "Ready for manual review",
+        "local_bundle_status": "Blocked",
+        "satisfactory_evidence_count": _safe_demo_gate_d_count(
+            packet.get("satisfactory_evidence_count")
+        ),
+        "missing_evidence_count": _safe_demo_gate_d_count(
+            packet.get("missing_evidence_count")
+        ),
+        "blocking_evidence": _GATE_D_BLOCKER,
+        "manual_product_judgment_required": "yes",
+        "manual_product_judgment_recorded": "no",
+        "review_can_be_completed_by_ai": "no",
+    }
+
+
+def _fallback_static_demo_evidence_digest() -> dict[str, object]:
+    return {
+        "handoff_status": "Ready for manual review",
+        "local_bundle_status": "Blocked",
+        "satisfactory_evidence_count": 0,
+        "missing_evidence_count": 0,
+        "blocking_evidence": _GATE_D_BLOCKER,
+        "manual_product_judgment_required": "yes",
+        "manual_product_judgment_recorded": "no",
+        "review_can_be_completed_by_ai": "no",
+    }
+
+
+def _build_local_gate_d_handoff_packet() -> dict[str, object]:
+    from async_scholar.gate_d_handoff_packet import build_local_gate_d_handoff_packet
+
+    return build_local_gate_d_handoff_packet()
 
 
 __all__ = [
