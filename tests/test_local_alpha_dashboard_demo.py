@@ -255,6 +255,67 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
         assert private_value not in serialized
 
 
+def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
+    demo = _demo_module()
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    assert html.count("<section") == 6
+    expected_headings = (
+        "Gate D safety",
+        "Session status",
+        "Detected events",
+        "Alert preview",
+        "Archive and reviewer",
+        "Safety boundary",
+    )
+    positions = []
+    for heading in expected_headings:
+        marker = f"<h2>{heading}</h2>"
+        assert marker in html
+        positions.append(html.index(marker))
+    assert positions == sorted(positions)
+
+    gate_section = _section_text(html, "Gate D safety")
+    assert "Gate D not passed" in gate_section
+    assert "Blocked on product_judgment_evidence" in gate_section
+    assert "Human product judgment: deferred" in gate_section
+    assert "Manual judgment required: yes" in gate_section
+    assert "Manual judgment recorded: no" in gate_section
+
+    session_section = _section_text(html, "Session status")
+    assert "Server started: no" in session_section
+    assert "Browser opened: no" in session_section
+    assert "Run status: Completed" in session_section
+    assert "Source kind: Fixture demo" in session_section
+    assert "Segments: 5" in session_section
+    assert "Events: 2" in session_section
+
+    events_section = _section_text(html, "Detected events")
+    assert "Attendance prompt - 42s - 94% confidence" in events_section
+    assert "Important event - 185s - 88% confidence" in events_section
+
+    alert_section = _section_text(html, "Alert preview")
+    assert "Urgent alert" in alert_section
+    assert "Status: Pending" in alert_section
+    assert "Confirmation required" in alert_section
+    assert "Review confirmation before acting." in alert_section
+
+    archive_section = _section_text(html, "Archive and reviewer")
+    assert "Local archive summary" in archive_section
+    assert "Reviewer available" in archive_section
+    assert "Reviewer artifact metadata only." in archive_section
+
+    safety_section = _section_text(html, "Safety boundary")
+    assert "Local alpha demo only" in safety_section
+    assert "no real meeting" in safety_section
+    assert "private meeting data" in safety_section
+    assert "audio capture" in safety_section
+    assert "live delivery" in safety_section
+    assert "participation" in safety_section
+    assert "academic answers" in safety_section
+
+
 def test_static_demo_html_helper_does_not_use_live_runner() -> None:
     demo = _demo_module()
     source = inspect.getsource(
@@ -361,3 +422,9 @@ def test_dry_run_rejects_invalid_ports(port: object) -> None:
 
 def _demo_module():
     return importlib.import_module("async_scholar.ui.local_alpha_dashboard_demo")
+
+
+def _section_text(html: str, heading: str) -> str:
+    start = html.index(f"<h2>{heading}</h2>")
+    end = html.index("</section>", start)
+    return html[start:end]

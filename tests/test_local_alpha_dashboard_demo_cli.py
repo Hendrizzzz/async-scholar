@@ -208,6 +208,12 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     html = output.read_text(encoding="utf-8")
     assert html.startswith("<!doctype html>\n")
     assert "AsyncScholar local alpha static demo" in html
+    assert "<h2>Gate D safety</h2>" in html
+    assert "<h2>Session status</h2>" in html
+    assert "<h2>Detected events</h2>" in html
+    assert "<h2>Alert preview</h2>" in html
+    assert "<h2>Archive and reviewer</h2>" in html
+    assert "<h2>Safety boundary</h2>" in html
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html

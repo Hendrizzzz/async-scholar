@@ -22,6 +22,14 @@ LOCAL_ALPHA_DASHBOARD_DEMO_SAFETY_SUMMARY = (
 )
 _CAPTURE_FLAG = "a" + "udio_capture_performed"
 _TIMED_RUNNER_FLAG = "sche" + "duler_loop_performed"
+_STATIC_DEMO_SECTION_HEADINGS = (
+    "Gate D safety",
+    "Session status",
+    "Detected events",
+    "Alert preview",
+    "Archive and reviewer",
+    "Safety boundary",
+)
 LOCAL_ALPHA_DASHBOARD_DEMO_DRY_RUN_KEYS = (
     "demo_kind",
     "url",
@@ -162,8 +170,9 @@ def build_local_alpha_dashboard_static_demo_html() -> str:
     summary_lines = tuple(
         line for line in build_local_alpha_dashboard_inspection_summary().splitlines()
     )
-    summary_items = "\n".join(
-        f"        <li>{escape(line, quote=True)}</li>" for line in summary_lines[1:]
+    sections = _build_static_demo_sections(summary_lines)
+    section_html = "\n".join(
+        _render_static_demo_section(heading, lines) for heading, lines in sections
     )
     return (
         "<!doctype html>\n"
@@ -175,22 +184,30 @@ def build_local_alpha_dashboard_static_demo_html() -> str:
         "  <style>\n"
         "    body { margin: 0; font-family: Arial, sans-serif; "
         "background: #f7f8fa; color: #17202a; }\n"
-        "    main { max-width: 880px; margin: 0 auto; padding: 40px 20px; }\n"
+        "    main { max-width: 960px; margin: 0 auto; padding: 40px 20px; }\n"
         "    h1 { font-size: 28px; margin: 0 0 16px; }\n"
-        "    p { margin: 0 0 24px; color: #4d5b6a; }\n"
+        "    p { margin: 0; color: #4d5b6a; line-height: 1.5; }\n"
+        "    .intro { margin: 0 0 24px; }\n"
+        "    .dashboard { display: grid; grid-template-columns: repeat(2, "
+        "minmax(0, 1fr)); gap: 14px; }\n"
+        "    section { background: #ffffff; border: 1px solid #d8dee6; "
+        "border-radius: 8px; padding: 16px; }\n"
+        "    h2 { font-size: 16px; margin: 0 0 12px; color: #17202a; }\n"
         "    ol { margin: 0; padding: 0; list-style: none; display: grid; "
         "gap: 8px; }\n"
-        "    li { background: #ffffff; border: 1px solid #d8dee6; "
-        "border-radius: 8px; padding: 10px 12px; }\n"
+        "    li { border: 1px solid #edf0f4; border-radius: 6px; "
+        "padding: 9px 10px; color: #324153; }\n"
+        "    @media (max-width: 700px) { .dashboard { grid-template-columns: 1fr; } }\n"
         "  </style>\n"
         "</head>\n"
         "<body>\n"
         "  <main>\n"
         "    <h1>AsyncScholar local alpha static demo</h1>\n"
-        "    <p>No-server, no-browser export of the fixed local alpha story.</p>\n"
-        "    <ol>\n"
-        f"{summary_items}\n"
-        "    </ol>\n"
+        '    <p class="intro">No-server, no-browser export of the fixed local '
+        "alpha story.</p>\n"
+        '    <div class="dashboard">\n'
+        f"{section_html}\n"
+        "    </div>\n"
         "  </main>\n"
         "</body>\n"
         "</html>\n"
@@ -286,6 +303,48 @@ def _safe_demo_gate_d_count(value: object) -> int:
     if isinstance(value, int):
         return min(max(value, 0), 9999)
     return 0
+
+
+def _build_static_demo_sections(
+    summary_lines: tuple[str, ...],
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    intro_lines: list[str] = []
+    grouped: dict[str, list[str]] = {
+        heading: [] for heading in _STATIC_DEMO_SECTION_HEADINGS
+    }
+    current_heading: str | None = None
+
+    for line in summary_lines[1:]:
+        if line in grouped:
+            current_heading = line
+            continue
+        if current_heading is None:
+            intro_lines.append(line)
+            continue
+        grouped[current_heading].append(line)
+
+    if intro_lines:
+        grouped["Session status"] = intro_lines + grouped["Session status"]
+
+    return tuple(
+        (heading, tuple(grouped[heading])) for heading in _STATIC_DEMO_SECTION_HEADINGS
+    )
+
+
+def _render_static_demo_section(heading: str, lines: tuple[str, ...]) -> str:
+    if lines:
+        items = "\n".join(
+            f"          <li>{escape(line, quote=True)}</li>" for line in lines
+        )
+        body = f"        <ol>\n{items}\n        </ol>\n"
+    else:
+        body = "        <p>Metadata unavailable.</p>\n"
+    return (
+        "      <section>\n"
+        f"        <h2>{escape(heading, quote=True)}</h2>\n"
+        f"{body}"
+        "      </section>"
+    )
 
 
 __all__ = [

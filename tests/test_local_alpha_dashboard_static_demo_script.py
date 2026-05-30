@@ -219,6 +219,16 @@ def test_readme_documents_static_demo_script_boundaries() -> None:
 
 def _assert_static_html_safe(html: str) -> None:
     assert "AsyncScholar local alpha static demo" in html
+    for heading in (
+        "Gate D safety",
+        "Session status",
+        "Detected events",
+        "Alert preview",
+        "Archive and reviewer",
+        "Safety boundary",
+    ):
+        assert f"<h2>{heading}</h2>" in html
+    assert html.count("<section") == 6
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
