@@ -181,6 +181,7 @@ For a local human-facing alpha dashboard inspection surface, first dry-run the
 launcher:
 
 ```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_dashboard_demo.ps1 -DryRun
 uv run python -m async_scholar local-alpha-dashboard-demo --dry-run --host 127.0.0.1 --port 8086
 ```
 
@@ -189,6 +190,7 @@ server. To inspect the dashboard locally, run the same command without
 `--dry-run` and open the same loopback URL:
 
 ```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_dashboard_demo.ps1
 uv run python -m async_scholar local-alpha-dashboard-demo --host 127.0.0.1 --port 8086
 ```
 
@@ -200,6 +202,7 @@ tokens; it does not perform real online monitoring, browser automation, capture,
 live delivery, deletion/export, autonomous participation, or academic-answer
 behavior; and it does not replace product judgment evidence or pass Gate D /
 Product Promise Alpha.
+It does not pass Gate D / Product Promise Alpha.
 
 Show read-only crash recovery preflight metadata for one explicit local session root:
 
