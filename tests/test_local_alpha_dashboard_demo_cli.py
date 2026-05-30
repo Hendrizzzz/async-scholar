@@ -216,6 +216,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
     assert "<h2>Confirmation queue</h2>" in html
+    assert "<h2>Action controls</h2>" in html
     assert "<h2>Archive and reviewer</h2>" in html
     assert "<h2>Safety boundary</h2>" in html
     assert "Server started: no" in html
@@ -244,6 +245,17 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Autonomous participation: no" in visible_html
     assert "Live delivery: no" in html
     assert "Academic answer behavior: no" in html
+    assert "Review alert confirmation" in visible_html
+    assert "Send participation action" in visible_html
+    assert "Open archive reviewer" in visible_html
+    assert "Record product judgment" in visible_html
+    assert "Alert delivery live: no" in html
+    assert "Gate D not passed" in html
+    assert "Product Promise Alpha not passed" in html
+    assert html.count("<button ") == 4
+    assert html.count('type="button"') == 4
+    assert html.count(" disabled ") == 4
+    assert html.count('aria-disabled="true"') == 4
     assert "Local archive summary" in html
     assert "Reviewer artifact metadata only." in html
     _assert_static_output_safe(result.stdout, result.stderr, html)
@@ -1128,14 +1140,31 @@ def _assert_static_output_safe(stdout: str, stderr: str, html: str) -> None:
         "product judgment evidence satisfied",
         "server started: yes",
         "browser opened: yes",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "value=",
         "live delivery performed",
+        "participation action sent: yes",
         "autonomous participation performed",
         "autonomous participation: yes",
         "live delivery: yes",
         "academic answer behavior: yes",
     ):
         assert forbidden not in combined
+    _assert_no_event_handler_attributes(combined)
 
 
 def _visible_html_text(html: str) -> str:
     return re.sub(r"<[^>]+>", "", html)
+
+
+def _assert_no_event_handler_attributes(html: str) -> None:
+    assert re.search(r"\son[a-z]+\s*=", html, flags=re.IGNORECASE) is None

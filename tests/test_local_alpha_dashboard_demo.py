@@ -249,8 +249,25 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Gate D passed" not in first
     assert "Product Promise Alpha passed" not in first
     lowered = first.casefold()
-    for forbidden in ("<script", "<link", "<img", "<iframe", "src=", "href="):
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "src=",
+        "href=",
+        "action=",
+        "method=",
+        "formaction=",
+        "value=",
+    ):
         assert forbidden not in lowered
+    _assert_no_event_handler_attributes(first)
     serialized = json.dumps({"html": first})
     for private_value in PRIVATE_VALUES:
         assert private_value not in serialized
@@ -261,7 +278,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 9
+    assert html.count("<section") == 10
     expected_headings = (
         "Gate D safety",
         "Evidence digest",
@@ -270,6 +287,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Detected events",
         "Alert preview",
         "Confirmation queue",
+        "Action controls",
         "Archive and reviewer",
         "Safety boundary",
     )
@@ -331,6 +349,41 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Autonomous participation: no" in confirmation_visible
     assert "Live delivery: no" in confirmation_visible
     assert "Academic answer behavior: no" in confirmation_visible
+
+    action_section = _section_text(html, "Action controls")
+    action_visible = _visible_text(action_section)
+    assert "Metadata unavailable." not in action_section
+    assert "Review alert confirmation" in action_visible
+    assert "Send participation action" in action_visible
+    assert "Open archive reviewer" in action_visible
+    assert "Record product judgment" in action_visible
+    assert "User confirmation required" in action_visible
+    assert "Alert delivery live: no" in action_visible
+    assert "Participation action sent: no" in action_visible
+    assert "Autonomous participation: no" in action_visible
+    assert "Academic answer behavior: no" in action_visible
+    assert "Gate D not passed" in action_visible
+    assert "Product Promise Alpha not passed" in action_visible
+    assert action_section.count("<button ") == 4
+    assert action_section.count('type="button"') == 4
+    assert action_section.count(" disabled ") == 4
+    assert action_section.count('aria-disabled="true"') == 4
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+    ):
+        assert forbidden not in action_section.casefold()
+    _assert_no_event_handler_attributes(action_section)
 
     archive_section = _section_text(html, "Archive and reviewer")
     assert "Local archive summary" in archive_section
@@ -483,6 +536,125 @@ def test_static_demo_confirmation_queue_fails_closed_for_helper_exception(
     assert "token" not in confirmation_section.casefold()
 
 
+@pytest.mark.parametrize(
+    "unsafe_controls",
+    [
+        (
+            "Action: Review alert confirmation",
+            "Action: <script>alert('unsafe')</script>",
+            "Participation action sent: yes",
+            "Autonomous participation: yes",
+            "Live delivery: yes",
+            "Academic answer behavior: yes",
+            "Gate D passed",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Action: C:\\Users\\student\\secret-token-auth-profile",
+            "Action: https://meet.example.edu/class-room?token=private",
+            "User confirmation required",
+        ),
+        ("Action: Review alert confirmation",),
+        (),
+    ],
+)
+def test_static_demo_action_controls_fail_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_controls: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_controls() -> tuple[str, ...]:
+        return unsafe_controls
+
+    monkeypatch.setattr(demo, "_build_static_demo_action_control_lines", fake_controls)
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    action_section = _section_text(html, "Action controls")
+    action_visible = _visible_text(action_section)
+    for expected in (
+        "Review alert confirmation",
+        "Send participation action",
+        "Open archive reviewer",
+        "Record product judgment",
+        "User confirmation required",
+        "Alert delivery live: no",
+        "Participation action sent: no",
+        "Autonomous participation: no",
+        "Academic answer behavior: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in action_visible
+    assert action_section.count("<button ") == 4
+    assert action_section.count('type="button"') == 4
+    assert action_section.count(" disabled ") == 4
+    assert action_section.count('aria-disabled="true"') == 4
+
+    lowered = action_section.casefold()
+    for forbidden in (
+        "<script",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "meet.example",
+        "c:\\",
+        "participation action sent: yes",
+        "autonomous participation: yes",
+        "live delivery: yes",
+        "academic answer behavior: yes",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    _assert_no_event_handler_attributes(action_section)
+
+
+def test_static_demo_action_controls_fail_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_controls() -> tuple[str, ...]:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    monkeypatch.setattr(demo, "_build_static_demo_action_control_lines", fake_controls)
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    action_section = _section_text(html, "Action controls")
+    action_visible = _visible_text(action_section)
+    assert "Review alert confirmation" in action_visible
+    assert "Send participation action" in action_visible
+    assert "Open archive reviewer" in action_visible
+    assert "Record product judgment" in action_visible
+    assert "User confirmation required" in action_visible
+    assert "Alert delivery live: no" in action_visible
+    assert "Participation action sent: no" in action_visible
+    assert "Autonomous participation: no" in action_visible
+    assert "Academic answer behavior: no" in action_visible
+    assert "Gate D not passed" in action_visible
+    assert "Product Promise Alpha not passed" in action_visible
+    assert "traceback" not in action_section.casefold()
+    assert ".env" not in action_section.casefold()
+    assert "token" not in action_section.casefold()
+
+
 def test_static_demo_evidence_digest_fails_closed_for_pass_like_helper(
     monkeypatch,
 ) -> None:
@@ -544,6 +716,39 @@ def test_static_demo_html_helper_does_not_use_live_runner() -> None:
         "ui.run",
         "webbrowser",
         "subprocess",
+    ):
+        assert forbidden not in source
+
+
+def test_static_demo_action_control_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_action_control_lines)
+        + inspect.getsource(demo._build_static_demo_action_control_lines)
+        + inspect.getsource(demo._render_static_demo_action_control_item)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete",
     ):
         assert forbidden not in source
 
@@ -647,3 +852,7 @@ def _section_text(html: str, heading: str) -> str:
 
 def _visible_text(html: str) -> str:
     return re.sub(r"<[^>]+>", "", html)
+
+
+def _assert_no_event_handler_attributes(html: str) -> None:
+    assert re.search(r"\son[a-z]+\s*=", html, flags=re.IGNORECASE) is None

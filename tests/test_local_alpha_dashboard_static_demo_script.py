@@ -227,11 +227,12 @@ def _assert_static_html_safe(html: str) -> None:
         "Detected events",
         "Alert preview",
         "Confirmation queue",
+        "Action controls",
         "Archive and reviewer",
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 9
+    assert html.count("<section") == 10
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -260,6 +261,17 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Autonomous participation: no" in visible_html
     assert "Live delivery: no" in html
     assert "Academic answer behavior: no" in html
+    assert "Review alert confirmation" in visible_html
+    assert "Send participation action" in visible_html
+    assert "Open archive reviewer" in visible_html
+    assert "Record product judgment" in visible_html
+    assert "Alert delivery live: no" in html
+    assert "Gate D not passed" in html
+    assert "Product Promise Alpha not passed" in html
+    assert html.count("<button ") == 4
+    assert html.count('type="button"') == 4
+    assert html.count(" disabled ") == 4
+    assert html.count('aria-disabled="true"') == 4
     assert "Local archive summary" in html
     assert "Reviewer artifact metadata only." in html
     assert "Safety boundary" in html
@@ -269,8 +281,17 @@ def _assert_static_html_safe(html: str) -> None:
         "<link",
         "<img",
         "<iframe",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
         "src=",
         "href=",
+        "action=",
+        "method=",
+        "formaction=",
+        "value=",
         "gate d passed",
         "product promise alpha passed",
         "product judgment evidence satisfied",
@@ -287,6 +308,7 @@ def _assert_static_html_safe(html: str) -> None:
         "auth",
     ):
         assert forbidden not in lowered
+    _assert_no_event_handler_attributes(html)
 
 
 def _output_path_from_stdout(stdout: str) -> Path:
@@ -297,6 +319,10 @@ def _output_path_from_stdout(stdout: str) -> Path:
 
 def _visible_html_text(html: str) -> str:
     return re.sub(r"<[^>]+>", "", html)
+
+
+def _assert_no_event_handler_attributes(html: str) -> None:
+    assert re.search(r"\son[a-z]+\s*=", html, flags=re.IGNORECASE) is None
 
 
 def _run_script(

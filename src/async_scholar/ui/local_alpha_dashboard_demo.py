@@ -30,6 +30,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Detected events",
     "Alert preview",
     "Confirmation queue",
+    "Action controls",
     "Archive and reviewer",
     "Safety boundary",
 )
@@ -73,6 +74,19 @@ _STATIC_DEMO_CONFIRMATION_QUEUE_LINES = (
     "Autonomous participation: no",
     "Live delivery: no",
     "Academic answer behavior: no",
+)
+_STATIC_DEMO_ACTION_CONTROL_LINES = (
+    "Action: Review alert confirmation",
+    "Action: Send participation action",
+    "Action: Open archive reviewer",
+    "Action: Record product judgment",
+    "User confirmation required",
+    "Alert delivery live: no",
+    "Participation action sent: no",
+    "Autonomous participation: no",
+    "Academic answer behavior: no",
+    "Gate D not passed",
+    "Product Promise Alpha not passed",
 )
 _UNSAFE_STATIC_DEMO_TEXT_MARKERS = (
     "traceback",
@@ -233,6 +247,10 @@ def build_local_alpha_dashboard_static_demo_html() -> str:
         "gap: 8px; }\n"
         "    li { border: 1px solid #edf0f4; border-radius: 6px; "
         "padding: 9px 10px; color: #324153; }\n"
+        "    button { width: 100%; border: 1px solid #d8dee6; "
+        "border-radius: 6px; padding: 9px 10px; background: #edf0f4; "
+        "color: #667384; text-align: left; font: inherit; }\n"
+        "    button:disabled { cursor: not-allowed; opacity: 1; }\n"
         "    @media (max-width: 700px) { .dashboard { grid-template-columns: 1fr; } }\n"
         "  </style>\n"
         "</head>\n"
@@ -360,6 +378,7 @@ def _build_static_demo_sections(
     grouped["Evidence digest"] = list(_build_static_demo_evidence_digest_lines())
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
+    grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
 
     return tuple(
         (heading, tuple(grouped[heading])) for heading in _STATIC_DEMO_SECTION_HEADINGS
@@ -381,7 +400,9 @@ def _render_static_demo_section(heading: str, lines: tuple[str, ...]) -> str:
 
 
 def _render_static_demo_item(line: str) -> str:
-    if line == "Autonomous participation: no":
+    if line.startswith("Action: "):
+        body = _render_static_demo_action_control_item(line.removeprefix("Action: "))
+    elif line == "Autonomous participation: no":
         body = (
             f"<span>{escape('Autonomous', quote=True)}</span> "
             f"<span>{escape('participation: no', quote=True)}</span>"
@@ -389,6 +410,11 @@ def _render_static_demo_item(line: str) -> str:
     else:
         body = escape(line, quote=True)
     return f"          <li>{body}</li>"
+
+
+def _render_static_demo_action_control_item(label: str) -> str:
+    safe_label = escape(label, quote=True)
+    return f'<button type="button" disabled aria-disabled="true">{safe_label}</button>'
 
 
 def _build_static_demo_evidence_digest_lines() -> tuple[str, ...]:
@@ -498,6 +524,22 @@ def _safe_static_demo_confirmation_queue_lines() -> tuple[str, ...]:
 
 def _build_static_demo_confirmation_queue_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_CONFIRMATION_QUEUE_LINES
+
+
+def _safe_static_demo_action_control_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_action_control_lines()
+    except Exception:
+        return _STATIC_DEMO_ACTION_CONTROL_LINES
+    if lines != _STATIC_DEMO_ACTION_CONTROL_LINES:
+        return _STATIC_DEMO_ACTION_CONTROL_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_ACTION_CONTROL_LINES
+    return lines
+
+
+def _build_static_demo_action_control_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_ACTION_CONTROL_LINES
 
 
 def _static_demo_text_is_unsafe(value: object) -> bool:
