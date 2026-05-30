@@ -183,16 +183,18 @@ launcher:
 ```powershell
 uv run python -m async_scholar local-alpha-dashboard-inspection
 uv run python -m async_scholar local-alpha-dashboard-static-demo --output "$env:TEMP\async-scholar-local-alpha-dashboard.html"
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_dashboard_static_demo.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_dashboard_demo.ps1 -DryRun
 uv run python -m async_scholar local-alpha-dashboard-demo --dry-run --host 127.0.0.1 --port 8086
 ```
 
 The inspection command prints a no-server, no-browser plain-text summary of the
 same fixed local demo story. The static HTML export writes a standalone local
-file for browser inspection without starting a server or opening a browser. The
-dry run prints the loopback URL and a safety summary without starting a server.
-To inspect the dashboard locally, run the same command without `--dry-run` and
-open the same loopback URL:
+file for browser inspection without starting a server or opening a browser; the
+PowerShell wrapper creates a fresh temp HTML output path when `-Output` is not
+provided. The dry run prints the loopback URL and a safety summary without
+starting a server. To inspect the dashboard locally, run the same command
+without `--dry-run` and open the same loopback URL:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_dashboard_demo.ps1
