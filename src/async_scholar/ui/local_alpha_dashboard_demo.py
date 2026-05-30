@@ -7,6 +7,7 @@ from typing import Any
 
 from async_scholar.ui.local_alpha_dashboard import (
     LocalAlphaDashboardSources,
+    format_local_alpha_dashboard_inspection,
     render_local_alpha_dashboard,
 )
 
@@ -146,6 +147,14 @@ def build_local_alpha_dashboard_demo_dry_run(
     }
 
 
+def build_local_alpha_dashboard_inspection_summary() -> str:
+    """Build a no-server plain-text local alpha inspection summary."""
+
+    return format_local_alpha_dashboard_inspection(
+        build_local_alpha_dashboard_demo_sources()
+    )
+
+
 def render_local_alpha_dashboard_demo_page(*, ui: Any | None = None) -> object:
     """Render the demo page from fixed local metadata sources."""
 
@@ -244,6 +253,7 @@ __all__ = [
     "LOCAL_ALPHA_DASHBOARD_DEMO_SAFETY_SUMMARY",
     "build_local_alpha_dashboard_demo_dry_run",
     "build_local_alpha_dashboard_demo_sources",
+    "build_local_alpha_dashboard_inspection_summary",
     "render_local_alpha_dashboard_demo_page",
     "run_local_alpha_dashboard_demo",
 ]

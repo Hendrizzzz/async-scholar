@@ -103,8 +103,10 @@ def test_ui_package_lazy_export_for_dashboard_demo_is_safe() -> None:
 
         package = importlib.import_module("async_scholar.ui")
         assert "build_local_alpha_dashboard_demo_dry_run" in package.__all__
+        assert "build_local_alpha_dashboard_inspection_summary" in package.__all__
         before = set(sys.modules)
         build = package.build_local_alpha_dashboard_demo_dry_run
+        inspect_summary = package.build_local_alpha_dashboard_inspection_summary
         loaded = set(sys.modules) - before
         prefixes = ("fastapi", "nicegui", "async_scholar.demo", "async_scholar.audio")
         forbidden = sorted(
@@ -115,7 +117,15 @@ def test_ui_package_lazy_export_for_dashboard_demo_is_safe() -> None:
                 for prefix in prefixes
             )
         )
-        print(json.dumps({"callable": callable(build), "forbidden": forbidden}))
+        print(
+            json.dumps(
+                {
+                    "callable": callable(build),
+                    "inspection_callable": callable(inspect_summary),
+                    "forbidden": forbidden,
+                }
+            )
+        )
         raise SystemExit(bool(forbidden))
         """
     )
@@ -127,7 +137,11 @@ def test_ui_package_lazy_export_for_dashboard_demo_is_safe() -> None:
     )
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert json.loads(completed.stdout) == {"callable": True, "forbidden": []}
+    assert json.loads(completed.stdout) == {
+        "callable": True,
+        "inspection_callable": True,
+        "forbidden": [],
+    }
 
 
 def test_build_demo_sources_are_deterministic_and_metadata_only() -> None:
@@ -157,6 +171,42 @@ def test_build_demo_sources_are_deterministic_and_metadata_only() -> None:
     exposed = repr(first)
     for private_value in PRIVATE_VALUES:
         assert private_value not in exposed
+
+
+def test_build_inspection_summary_is_deterministic_and_metadata_only() -> None:
+    demo = _demo_module()
+
+    first = demo.build_local_alpha_dashboard_inspection_summary()
+    second = demo.build_local_alpha_dashboard_inspection_summary()
+
+    assert first == second
+    assert first.endswith("\n")
+    assert "AsyncScholar local alpha inspection" in first
+    assert "Server started: no" in first
+    assert "Browser opened: no" in first
+    assert "Gate D not passed" in first
+    assert "Blocked on product_judgment_evidence" in first
+    assert "Human product judgment: deferred" in first
+    assert "Satisfactory evidence: 9" in first
+    assert "Missing evidence: 0" in first
+    assert "Blocking evidence: product_judgment_evidence" in first
+    assert "Manual judgment required: yes" in first
+    assert "Manual judgment recorded: no" in first
+    assert "Run status: Completed" in first
+    assert "Source kind: Fixture demo" in first
+    assert "Attendance prompt - 42s - 94% confidence" in first
+    assert "Important event - 185s - 88% confidence" in first
+    assert "Urgent alert" in first
+    assert "Status: Pending" in first
+    assert "Confirmation required" in first
+    assert "Local archive summary" in first
+    assert "Reviewer available" in first
+    assert "Reviewer artifact metadata only." in first
+    assert "Gate D passed" not in first
+    assert "Product Promise Alpha passed" not in first
+    serialized = json.dumps({"summary": first})
+    for private_value in PRIVATE_VALUES:
+        assert private_value not in serialized
 
 
 def test_dry_run_payload_is_safe_and_loopback_only() -> None:

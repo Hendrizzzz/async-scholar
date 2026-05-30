@@ -7,9 +7,21 @@ from dataclasses import dataclass
 from math import isfinite
 from typing import Any
 
-from async_scholar.ui.alert_history import render_alert_history_view
-from async_scholar.ui.archive_browser import render_archive_browser_view
-from async_scholar.ui.event_timeline import render_event_timeline_view
+from async_scholar.ui.alert_history import (
+    format_alert_history_item,
+    normalize_alert_history_alerts,
+    render_alert_history_view,
+)
+from async_scholar.ui.archive_browser import (
+    format_archive_browser_item,
+    normalize_archive_browser_items,
+    render_archive_browser_view,
+)
+from async_scholar.ui.event_timeline import (
+    format_event_timeline_event,
+    normalize_event_timeline_events,
+    render_event_timeline_view,
+)
 
 _RUN_STATUS_LABELS = {
     "completed": "Completed",
@@ -224,6 +236,43 @@ def format_gate_d_status(model: GateDStatusModel) -> str:
     )
 
 
+def format_local_alpha_dashboard_inspection(
+    sources: LocalAlphaDashboardSources,
+) -> str:
+    """Format a no-server local alpha inspection summary."""
+
+    gate_d = normalize_gate_d_status(sources.gate_d)
+    session = normalize_dashboard_session_status(sources.session_status)
+    events = _safe_event_models(sources.events)
+    alerts = _safe_alert_models(sources.alerts)
+    archive_items = _safe_archive_models(sources.archive)
+
+    lines = [
+        "AsyncScholar local alpha inspection",
+        "Server started: no",
+        "Browser opened: no",
+        gate_d.title,
+        gate_d.status_label,
+        gate_d.blocker_label,
+        gate_d.judgment_label,
+        *gate_d.evidence_labels,
+        "Session status",
+        f"Run status: {session.run_status_label}",
+        f"Source kind: {session.source_kind_label}",
+        f"Segments: {session.segment_count}",
+        f"Events: {session.event_count}",
+        "Detected events",
+        *(format_event_timeline_event(event) for event in events),
+        "Alert preview",
+        *(format_alert_history_item(alert) for alert in alerts),
+        "Archive and reviewer",
+        *(format_archive_browser_item(item) for item in archive_items),
+        "Safety boundary",
+        gate_d.safety_label,
+    ]
+    return "\n".join(lines) + "\n"
+
+
 class _ConfirmationRequiredAlertPreviewSource:
     def __init__(self, source: object) -> None:
         self._source = source
@@ -332,6 +381,31 @@ def _read_session_snapshot(source: object) -> object | None:
     return source
 
 
+def _safe_event_models(source: object) -> tuple[object, ...]:
+    try:
+        return tuple(normalize_event_timeline_events(source))
+    except Exception:
+        return ()
+
+
+def _safe_alert_models(source: object) -> tuple[object, ...]:
+    try:
+        return normalize_alert_history_alerts(
+            _ConfirmationRequiredAlertPreviewSource(source).alerts()
+        )
+    except Exception:
+        return ()
+
+
+def _safe_archive_models(source: object) -> tuple[object, ...]:
+    try:
+        return normalize_archive_browser_items(
+            _MetadataOnlyArchiveSource(source).items()
+        )
+    except Exception:
+        return ()
+
+
 def _read_gate_d_snapshot(source: object | None) -> Mapping[str, object] | None:
     try:
         value = source() if callable(source) else source
@@ -401,6 +475,7 @@ __all__ = [
     "LocalAlphaDashboardView",
     "LocalAlphaSessionStatusModel",
     "format_gate_d_status",
+    "format_local_alpha_dashboard_inspection",
     "normalize_dashboard_session_status",
     "normalize_gate_d_status",
     "render_local_alpha_dashboard",

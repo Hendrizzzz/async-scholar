@@ -181,13 +181,15 @@ For a local human-facing alpha dashboard inspection surface, first dry-run the
 launcher:
 
 ```powershell
+uv run python -m async_scholar local-alpha-dashboard-inspection
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_dashboard_demo.ps1 -DryRun
 uv run python -m async_scholar local-alpha-dashboard-demo --dry-run --host 127.0.0.1 --port 8086
 ```
 
-The dry run prints the loopback URL and a safety summary without starting a
-server. To inspect the dashboard locally, run the same command without
-`--dry-run` and open the same loopback URL:
+The inspection command prints a no-server, no-browser plain-text summary of the
+same fixed local demo story. The dry run prints the loopback URL and a safety
+summary without starting a server. To inspect the dashboard locally, run the
+same command without `--dry-run` and open the same loopback URL:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_dashboard_demo.ps1

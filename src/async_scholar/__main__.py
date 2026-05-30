@@ -24,6 +24,9 @@ _POLICY_GATE_SMOKE_CLI_ERROR = "policy gate smoke could not be built"
 _DELIVERY_PATH_SMOKE_CLI_ERROR = "delivery path smoke could not be built"
 _MONITORING_BOUNDARY_SMOKE_CLI_ERROR = "monitoring boundary smoke could not be built"
 _LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR = "local alpha dashboard demo could not be built"
+_LOCAL_ALPHA_DASHBOARD_INSPECTION_CLI_ERROR = (
+    "local alpha dashboard inspection could not be built"
+)
 _LOCAL_ALPHA_DASHBOARD_DEMO_SAFETY_SUMMARY = (
     "Local metadata-only demo for human inspection. Gate D is not passed; "
     "product_judgment_evidence remains blocking. It uses fixed local fixture-style "
@@ -72,6 +75,41 @@ _LOCAL_ALPHA_DASHBOARD_DEMO_FALSE_FLAGS = (
     "real_online_monitoring_performed",
     "autonomous_participation_performed",
     "academic_answer_behavior_performed",
+)
+_LOCAL_ALPHA_DASHBOARD_INSPECTION_REQUIRED_TEXT = (
+    "AsyncScholar local alpha inspection",
+    "Server started: no",
+    "Browser opened: no",
+    "Gate D not passed",
+    "Blocked on product_judgment_evidence",
+    "Human product judgment: deferred",
+    "Manual judgment required: yes",
+    "Manual judgment recorded: no",
+    "Session status",
+    "Detected events",
+    "Alert preview",
+    "Archive and reviewer",
+    "Safety boundary",
+)
+_LOCAL_ALPHA_DASHBOARD_INSPECTION_FORBIDDEN_TEXT = (
+    "good morning",
+    "meet.example",
+    "token",
+    "cookie",
+    ".env",
+    "auth",
+    "browser profile",
+    "traceback",
+    ".wav",
+    ".mp4",
+    "c:\\",
+    "gate d passed",
+    "product promise alpha passed",
+    "product judgment evidence satisfied",
+    "server started: yes",
+    "browser opened: yes",
+    "live delivery performed",
+    "autonomous participation",
 )
 _GATE_D_SECURITY_REVIEW_EVIDENCE_CLI_ERROR = (
     "gate d security review evidence could not be built"
@@ -1433,6 +1471,18 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_local_alpha_dashboard_demo_command
     )
 
+    local_alpha_dashboard_inspection = subparsers.add_parser(
+        "local-alpha-dashboard-inspection",
+        help="print a no-server local alpha dashboard inspection summary",
+        description=(
+            "Print a no-server local alpha dashboard inspection summary from "
+            "fixed metadata-only sources."
+        ),
+    )
+    local_alpha_dashboard_inspection.set_defaults(
+        handler=_run_local_alpha_dashboard_inspection_command
+    )
+
     session_window_lifecycle_smoke = subparsers.add_parser(
         "session-window-lifecycle-smoke-local",
         help="run a local session-window lifecycle smoke",
@@ -1919,6 +1969,11 @@ def main(argv: list[str] | None = None) -> int:
         return _run_local_alpha_dashboard_demo_argv(argv[1:])
     if "local-alpha-dashboard-demo" in argv:
         print(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["local-alpha-dashboard-inspection"]:
+        return _run_local_alpha_dashboard_inspection_argv(argv[1:])
+    if "local-alpha-dashboard-inspection" in argv:
+        print(_LOCAL_ALPHA_DASHBOARD_INSPECTION_CLI_ERROR, file=sys.stderr)
         return 2
     if argv[:1] == ["crash-recovery-preflight"]:
         return _run_crash_recovery_preflight_argv(argv[1:])
@@ -4434,6 +4489,19 @@ def _run_local_alpha_dashboard_demo_argv(argv: list[str]) -> int:
     return _run_local_alpha_dashboard_demo_command(args)
 
 
+def _run_local_alpha_dashboard_inspection_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar local-alpha-dashboard-inspection",
+        description=(
+            "Print a no-server local alpha dashboard inspection summary from "
+            "fixed metadata-only sources."
+        ),
+        fixed_error_message=_LOCAL_ALPHA_DASHBOARD_INSPECTION_CLI_ERROR,
+    )
+    args = parser.parse_args(argv)
+    return _run_local_alpha_dashboard_inspection_command(args)
+
+
 def _run_local_alpha_dashboard_demo_command(args: argparse.Namespace) -> int:
     try:
         from async_scholar.ui.local_alpha_dashboard_demo import (
@@ -4458,6 +4526,23 @@ def _run_local_alpha_dashboard_demo_command(args: argparse.Namespace) -> int:
         print(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR, file=sys.stderr)
         return 1
 
+    return 0
+
+
+def _run_local_alpha_dashboard_inspection_command(_args: argparse.Namespace) -> int:
+    try:
+        from async_scholar.ui.local_alpha_dashboard_demo import (
+            build_local_alpha_dashboard_inspection_summary,
+        )
+
+        output = _local_alpha_dashboard_inspection_text(
+            build_local_alpha_dashboard_inspection_summary()
+        )
+    except Exception:
+        print(_LOCAL_ALPHA_DASHBOARD_INSPECTION_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(output, end="")
     return 0
 
 
@@ -4490,6 +4575,23 @@ def _local_alpha_dashboard_demo_json(payload: object) -> str:
     ):
         raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _local_alpha_dashboard_inspection_text(output: object) -> str:
+    if not isinstance(output, str) or not output.endswith("\n"):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_INSPECTION_CLI_ERROR)
+    if any(
+        required not in output
+        for required in _LOCAL_ALPHA_DASHBOARD_INSPECTION_REQUIRED_TEXT
+    ):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_INSPECTION_CLI_ERROR)
+    lowered = output.casefold()
+    if any(
+        forbidden in lowered
+        for forbidden in _LOCAL_ALPHA_DASHBOARD_INSPECTION_FORBIDDEN_TEXT
+    ):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_INSPECTION_CLI_ERROR)
+    return output
 
 
 def _local_alpha_dashboard_demo_expected_url(*, host: object, port: object) -> str:

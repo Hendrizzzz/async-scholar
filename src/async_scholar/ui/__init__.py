@@ -39,11 +39,17 @@ _SYMBOL_MODULES = {
     "alert_to_history_model": "async_scholar.ui.alert_history",
     "build_local_alpha_dashboard_demo_dry_run": _LOCAL_ALPHA_DASHBOARD_DEMO_MODULE,
     "build_local_alpha_dashboard_demo_sources": _LOCAL_ALPHA_DASHBOARD_DEMO_MODULE,
+    "build_local_alpha_dashboard_inspection_summary": (
+        _LOCAL_ALPHA_DASHBOARD_DEMO_MODULE
+    ),
     "diagnostics_to_audio_model": "async_scholar.ui.audio_diagnostics",
     "event_to_timeline_model": "async_scholar.ui.event_timeline",
     "format_archive_browser_item": "async_scholar.ui.archive_browser",
     "format_alert_history_item": "async_scholar.ui.alert_history",
     "format_gate_d_status": "async_scholar.ui.local_alpha_dashboard",
+    "format_local_alpha_dashboard_inspection": (
+        "async_scholar.ui.local_alpha_dashboard"
+    ),
     "format_audio_diagnostics_model": "async_scholar.ui.audio_diagnostics",
     "format_event_timeline_event": "async_scholar.ui.event_timeline",
     "format_status_model": "async_scholar.ui.session_status",

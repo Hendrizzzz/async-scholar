@@ -267,6 +267,110 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         assert private_value not in rendered
 
 
+def test_dashboard_inspection_summary_is_metadata_only_and_no_server() -> None:
+    dashboard = _dashboard_module()
+    sources = dashboard.LocalAlphaDashboardSources(
+        session_status=StaticStatusSource(
+            [
+                {
+                    "run_status": "completed",
+                    "source_kind": "fixture_demo",
+                    "segment_count": 5,
+                    "event_count": 2,
+                    "transcript_text": PRIVATE_RENDER_VALUES[0],
+                }
+            ]
+        ),
+        events=StaticEventSource(
+            [
+                [
+                    {
+                        "event_type": "attendance_prompt",
+                        "detected_at": 42,
+                        "confidence": 0.94,
+                        "message": PRIVATE_RENDER_VALUES[0],
+                    },
+                    {
+                        "event_type": "important_event",
+                        "detected_at": 185,
+                        "confidence": 0.88,
+                        "path": PRIVATE_RENDER_VALUES[4],
+                    },
+                ]
+            ]
+        ),
+        alerts=StaticAlertSource(
+            [
+                [
+                    {
+                        "severity": "urgent",
+                        "status": "delivered",
+                        "confirmation_required": False,
+                        "message": PRIVATE_RENDER_VALUES[0],
+                    }
+                ]
+            ]
+        ),
+        archive=StaticArchiveSource(
+            [
+                [
+                    {
+                        "title": PRIVATE_RENDER_VALUES[5],
+                        "reviewer_excerpt": PRIVATE_RENDER_VALUES[0],
+                        "reviewer_status": "available",
+                        "event_count": 2,
+                        "alert_count": 1,
+                        "events_path": PRIVATE_RENDER_VALUES[4],
+                    }
+                ]
+            ]
+        ),
+        gate_d={
+            "product_judgment_evidence_status": "blocking",
+            "blocking_evidence": ["product_judgment_evidence"],
+            "satisfactory_evidence_count": 9,
+            "missing_evidence_count": 0,
+            "ready_for_gate_review": True,
+            "manual_product_judgment_required": False,
+            "manual_product_judgment_recorded": True,
+            "raw_note": "Product Promise Alpha passed",
+        },
+    )
+
+    summary = dashboard.format_local_alpha_dashboard_inspection(sources)
+
+    assert "AsyncScholar local alpha inspection" in summary
+    assert "Server started: no" in summary
+    assert "Browser opened: no" in summary
+    assert "Gate D not passed" in summary
+    assert "Blocked on product_judgment_evidence" in summary
+    assert "Human product judgment: deferred" in summary
+    assert "Satisfactory evidence: 9" in summary
+    assert "Missing evidence: 0" in summary
+    assert "Manual judgment required: yes" in summary
+    assert "Manual judgment recorded: no" in summary
+    assert "Session status" in summary
+    assert "Run status: Completed" in summary
+    assert "Source kind: Fixture demo" in summary
+    assert "Segments: 5" in summary
+    assert "Events: 2" in summary
+    assert "Detected events" in summary
+    assert "Attendance prompt - 42s - 94% confidence" in summary
+    assert "Important event - 185s - 88% confidence" in summary
+    assert "Alert preview" in summary
+    assert "Urgent alert" in summary
+    assert "Status: Pending" in summary
+    assert "Confirmation required" in summary
+    assert "Archive and reviewer" in summary
+    assert "Local archive summary" in summary
+    assert "Reviewer available" in summary
+    assert "Reviewer artifact metadata only." in summary
+    assert "Product Promise Alpha passed" not in summary
+    assert "Status: Delivered" not in summary
+    for private_value in PRIVATE_RENDER_VALUES:
+        assert private_value not in summary
+
+
 def test_archive_display_fields_are_reduced_to_metadata_only() -> None:
     dashboard = _dashboard_module()
     ui = FakeUI()
