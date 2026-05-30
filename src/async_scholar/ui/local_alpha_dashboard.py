@@ -126,6 +126,7 @@ class LocalAlphaDashboardView:
         self._local_demo_launch_container: Any | None = None
         self._confirmation_queue_container: Any | None = None
         self._action_controls_container: Any | None = None
+        self._archive_review_status_container: Any | None = None
         self._gate_d_container: Any | None = None
         self.session_status = LocalAlphaSessionStatusModel(
             run_status_label="Unknown",
@@ -187,6 +188,10 @@ class LocalAlphaDashboardView:
                 "async-scholar-local-alpha-dashboard__actions gap-1"
             )
             self._render_action_controls_panel()
+            self._archive_review_status_container = self._ui.column().classes(
+                "async-scholar-local-alpha-dashboard__archive-review-status gap-1"
+            )
+            self._render_archive_review_status_panel()
             self.archive_browser = render_archive_browser_view(
                 _MetadataOnlyArchiveSource(self._sources.archive),
                 ui=self._ui,
@@ -207,6 +212,7 @@ class LocalAlphaDashboardView:
             self.alert_history.refresh()
         self._render_confirmation_queue_panel()
         self._render_action_controls_panel()
+        self._render_archive_review_status_panel()
         if self.archive_browser is not None:
             self.archive_browser.refresh()
         return self
@@ -298,6 +304,17 @@ class LocalAlphaDashboardView:
             for label in _ACTION_CONTROLS_LABELS:
                 self._ui.label(label).classes("text-sm")
 
+    def _render_archive_review_status_panel(self) -> None:
+        container = self._archive_review_status_container
+        if container is None:
+            return
+        if hasattr(container, "clear"):
+            container.clear()
+        labels = _normalize_archive_review_status_labels(self.session_status)
+        with container:
+            for label in labels:
+                self._ui.label(label).classes("text-sm")
+
 
 def render_local_alpha_dashboard(
     sources: LocalAlphaDashboardSources,
@@ -355,6 +372,24 @@ def _normalize_evidence_digest_labels(
         "Local evidence bundle: metadata only",
         "Product judgment evidence: blocking",
         *gate_d_status.evidence_labels,
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    )
+
+
+def _normalize_archive_review_status_labels(
+    session_status: LocalAlphaSessionStatusModel,
+) -> tuple[str, ...]:
+    return (
+        "Archive review status",
+        "Archive artifacts: metadata only",
+        "Reviewer summary: metadata only",
+        f"Detected events archived: {_summary_event_count_label(session_status)}",
+        "Alert previews archived: pending confirmation",
+        "Transcript text displayed: no",
+        "Recording displayed: no",
+        "Private paths displayed: no",
+        "Delete/export execution: no",
         "Gate D not passed",
         "Product Promise Alpha not passed",
     )

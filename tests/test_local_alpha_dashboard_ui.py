@@ -287,6 +287,15 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Open archive reviewer" in rendered
     assert "Record product judgment" in rendered
     assert "Alert delivery live: no" in rendered
+    assert "Archive review status" in rendered
+    assert "Archive artifacts: metadata only" in rendered
+    assert "Reviewer summary: metadata only" in rendered
+    assert "Detected events archived: 2" in rendered
+    assert "Alert previews archived: pending confirmation" in rendered
+    assert "Transcript text displayed: no" in rendered
+    assert "Recording displayed: no" in rendered
+    assert "Private paths displayed: no" in rendered
+    assert "Delete/export execution: no" in rendered
     assert "Review confirmation before acting." in rendered
     assert "Local archive summary" in rendered
     assert "Reviewer available" in rendered
@@ -403,7 +412,31 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert {child.kind for child in action_controls.children} == {"label"}
     assert all(child.on_click is None for child in action_controls.children)
     assert ui.texts.index("Confirmation queue") < ui.texts.index("Action controls")
-    assert ui.texts.index("Action controls") < ui.texts.index("Local archive summary")
+    assert ui.texts.index("Action controls") < ui.texts.index("Archive review status")
+
+    archive_review_status = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__archive-review-status",
+    )
+    assert archive_review_status is not None
+    assert [child.text for child in archive_review_status.children] == [
+        "Archive review status",
+        "Archive artifacts: metadata only",
+        "Reviewer summary: metadata only",
+        "Detected events archived: 2",
+        "Alert previews archived: pending confirmation",
+        "Transcript text displayed: no",
+        "Recording displayed: no",
+        "Private paths displayed: no",
+        "Delete/export execution: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in archive_review_status.children} == {"label"}
+    assert all(child.on_click is None for child in archive_review_status.children)
+    assert ui.texts.index("Archive review status") < ui.texts.index(
+        "Local archive summary"
+    )
 
     for private_value in PRIVATE_RENDER_VALUES:
         assert private_value not in rendered
@@ -641,6 +674,9 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Action controls") == 1
     assert second_render.count("Review alert confirmation") == 1
     assert second_render.count("Alert delivery live: no") == 1
+    assert second_render.count("Archive review status") == 1
+    assert second_render.count("Detected events archived: 2") == 1
+    assert second_render.count("Delete/export execution: no") == 1
     assert "Completed" in second_render
     assert "Quiz - 2s - 50% confidence" in second_render
     assert "Severity: Urgent" in second_render
@@ -887,6 +923,27 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     ]
     assert {child.kind for child in action_controls.children} == {"label"}
     assert all(child.on_click is None for child in action_controls.children)
+
+    archive_review_status = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__archive-review-status",
+    )
+    assert archive_review_status is not None
+    assert [child.text for child in archive_review_status.children] == [
+        "Archive review status",
+        "Archive artifacts: metadata only",
+        "Reviewer summary: metadata only",
+        "Detected events archived: 9999",
+        "Alert previews archived: pending confirmation",
+        "Transcript text displayed: no",
+        "Recording displayed: no",
+        "Private paths displayed: no",
+        "Delete/export execution: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in archive_review_status.children} == {"label"}
+    assert all(child.on_click is None for child in archive_review_status.children)
 
     rendered = "\n".join(ui.texts)
     assert "Gate D passed" not in rendered
