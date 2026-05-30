@@ -50,6 +50,15 @@ _LOCAL_DEMO_LAUNCH_LABELS = (
     "Gate D not passed",
     "Product Promise Alpha not passed",
 )
+_CONFIRMATION_QUEUE_LABELS = (
+    "Confirmation queue",
+    "User confirmation required",
+    "Alert status: pending",
+    "Participation action sent: no",
+    "Autonomous participation: no",
+    "Live delivery: no",
+    "Academic answer behavior: no",
+)
 _SOURCE_KIND_LABELS = {
     "fixture": "Fixture",
     "fixture_demo": "Fixture demo",
@@ -100,6 +109,7 @@ class LocalAlphaDashboardView:
         self._summary_status_container: Any | None = None
         self._session_container: Any | None = None
         self._local_demo_launch_container: Any | None = None
+        self._confirmation_queue_container: Any | None = None
         self._gate_d_container: Any | None = None
         self.session_status = LocalAlphaSessionStatusModel(
             run_status_label="Unknown",
@@ -149,6 +159,10 @@ class LocalAlphaDashboardView:
                 _ConfirmationRequiredAlertPreviewSource(self._sources.alerts),
                 ui=self._ui,
             )
+            self._confirmation_queue_container = self._ui.column().classes(
+                "async-scholar-local-alpha-dashboard__confirmation gap-1"
+            )
+            self._render_confirmation_queue_panel()
             self.archive_browser = render_archive_browser_view(
                 _MetadataOnlyArchiveSource(self._sources.archive),
                 ui=self._ui,
@@ -166,6 +180,7 @@ class LocalAlphaDashboardView:
             self.event_timeline.refresh()
         if self.alert_history is not None:
             self.alert_history.refresh()
+        self._render_confirmation_queue_panel()
         if self.archive_browser is not None:
             self.archive_browser.refresh()
         return self
@@ -224,6 +239,16 @@ class LocalAlphaDashboardView:
             container.clear()
         with container:
             for label in _LOCAL_DEMO_LAUNCH_LABELS:
+                self._ui.label(label).classes("text-sm")
+
+    def _render_confirmation_queue_panel(self) -> None:
+        container = self._confirmation_queue_container
+        if container is None:
+            return
+        if hasattr(container, "clear"):
+            container.clear()
+        with container:
+            for label in _CONFIRMATION_QUEUE_LABELS:
                 self._ui.label(label).classes("text-sm")
 
 
