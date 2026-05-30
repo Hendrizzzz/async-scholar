@@ -59,6 +59,20 @@ _CONFIRMATION_QUEUE_LABELS = (
     "Live delivery: no",
     "Academic answer behavior: no",
 )
+_ACTION_CONTROLS_LABELS = (
+    "Action controls",
+    "Review alert confirmation",
+    "Send participation action",
+    "Open archive reviewer",
+    "Record product judgment",
+    "User confirmation required",
+    "Alert delivery live: no",
+    "Participation action sent: no",
+    "Autonomous participation: no",
+    "Academic answer behavior: no",
+    "Gate D not passed",
+    "Product Promise Alpha not passed",
+)
 _SOURCE_KIND_LABELS = {
     "fixture": "Fixture",
     "fixture_demo": "Fixture demo",
@@ -110,6 +124,7 @@ class LocalAlphaDashboardView:
         self._session_container: Any | None = None
         self._local_demo_launch_container: Any | None = None
         self._confirmation_queue_container: Any | None = None
+        self._action_controls_container: Any | None = None
         self._gate_d_container: Any | None = None
         self.session_status = LocalAlphaSessionStatusModel(
             run_status_label="Unknown",
@@ -163,6 +178,10 @@ class LocalAlphaDashboardView:
                 "async-scholar-local-alpha-dashboard__confirmation gap-1"
             )
             self._render_confirmation_queue_panel()
+            self._action_controls_container = self._ui.column().classes(
+                "async-scholar-local-alpha-dashboard__actions gap-1"
+            )
+            self._render_action_controls_panel()
             self.archive_browser = render_archive_browser_view(
                 _MetadataOnlyArchiveSource(self._sources.archive),
                 ui=self._ui,
@@ -181,6 +200,7 @@ class LocalAlphaDashboardView:
         if self.alert_history is not None:
             self.alert_history.refresh()
         self._render_confirmation_queue_panel()
+        self._render_action_controls_panel()
         if self.archive_browser is not None:
             self.archive_browser.refresh()
         return self
@@ -249,6 +269,16 @@ class LocalAlphaDashboardView:
             container.clear()
         with container:
             for label in _CONFIRMATION_QUEUE_LABELS:
+                self._ui.label(label).classes("text-sm")
+
+    def _render_action_controls_panel(self) -> None:
+        container = self._action_controls_container
+        if container is None:
+            return
+        if hasattr(container, "clear"):
+            container.clear()
+        with container:
+            for label in _ACTION_CONTROLS_LABELS:
                 self._ui.label(label).classes("text-sm")
 
 

@@ -279,6 +279,11 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Participation action sent: no" in rendered
     assert "Autonomous participation: no" in rendered
     assert "Academic answer behavior: no" in rendered
+    assert "Review alert confirmation" in rendered
+    assert "Send participation action" in rendered
+    assert "Open archive reviewer" in rendered
+    assert "Record product judgment" in rendered
+    assert "Alert delivery live: no" in rendered
     assert "Review confirmation before acting." in rendered
     assert "Local archive summary" in rendered
     assert "Reviewer available" in rendered
@@ -350,6 +355,30 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert ui.texts.index("Confirmation queue") < ui.texts.index(
         "Local archive summary"
     )
+
+    action_controls = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__actions",
+    )
+    assert action_controls is not None
+    assert [child.text for child in action_controls.children] == [
+        "Action controls",
+        "Review alert confirmation",
+        "Send participation action",
+        "Open archive reviewer",
+        "Record product judgment",
+        "User confirmation required",
+        "Alert delivery live: no",
+        "Participation action sent: no",
+        "Autonomous participation: no",
+        "Academic answer behavior: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in action_controls.children} == {"label"}
+    assert all(child.on_click is None for child in action_controls.children)
+    assert ui.texts.index("Confirmation queue") < ui.texts.index("Action controls")
+    assert ui.texts.index("Action controls") < ui.texts.index("Local archive summary")
 
     for private_value in PRIVATE_RENDER_VALUES:
         assert private_value not in rendered
@@ -580,7 +609,10 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Private data read: no") == 1
     assert second_render.count("Confirmation queue") == 1
     assert second_render.count("Alert status: pending") == 1
-    assert second_render.count("Participation action sent: no") == 1
+    assert second_render.count("Participation action sent: no") == 2
+    assert second_render.count("Action controls") == 1
+    assert second_render.count("Review alert confirmation") == 1
+    assert second_render.count("Alert delivery live: no") == 1
     assert "Completed" in second_render
     assert "Quiz - 2s - 50% confidence" in second_render
     assert "Severity: Urgent" in second_render
@@ -784,6 +816,28 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
         "Academic answer behavior: no",
     ]
     assert {child.kind for child in confirmation_queue.children} == {"label"}
+
+    action_controls = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__actions",
+    )
+    assert action_controls is not None
+    assert [child.text for child in action_controls.children] == [
+        "Action controls",
+        "Review alert confirmation",
+        "Send participation action",
+        "Open archive reviewer",
+        "Record product judgment",
+        "User confirmation required",
+        "Alert delivery live: no",
+        "Participation action sent: no",
+        "Autonomous participation: no",
+        "Academic answer behavior: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in action_controls.children} == {"label"}
+    assert all(child.on_click is None for child in action_controls.children)
 
     rendered = "\n".join(ui.texts)
     assert "Gate D passed" not in rendered
