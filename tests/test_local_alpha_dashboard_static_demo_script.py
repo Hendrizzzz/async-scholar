@@ -223,6 +223,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Gate D safety",
         "Evidence digest",
         "Session status",
+        "Local demo launch",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -232,7 +233,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 10
+    assert html.count("<section") == 11
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -243,6 +244,20 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Handoff status: Ready for manual review" in html
     assert "Local bundle status: Blocked" in html
     assert "AI can complete product judgment: no" in html
+    visible_html = _visible_html_text(html)
+    assert (
+        "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1"
+        in visible_html
+    )
+    assert (
+        "CLI export command: local-alpha-dashboard-static-demo --output "
+        "local-html-file" in visible_html
+    )
+    assert "Private data read: no" in html
+    assert "Server started: yes" not in html
+    assert "Browser opened: yes" not in html
+    assert "Live delivery: yes" not in html
+    assert "Private data read: yes" not in html
     assert "Fixture source prepared" in html
     assert "Session completed" in html
     assert "Event detected" in html
@@ -254,7 +269,6 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Important event - 185s - 88% confidence" in html
     assert "Urgent alert" in html
     assert "Confirmation required" in html
-    visible_html = _visible_html_text(html)
     assert "User confirmation required" in html
     assert "Alert status: pending" in html
     assert "Participation action sent: no" in html
@@ -306,6 +320,14 @@ def _assert_static_html_safe(html: str) -> None:
         "cookie",
         "token",
         "auth",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        ".wav",
+        ".mp4",
+        ".png",
     ):
         assert forbidden not in lowered
     _assert_no_event_handler_attributes(html)

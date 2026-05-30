@@ -26,6 +26,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Gate D safety",
     "Evidence digest",
     "Session status",
+    "Local demo launch",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -88,6 +89,16 @@ _STATIC_DEMO_ACTION_CONTROL_LINES = (
     "Gate D not passed",
     "Product Promise Alpha not passed",
 )
+_STATIC_DEMO_LOCAL_LAUNCH_LINES = (
+    "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1",
+    "CLI export command: local-alpha-dashboard-static-demo --output local-html-file",
+    "Server started: no",
+    "Browser opened: no",
+    "Live delivery: no",
+    "Private data read: no",
+    "Gate D not passed",
+    "Product Promise Alpha not passed",
+)
 _UNSAFE_STATIC_DEMO_TEXT_MARKERS = (
     "traceback",
     "." + "env",
@@ -98,9 +109,18 @@ _UNSAFE_STATIC_DEMO_TEXT_MARKERS = (
     "meet.",
     "http:",
     "https:",
+    "file:",
+    "\\\\",
     "c:\\",
+    ".jsonl",
     ".wav",
     ".mp4",
+    ".png",
+    "transcript",
+    "server started: yes",
+    "browser opened: yes",
+    "live delivery: yes",
+    "private data read: yes",
     "gate d passed",
     "product promise alpha passed",
     "product judgment evidence satisfied",
@@ -376,6 +396,7 @@ def _build_static_demo_sections(
     if intro_lines:
         grouped["Session status"] = intro_lines + grouped["Session status"]
     grouped["Evidence digest"] = list(_build_static_demo_evidence_digest_lines())
+    grouped["Local demo launch"] = list(_safe_static_demo_local_launch_lines())
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
     grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
@@ -542,10 +563,28 @@ def _build_static_demo_action_control_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_ACTION_CONTROL_LINES
 
 
+def _safe_static_demo_local_launch_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_local_launch_lines()
+    except Exception:
+        return _STATIC_DEMO_LOCAL_LAUNCH_LINES
+    if lines != _STATIC_DEMO_LOCAL_LAUNCH_LINES:
+        return _STATIC_DEMO_LOCAL_LAUNCH_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_LOCAL_LAUNCH_LINES
+    return lines
+
+
+def _build_static_demo_local_launch_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_LOCAL_LAUNCH_LINES
+
+
 def _static_demo_text_is_unsafe(value: object) -> bool:
     if not isinstance(value, str) or not value:
         return True
     lowered = value.casefold()
+    if lowered.startswith("/") or lowered.startswith("\\"):
+        return True
     return any(marker in lowered for marker in _UNSAFE_STATIC_DEMO_TEXT_MARKERS)
 
 

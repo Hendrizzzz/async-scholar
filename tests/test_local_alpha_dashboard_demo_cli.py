@@ -212,6 +212,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Gate D safety</h2>" in html
     assert "<h2>Evidence digest</h2>" in html
     assert "<h2>Session status</h2>" in html
+    assert "<h2>Local demo launch</h2>" in html
     assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
@@ -228,6 +229,20 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Local bundle status: Blocked" in html
     assert "AI can complete product judgment: no" in html
     assert "Run status: Completed" in html
+    visible_html = _visible_html_text(html)
+    assert (
+        "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1"
+        in visible_html
+    )
+    assert (
+        "CLI export command: local-alpha-dashboard-static-demo --output "
+        "local-html-file" in visible_html
+    )
+    assert "Private data read: no" in html
+    assert "Server started: yes" not in html
+    assert "Browser opened: yes" not in html
+    assert "Live delivery: yes" not in html
+    assert "Private data read: yes" not in html
     assert "Fixture source prepared" in html
     assert "Session completed" in html
     assert "Event detected" in html
@@ -238,7 +253,6 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Important event - 185s - 88% confidence" in html
     assert "Urgent alert" in html
     assert "Confirmation required" in html
-    visible_html = _visible_html_text(html)
     assert "User confirmation required" in html
     assert "Alert status: pending" in html
     assert "Participation action sent: no" in html
@@ -1126,6 +1140,9 @@ def _assert_static_output_safe(stdout: str, stderr: str, html: str) -> None:
     for forbidden in (
         "good morning",
         "meet.example",
+        "http:",
+        "https:",
+        "file:",
         "token",
         "cookie",
         ".env",
@@ -1134,7 +1151,9 @@ def _assert_static_output_safe(stdout: str, stderr: str, html: str) -> None:
         "traceback",
         ".wav",
         ".mp4",
+        ".png",
         "c:\\",
+        "\\\\",
         "gate d passed",
         "product promise alpha passed",
         "product judgment evidence satisfied",

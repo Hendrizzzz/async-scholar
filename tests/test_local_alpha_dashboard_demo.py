@@ -229,6 +229,13 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Safety boundary" in first
     assert "Server started: no" in first
     assert "Browser opened: no" in first
+    assert "Local demo launch" in first
+    assert (
+        "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1"
+        in first
+    )
+    assert "CLI export command: local-alpha-dashboard-static-demo --output" in first
+    assert "Private data read: no" in first
     assert "Gate D not passed" in first
     assert "Blocked on product_judgment_evidence" in first
     assert "Human product judgment: deferred" in first
@@ -278,11 +285,12 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 10
+    assert html.count("<section") == 11
     expected_headings = (
         "Gate D safety",
         "Evidence digest",
         "Session status",
+        "Local demo launch",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -322,6 +330,60 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Source kind: Fixture demo" in session_section
     assert "Segments: 5" in session_section
     assert "Events: 2" in session_section
+
+    launch_section = _section_text(html, "Local demo launch")
+    launch_visible = _visible_text(launch_section)
+    assert "Metadata unavailable." not in launch_section
+    assert (
+        "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1"
+        in launch_visible
+    )
+    assert (
+        "CLI export command: local-alpha-dashboard-static-demo --output "
+        "local-html-file" in launch_visible
+    )
+    assert "Server started: no" in launch_visible
+    assert "Browser opened: no" in launch_visible
+    assert "Live delivery: no" in launch_visible
+    assert "Private data read: no" in launch_visible
+    assert "Gate D not passed" in launch_visible
+    assert "Product Promise Alpha not passed" in launch_visible
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in launch_section.casefold()
+    assert re.search(r"[a-z]:\\", launch_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(launch_section)
 
     timeline_section = _section_text(html, "Demo timeline")
     assert "Fixture source prepared" in timeline_section
@@ -655,6 +717,124 @@ def test_static_demo_action_controls_fail_closed_for_helper_exception(
     assert "token" not in action_section.casefold()
 
 
+@pytest.mark.parametrize(
+    "unsafe_launch",
+    [
+        (
+            "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1",
+            "CLI export command: local-alpha-dashboard-static-demo --output "
+            "local-html-file",
+            "Server started: yes",
+            "Browser opened: yes",
+            "Live delivery: yes",
+            "Private data read: yes",
+            "Gate D passed",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Static demo entrypoint: C:\\Users\\student\\secret-token-auth-profile",
+            "CLI export command: https://meet.example.edu/class-room?token=private",
+            "file:///tmp/async-scholar-local-alpha-dashboard.html",
+            "\\\\server\\share\\cookie-profile.json",
+            "Good morning, everyone. I am going to take attendance",
+            "transcript text: private class content",
+            "generated-media: lecture.wav lecture.mp4 clip.png",
+            "product judgment evidence satisfied",
+        ),
+        ("Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1",),
+        (),
+    ],
+)
+def test_static_demo_local_launch_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_launch: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_launch() -> tuple[str, ...]:
+        return unsafe_launch
+
+    monkeypatch.setattr(demo, "_build_static_demo_local_launch_lines", fake_launch)
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    launch_section = _section_text(html, "Local demo launch")
+    launch_visible = _visible_text(launch_section)
+    for expected in (
+        "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1",
+        "CLI export command: local-alpha-dashboard-static-demo --output "
+        "local-html-file",
+        "Server started: no",
+        "Browser opened: no",
+        "Live delivery: no",
+        "Private data read: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in launch_visible
+
+    lowered = launch_section.casefold()
+    for forbidden in (
+        "server started: yes",
+        "browser opened: yes",
+        "live delivery: yes",
+        "private data read: yes",
+        "good morning",
+        "transcript",
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "cookie",
+        "meet.example",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        ".wav",
+        ".mp4",
+        ".png",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+
+
+def test_static_demo_local_launch_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_launch() -> tuple[str, ...]:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    monkeypatch.setattr(demo, "_build_static_demo_local_launch_lines", fake_launch)
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    launch_section = _section_text(html, "Local demo launch")
+    launch_visible = _visible_text(launch_section)
+    assert (
+        "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1"
+        in launch_visible
+    )
+    assert (
+        "CLI export command: local-alpha-dashboard-static-demo --output "
+        "local-html-file" in launch_visible
+    )
+    assert "Server started: no" in launch_visible
+    assert "Browser opened: no" in launch_visible
+    assert "Live delivery: no" in launch_visible
+    assert "Private data read: no" in launch_visible
+    assert "Gate D not passed" in launch_visible
+    assert "Product Promise Alpha not passed" in launch_visible
+    assert "traceback" not in launch_section.casefold()
+    assert ".env" not in launch_section.casefold()
+    assert "token" not in launch_section.casefold()
+
+
 def test_static_demo_evidence_digest_fails_closed_for_pass_like_helper(
     monkeypatch,
 ) -> None:
@@ -744,6 +924,39 @@ def test_static_demo_action_control_helper_preserves_static_scope() -> None:
         "webbrowser",
         "startfile",
         "subprocess.run",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete",
+    ):
+        assert forbidden not in source
+
+
+def test_static_demo_local_launch_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_local_launch_lines)
+        + inspect.getsource(demo._build_static_demo_local_launch_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
         "dispatch_alert",
         "telegram",
         "desktop_notifier",
