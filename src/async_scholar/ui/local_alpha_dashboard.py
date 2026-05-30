@@ -121,6 +121,7 @@ class LocalAlphaDashboardView:
         self._sources = sources
         self._ui = ui
         self._summary_status_container: Any | None = None
+        self._evidence_digest_container: Any | None = None
         self._session_container: Any | None = None
         self._local_demo_launch_container: Any | None = None
         self._confirmation_queue_container: Any | None = None
@@ -156,6 +157,9 @@ class LocalAlphaDashboardView:
             self._gate_d_container = self._ui.column().classes(
                 "async-scholar-local-alpha-dashboard__gate gap-1"
             )
+            self._evidence_digest_container = self._ui.column().classes(
+                "async-scholar-local-alpha-dashboard__evidence gap-1"
+            )
             self._session_container = self._ui.column().classes(
                 "async-scholar-local-alpha-dashboard__session gap-2"
             )
@@ -163,6 +167,7 @@ class LocalAlphaDashboardView:
                 "async-scholar-local-alpha-dashboard__launch gap-1"
             )
             self._render_gate_d_status()
+            self._render_evidence_digest_panel()
             self._render_session_status()
             self._render_summary_status_strip()
             self._render_local_demo_launch_panel()
@@ -192,6 +197,7 @@ class LocalAlphaDashboardView:
         """Refresh all dashboard sections from injected sources."""
 
         self._render_gate_d_status()
+        self._render_evidence_digest_panel()
         self._render_session_status()
         self._render_summary_status_strip()
         self._render_local_demo_launch_panel()
@@ -220,6 +226,17 @@ class LocalAlphaDashboardView:
             for evidence_label in self.gate_d_status.evidence_labels:
                 self._ui.label(evidence_label).classes("text-sm")
             self._ui.label(self.gate_d_status.safety_label).classes("text-sm")
+
+    def _render_evidence_digest_panel(self) -> None:
+        container = self._evidence_digest_container
+        if container is None:
+            return
+        if hasattr(container, "clear"):
+            container.clear()
+        labels = _normalize_evidence_digest_labels(self.gate_d_status)
+        with container:
+            for label in labels:
+                self._ui.label(label).classes("text-sm")
 
     def _render_session_status(self) -> None:
         self.session_status = normalize_dashboard_session_status(
@@ -327,6 +344,19 @@ def _normalize_summary_status_strip(
         f"Detected events: {_summary_event_count_label(session_status)}",
         "Alert: pending confirmation",
         "Live delivery: no",
+    )
+
+
+def _normalize_evidence_digest_labels(
+    gate_d_status: GateDStatusModel,
+) -> tuple[str, ...]:
+    return (
+        "Evidence digest",
+        "Local evidence bundle: metadata only",
+        "Product judgment evidence: blocking",
+        *gate_d_status.evidence_labels,
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
     )
 
 

@@ -243,6 +243,9 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Human product judgment: deferred" in rendered
     assert "Gate D: blocked" in rendered
     assert "Product judgment: deferred" in rendered
+    assert "Evidence digest" in rendered
+    assert "Local evidence bundle: metadata only" in rendered
+    assert "Product judgment evidence: blocking" in rendered
     assert "Session: completed" in rendered
     assert "Detected events: 2" in rendered
     assert "Alert: pending confirmation" in rendered
@@ -308,7 +311,29 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     ]
     assert {child.kind for child in summary.children} == {"label"}
     assert ui.texts.index("Live delivery: no") < ui.texts.index("Gate D safety")
-    assert ui.texts.index("Gate D safety") < ui.texts.index("Session status")
+    assert ui.texts.index("Gate D safety") < ui.texts.index("Evidence digest")
+    assert ui.texts.index("Evidence digest") < ui.texts.index("Session status")
+
+    evidence_digest = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__evidence",
+    )
+    assert evidence_digest is not None
+    assert [child.text for child in evidence_digest.children] == [
+        "Evidence digest",
+        "Local evidence bundle: metadata only",
+        "Product judgment evidence: blocking",
+        "Satisfactory evidence: 9",
+        "Missing evidence: 0",
+        "Blocking evidence: product_judgment_evidence",
+        "Ready for gate review: no",
+        "Manual judgment required: yes",
+        "Manual judgment recorded: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in evidence_digest.children} == {"label"}
+    assert all(child.on_click is None for child in evidence_digest.children)
 
     launch = _find_element_by_class(
         ui,
@@ -604,6 +629,9 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert "Session: completed" in second_render
     assert "Detected events: 2" in second_render
     assert "Session: running" not in second_render
+    assert second_render.count("Evidence digest") == 1
+    assert second_render.count("Product judgment evidence: blocking") == 1
+    assert second_render.count("Local evidence bundle: metadata only") == 1
     assert second_render.count("Local demo launch") == 1
     assert second_render.count("Launch command:") == 1
     assert second_render.count("Private data read: no") == 1
@@ -780,6 +808,27 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
         "Alert: pending confirmation",
         "Live delivery: no",
     ]
+
+    evidence_digest = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__evidence",
+    )
+    assert evidence_digest is not None
+    assert [child.text for child in evidence_digest.children] == [
+        "Evidence digest",
+        "Local evidence bundle: metadata only",
+        "Product judgment evidence: blocking",
+        "Satisfactory evidence: 0",
+        "Missing evidence: 0",
+        "Blocking evidence: product_judgment_evidence",
+        "Ready for gate review: no",
+        "Manual judgment required: yes",
+        "Manual judgment recorded: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in evidence_digest.children} == {"label"}
+    assert all(child.on_click is None for child in evidence_digest.children)
 
     launch = _find_element_by_class(
         ui,
