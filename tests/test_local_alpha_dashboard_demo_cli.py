@@ -225,6 +225,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Alert preview</h2>" in html
     assert "<h2>Confirmation queue</h2>" in html
     assert "<h2>Action controls</h2>" in html
+    assert "<h2>Archive review status</h2>" in html
     assert "<h2>Archive and reviewer</h2>" in html
     assert "<h2>Safety boundary</h2>" in html
     assert "Server started: no" in html
@@ -276,6 +277,14 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Open archive reviewer" in visible_html
     assert "Record product judgment" in visible_html
     assert "Alert delivery live: no" in html
+    assert "Archive artifacts: metadata only" in html
+    assert "Reviewer summary: metadata only" in html
+    assert "Detected events archived: 2" in html
+    assert "Alert previews archived: pending confirmation" in html
+    assert "Transcript text displayed: no" in html
+    assert "Recording displayed: no" in html
+    assert "Private paths displayed: no" in html
+    assert "Delete/export execution: no" in html
     assert "Gate D not passed" in html
     assert "Product Promise Alpha not passed" in html
     assert html.count("<button ") == 4
@@ -1171,6 +1180,9 @@ def _assert_static_output_safe(stdout: str, stderr: str, html: str) -> None:
         "product judgment evidence satisfied",
         "server started: yes",
         "browser opened: yes",
+        "recording displayed: yes",
+        "private paths displayed: yes",
+        "delete/export execution: yes",
         "<form",
         "<input",
         "<textarea",

@@ -241,11 +241,12 @@ def _assert_static_html_safe(html: str) -> None:
         "Alert preview",
         "Confirmation queue",
         "Action controls",
+        "Archive review status",
         "Archive and reviewer",
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 11
+    assert html.count("<section") == 12
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -292,6 +293,14 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Open archive reviewer" in visible_html
     assert "Record product judgment" in visible_html
     assert "Alert delivery live: no" in html
+    assert "Archive artifacts: metadata only" in html
+    assert "Reviewer summary: metadata only" in html
+    assert "Detected events archived: 2" in html
+    assert "Alert previews archived: pending confirmation" in html
+    assert "Transcript text displayed: no" in html
+    assert "Recording displayed: no" in html
+    assert "Private paths displayed: no" in html
+    assert "Delete/export execution: no" in html
     assert "Gate D not passed" in html
     assert "Product Promise Alpha not passed" in html
     assert html.count("<button ") == 4
@@ -323,6 +332,9 @@ def _assert_static_html_safe(html: str) -> None:
         "product judgment evidence satisfied",
         "server started: yes",
         "browser opened: yes",
+        "recording displayed: yes",
+        "private paths displayed: yes",
+        "delete/export execution: yes",
         "participation action sent: yes",
         "autonomous participation: yes",
         "live delivery: yes",

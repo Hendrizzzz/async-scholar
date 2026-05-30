@@ -256,6 +256,15 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Urgent alert" in first
     assert "Status: Pending" in first
     assert "Confirmation required" in first
+    assert "Archive review status" in first
+    assert "Archive artifacts: metadata only" in first
+    assert "Reviewer summary: metadata only" in first
+    assert "Detected events archived: 2" in first
+    assert "Alert previews archived: pending confirmation" in first
+    assert "Transcript text displayed: no" in first
+    assert "Recording displayed: no" in first
+    assert "Private paths displayed: no" in first
+    assert "Delete/export execution: no" in first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -291,7 +300,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 11
+    assert html.count("<section") == 12
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -357,6 +366,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Alert preview",
         "Confirmation queue",
         "Action controls",
+        "Archive review status",
         "Archive and reviewer",
         "Safety boundary",
     )
@@ -507,6 +517,76 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     ):
         assert forbidden not in action_section.casefold()
     _assert_no_event_handler_attributes(action_section)
+
+    archive_review_section = _section_text(html, "Archive review status")
+    archive_review_visible = _visible_text(archive_review_section)
+    assert "Metadata unavailable." not in archive_review_section
+    for expected in (
+        "Archive artifacts: metadata only",
+        "Reviewer summary: metadata only",
+        "Detected events archived: 2",
+        "Alert previews archived: pending confirmation",
+        "Transcript text displayed: no",
+        "Recording displayed: no",
+        "Private paths displayed: no",
+        "Delete/export execution: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in archive_review_visible
+    assert "<button" not in archive_review_section.casefold()
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript text: private",
+        "recording displayed: yes",
+        "private paths displayed: yes",
+        "delete/export execution: yes",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in archive_review_section.casefold()
+    assert re.search(r"[a-z]:\\", archive_review_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(archive_review_section)
+    assert html.index("<h2>Action controls</h2>") < html.index(
+        "<h2>Archive review status</h2>"
+    )
+    assert html.index("<h2>Archive review status</h2>") < html.index(
+        "<h2>Archive and reviewer</h2>"
+    )
 
     archive_section = _section_text(html, "Archive and reviewer")
     assert "Local archive summary" in archive_section
@@ -776,6 +856,138 @@ def test_static_demo_action_controls_fail_closed_for_helper_exception(
     assert "traceback" not in action_section.casefold()
     assert ".env" not in action_section.casefold()
     assert "token" not in action_section.casefold()
+
+
+@pytest.mark.parametrize(
+    "unsafe_archive_review",
+    [
+        (
+            "Archive artifacts: metadata only",
+            "Reviewer summary: metadata only",
+            "Detected events archived: 2",
+            "Alert previews archived: pending confirmation",
+            "Transcript text: private class content",
+            "Recording displayed: yes",
+            "Private paths displayed: yes",
+            "Delete/export execution: yes",
+            "Gate D passed",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Archive artifacts: C:\\Users\\student\\secret-token-auth-profile",
+            "Reviewer summary: https://meet.example.edu/class-room?token=private",
+            "Detected events archived: 2",
+            "Alert previews archived: pending confirmation",
+            "transcript artifact: data\\sessions\\events.jsonl",
+            "recording artifact: lecture.wav lecture.mp4 clip.png",
+            "product judgment evidence satisfied",
+        ),
+        ("Archive artifacts: metadata only",),
+        (),
+    ],
+)
+def test_static_demo_archive_review_status_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_archive_review: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_archive_review() -> tuple[str, ...]:
+        return unsafe_archive_review
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_archive_review_status_lines",
+        fake_archive_review,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    archive_review_section = _section_text(html, "Archive review status")
+    archive_review_visible = _visible_text(archive_review_section)
+    for expected in (
+        "Archive artifacts: metadata only",
+        "Reviewer summary: metadata only",
+        "Detected events archived: 2",
+        "Alert previews archived: pending confirmation",
+        "Transcript text displayed: no",
+        "Recording displayed: no",
+        "Private paths displayed: no",
+        "Delete/export execution: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in archive_review_visible
+
+    lowered = archive_review_section.casefold()
+    for forbidden in (
+        "<script",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "meet.example",
+        "c:\\",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "transcript text: private",
+        "recording displayed: yes",
+        "private paths displayed: yes",
+        "delete/export execution: yes",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert "<button" not in lowered
+    _assert_no_event_handler_attributes(archive_review_section)
+
+
+def test_static_demo_archive_review_status_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_archive_review() -> tuple[str, ...]:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_archive_review_status_lines",
+        fake_archive_review,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    archive_review_section = _section_text(html, "Archive review status")
+    archive_review_visible = _visible_text(archive_review_section)
+    assert "Archive artifacts: metadata only" in archive_review_visible
+    assert "Reviewer summary: metadata only" in archive_review_visible
+    assert "Detected events archived: 2" in archive_review_visible
+    assert "Alert previews archived: pending confirmation" in archive_review_visible
+    assert "Transcript text displayed: no" in archive_review_visible
+    assert "Recording displayed: no" in archive_review_visible
+    assert "Private paths displayed: no" in archive_review_visible
+    assert "Delete/export execution: no" in archive_review_visible
+    assert "Gate D not passed" in archive_review_visible
+    assert "Product Promise Alpha not passed" in archive_review_visible
+    assert "traceback" not in archive_review_section.casefold()
+    assert ".env" not in archive_review_section.casefold()
+    assert "token" not in archive_review_section.casefold()
 
 
 @pytest.mark.parametrize(
@@ -1109,6 +1321,40 @@ def test_static_demo_action_control_helper_preserves_static_scope() -> None:
         "desktop_notifier",
         "scheduler",
         "delete",
+    ):
+        assert forbidden not in source
+
+
+def test_static_demo_archive_review_status_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_archive_review_status_lines)
+        + inspect.getsource(demo._build_static_demo_archive_review_status_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete/export execution: yes",
     ):
         assert forbidden not in source
 

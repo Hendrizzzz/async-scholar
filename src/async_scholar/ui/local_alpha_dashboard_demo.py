@@ -32,6 +32,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Alert preview",
     "Confirmation queue",
     "Action controls",
+    "Archive review status",
     "Archive and reviewer",
     "Safety boundary",
 )
@@ -86,6 +87,18 @@ _STATIC_DEMO_ACTION_CONTROL_LINES = (
     "Participation action sent: no",
     "Autonomous participation: no",
     "Academic answer behavior: no",
+    "Gate D not passed",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_ARCHIVE_REVIEW_STATUS_LINES = (
+    "Archive artifacts: metadata only",
+    "Reviewer summary: metadata only",
+    "Detected events archived: 2",
+    "Alert previews archived: pending confirmation",
+    "Transcript text displayed: no",
+    "Recording displayed: no",
+    "Private paths displayed: no",
+    "Delete/export execution: no",
     "Gate D not passed",
     "Product Promise Alpha not passed",
 )
@@ -422,6 +435,9 @@ def _build_static_demo_sections(
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
     grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
+    grouped["Archive review status"] = list(
+        _safe_static_demo_archive_review_status_lines()
+    )
 
     return tuple(
         (heading, tuple(grouped[heading])) for heading in _STATIC_DEMO_SECTION_HEADINGS
@@ -591,6 +607,22 @@ def _safe_static_demo_action_control_lines() -> tuple[str, ...]:
 
 def _build_static_demo_action_control_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_ACTION_CONTROL_LINES
+
+
+def _safe_static_demo_archive_review_status_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_archive_review_status_lines()
+    except Exception:
+        return _STATIC_DEMO_ARCHIVE_REVIEW_STATUS_LINES
+    if lines != _STATIC_DEMO_ARCHIVE_REVIEW_STATUS_LINES:
+        return _STATIC_DEMO_ARCHIVE_REVIEW_STATUS_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_ARCHIVE_REVIEW_STATUS_LINES
+    return lines
+
+
+def _build_static_demo_archive_review_status_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_ARCHIVE_REVIEW_STATUS_LINES
 
 
 def _safe_static_demo_local_launch_lines() -> tuple[str, ...]:
