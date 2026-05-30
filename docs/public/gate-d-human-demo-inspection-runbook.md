@@ -53,6 +53,37 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_scheduler_archiv
 The smoke command may create local temp metadata artifacts under the selected
 `-WorkRoot`. Do not commit those artifacts.
 
+## One-Command Human Walkthrough
+
+If the individual CLI commands still feel too internal, run the one-command
+human walkthrough. It wraps the same local metadata checks, explains what each
+step proves, validates that `product_judgment_evidence` is still blocking, and
+then stops before the human product judgment.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_gate_d_human_walkthrough.ps1
+```
+
+To keep all temporary metadata artifacts under a chosen local root:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_gate_d_human_walkthrough.ps1 -WorkRoot "$env:TEMP\async-scholar-gate-d-human-walkthrough"
+```
+
+Sample expected walkthrough readout:
+
+```text
+AsyncScholar Gate D Product Promise Alpha walkthrough
+Step 1 - CLI availability
+What this proves: the local AsyncScholar CLI can be reached.
+Expected signal: product_judgment_evidence is blocking.
+Result: Gate D remains blocked on product_judgment_evidence.
+Result: manual product judgment is required and not recorded.
+Step 4 - Local scheduler/archive workflow smoke
+Temporary artifact root: <local temp path>\scheduler-archive-smoke
+Next human step: inspect this readout and choose pass/fail/defer.
+```
+
 ## Human Demo Inspection
 
 Before judging the product:

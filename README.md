@@ -168,6 +168,15 @@ For personal Gate D human demo inspection, use
 blocked on `product_judgment_evidence` until a fresh human product judgment is
 recorded.
 
+For a one-command human walkthrough of the same local metadata evidence, run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_gate_d_human_walkthrough.ps1
+```
+
+This one-command human walkthrough explains what each local step proves and
+stops before the human pass/fail/defer judgment.
+
 Show read-only crash recovery preflight metadata for one explicit local session root:
 
 ```powershell
