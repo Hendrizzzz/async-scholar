@@ -272,6 +272,14 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Browser opened: no" in rendered
     assert "Private data read: no" in rendered
     assert "Product Promise Alpha not passed" in rendered
+    assert "Demo verification status" in rendered
+    assert "Dashboard surface: local injected UI" in rendered
+    assert "Source mode: injected fixture metadata" in rendered
+    assert (
+        "Static export command: python -m async_scholar "
+        "local-alpha-dashboard-static-demo --output TEMP_HTML"
+    ) in rendered
+    assert "Gate D evidence bundle: blocked" in rendered
     assert "Attendance prompt - 12s - 88% confidence" in rendered
     assert "Urgent alert" in rendered
     assert "Status: Pending" in rendered
@@ -365,6 +373,34 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert {child.kind for child in launch.children} == {"label"}
     assert ui.texts.index("Events: 2") < ui.texts.index("Local demo launch")
     assert ui.texts.index("Local demo launch") < ui.texts.index(
+        "Attendance prompt - 12s - 88% confidence"
+    )
+
+    verification = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__verification",
+    )
+    assert verification is not None
+    assert [child.text for child in verification.children] == [
+        "Demo verification status",
+        "Dashboard surface: local injected UI",
+        "Source mode: injected fixture metadata",
+        "Server started: no",
+        "Browser opened: no",
+        "Inspection command: python -m async_scholar local-alpha-dashboard-inspection",
+        "Static export command: python -m async_scholar "
+        "local-alpha-dashboard-static-demo --output TEMP_HTML",
+        "Gate D evidence bundle: blocked",
+        "Blocking evidence: product_judgment_evidence",
+        "Manual product judgment required: yes",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in verification.children} == {"label"}
+    assert all(child.on_click is None for child in verification.children)
+    assert ui.texts.index("Local demo launch") < ui.texts.index(
+        "Demo verification status"
+    )
+    assert ui.texts.index("Demo verification status") < ui.texts.index(
         "Attendance prompt - 12s - 88% confidence"
     )
 
@@ -668,6 +704,10 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Local demo launch") == 1
     assert second_render.count("Launch command:") == 1
     assert second_render.count("Private data read: no") == 1
+    assert second_render.count("Demo verification status") == 1
+    assert second_render.count("Dashboard surface: local injected UI") == 1
+    assert second_render.count("Source mode: injected fixture metadata") == 1
+    assert second_render.count("Gate D evidence bundle: blocked") == 1
     assert second_render.count("Confirmation queue") == 1
     assert second_render.count("Alert status: pending") == 1
     assert second_render.count("Participation action sent: no") == 2
@@ -885,6 +925,28 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
         "Product Promise Alpha not passed",
     ]
     assert {child.kind for child in launch.children} == {"label"}
+
+    verification = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__verification",
+    )
+    assert verification is not None
+    assert [child.text for child in verification.children] == [
+        "Demo verification status",
+        "Dashboard surface: local injected UI",
+        "Source mode: injected fixture metadata",
+        "Server started: no",
+        "Browser opened: no",
+        "Inspection command: python -m async_scholar local-alpha-dashboard-inspection",
+        "Static export command: python -m async_scholar "
+        "local-alpha-dashboard-static-demo --output TEMP_HTML",
+        "Gate D evidence bundle: blocked",
+        "Blocking evidence: product_judgment_evidence",
+        "Manual product judgment required: yes",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in verification.children} == {"label"}
+    assert all(child.on_click is None for child in verification.children)
 
     confirmation_queue = _find_element_by_class(
         ui,
