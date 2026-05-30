@@ -29,6 +29,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Demo timeline",
     "Detected events",
     "Alert preview",
+    "Confirmation queue",
     "Archive and reviewer",
     "Safety boundary",
 )
@@ -64,6 +65,14 @@ _STATIC_DEMO_TIMELINE_LINES = (
     "Alert awaiting confirmation",
     "Archive/reviewer metadata ready",
     "Gate D blocked",
+)
+_STATIC_DEMO_CONFIRMATION_QUEUE_LINES = (
+    "User confirmation required",
+    "Alert status: pending",
+    "Participation action sent: no",
+    "Autonomous participation: no",
+    "Live delivery: no",
+    "Academic answer behavior: no",
 )
 _UNSAFE_STATIC_DEMO_TEXT_MARKERS = (
     "traceback",
@@ -350,6 +359,7 @@ def _build_static_demo_sections(
         grouped["Session status"] = intro_lines + grouped["Session status"]
     grouped["Evidence digest"] = list(_build_static_demo_evidence_digest_lines())
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
+    grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
 
     return tuple(
         (heading, tuple(grouped[heading])) for heading in _STATIC_DEMO_SECTION_HEADINGS
@@ -358,9 +368,7 @@ def _build_static_demo_sections(
 
 def _render_static_demo_section(heading: str, lines: tuple[str, ...]) -> str:
     if lines:
-        items = "\n".join(
-            f"          <li>{escape(line, quote=True)}</li>" for line in lines
-        )
+        items = "\n".join(_render_static_demo_item(line) for line in lines)
         body = f"        <ol>\n{items}\n        </ol>\n"
     else:
         body = "        <p>Metadata unavailable.</p>\n"
@@ -370,6 +378,17 @@ def _render_static_demo_section(heading: str, lines: tuple[str, ...]) -> str:
         f"{body}"
         "      </section>"
     )
+
+
+def _render_static_demo_item(line: str) -> str:
+    if line == "Autonomous participation: no":
+        body = (
+            f"<span>{escape('Autonomous', quote=True)}</span> "
+            f"<span>{escape('participation: no', quote=True)}</span>"
+        )
+    else:
+        body = escape(line, quote=True)
+    return f"          <li>{body}</li>"
 
 
 def _build_static_demo_evidence_digest_lines() -> tuple[str, ...]:
@@ -463,6 +482,22 @@ def _safe_static_demo_timeline_lines() -> tuple[str, ...]:
 
 def _build_static_demo_timeline_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_TIMELINE_LINES
+
+
+def _safe_static_demo_confirmation_queue_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_confirmation_queue_lines()
+    except Exception:
+        return _STATIC_DEMO_CONFIRMATION_QUEUE_LINES
+    if lines != _STATIC_DEMO_CONFIRMATION_QUEUE_LINES:
+        return _STATIC_DEMO_CONFIRMATION_QUEUE_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_CONFIRMATION_QUEUE_LINES
+    return lines
+
+
+def _build_static_demo_confirmation_queue_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_CONFIRMATION_QUEUE_LINES
 
 
 def _static_demo_text_is_unsafe(value: object) -> bool:

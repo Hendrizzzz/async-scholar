@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import json
+import re
 import subprocess
 import sys
 import types
@@ -214,6 +215,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
+    assert "<h2>Confirmation queue</h2>" in html
     assert "<h2>Archive and reviewer</h2>" in html
     assert "<h2>Safety boundary</h2>" in html
     assert "Server started: no" in html
@@ -235,6 +237,13 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Important event - 185s - 88% confidence" in html
     assert "Urgent alert" in html
     assert "Confirmation required" in html
+    visible_html = _visible_html_text(html)
+    assert "User confirmation required" in html
+    assert "Alert status: pending" in html
+    assert "Participation action sent: no" in html
+    assert "Autonomous participation: no" in visible_html
+    assert "Live delivery: no" in html
+    assert "Academic answer behavior: no" in html
     assert "Local archive summary" in html
     assert "Reviewer artifact metadata only." in html
     _assert_static_output_safe(result.stdout, result.stderr, html)
@@ -1065,7 +1074,10 @@ def _assert_output_safe(stdout: str, stderr: str) -> None:
         "product promise alpha passed",
         "product judgment evidence satisfied",
         "live delivery performed",
-        "autonomous participation",
+        "autonomous participation performed",
+        "autonomous participation: yes",
+        "live delivery: yes",
+        "academic answer behavior: yes",
         "academic answer",
     ):
         assert forbidden not in combined
@@ -1089,7 +1101,10 @@ def _assert_inspection_output_safe(stdout: str, stderr: str) -> None:
         "product promise alpha passed",
         "product judgment evidence satisfied",
         "live delivery performed",
-        "autonomous participation",
+        "autonomous participation performed",
+        "autonomous participation: yes",
+        "live delivery: yes",
+        "academic answer behavior: yes",
     ):
         assert forbidden not in combined
 
@@ -1114,6 +1129,13 @@ def _assert_static_output_safe(stdout: str, stderr: str, html: str) -> None:
         "server started: yes",
         "browser opened: yes",
         "live delivery performed",
-        "autonomous participation",
+        "autonomous participation performed",
+        "autonomous participation: yes",
+        "live delivery: yes",
+        "academic answer behavior: yes",
     ):
         assert forbidden not in combined
+
+
+def _visible_html_text(html: str) -> str:
+    return re.sub(r"<[^>]+>", "", html)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
+import re
 import subprocess
 import sys
 import textwrap
@@ -260,7 +261,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 8
+    assert html.count("<section") == 9
     expected_headings = (
         "Gate D safety",
         "Evidence digest",
@@ -268,6 +269,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Demo timeline",
         "Detected events",
         "Alert preview",
+        "Confirmation queue",
         "Archive and reviewer",
         "Safety boundary",
     )
@@ -320,6 +322,15 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Status: Pending" in alert_section
     assert "Confirmation required" in alert_section
     assert "Review confirmation before acting." in alert_section
+
+    confirmation_section = _section_text(html, "Confirmation queue")
+    confirmation_visible = _visible_text(confirmation_section)
+    assert "User confirmation required" in confirmation_visible
+    assert "Alert status: pending" in confirmation_visible
+    assert "Participation action sent: no" in confirmation_visible
+    assert "Autonomous participation: no" in confirmation_visible
+    assert "Live delivery: no" in confirmation_visible
+    assert "Academic answer behavior: no" in confirmation_visible
 
     archive_section = _section_text(html, "Archive and reviewer")
     assert "Local archive summary" in archive_section
@@ -377,6 +388,99 @@ def test_static_demo_timeline_fails_closed_for_private_values(
         "product judgment evidence satisfied",
     ):
         assert forbidden not in lowered
+
+
+@pytest.mark.parametrize(
+    "unsafe_queue",
+    [
+        (
+            "User confirmation required",
+            "Alert status: sent",
+            "Participation action sent: yes",
+            "Autonomous participation: yes",
+            "Live delivery: yes",
+            "Academic answer behavior: yes",
+        ),
+        (
+            "User confirmation required",
+            "C:\\Users\\student\\secret-token-auth-profile",
+            "Gate D passed",
+            "Product Promise Alpha passed",
+            "https://meet.example.edu/class-room?token=private",
+            "Good morning, everyone. I am going to take attendance",
+        ),
+        ("User confirmation required",),
+        (),
+    ],
+)
+def test_static_demo_confirmation_queue_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_queue: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_queue() -> tuple[str, ...]:
+        return unsafe_queue
+
+    monkeypatch.setattr(demo, "_build_static_demo_confirmation_queue_lines", fake_queue)
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    confirmation_section = _section_text(html, "Confirmation queue")
+    confirmation_visible = _visible_text(confirmation_section)
+    for expected in (
+        "User confirmation required",
+        "Alert status: pending",
+        "Participation action sent: no",
+        "Autonomous participation: no",
+        "Live delivery: no",
+        "Academic answer behavior: no",
+    ):
+        assert expected in confirmation_visible
+
+    lowered = confirmation_section.casefold()
+    for forbidden in (
+        "sent: yes",
+        "autonomous participation: yes",
+        "live delivery: yes",
+        "academic answer behavior: yes",
+        "good morning",
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "meet.example",
+        "c:\\",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+
+
+def test_static_demo_confirmation_queue_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_queue() -> tuple[str, ...]:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    monkeypatch.setattr(demo, "_build_static_demo_confirmation_queue_lines", fake_queue)
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    confirmation_section = _section_text(html, "Confirmation queue")
+    confirmation_visible = _visible_text(confirmation_section)
+    assert "User confirmation required" in confirmation_visible
+    assert "Alert status: pending" in confirmation_visible
+    assert "Participation action sent: no" in confirmation_visible
+    assert "Autonomous participation: no" in confirmation_visible
+    assert "Live delivery: no" in confirmation_visible
+    assert "Academic answer behavior: no" in confirmation_visible
+    assert "traceback" not in confirmation_section.casefold()
+    assert ".env" not in confirmation_section.casefold()
+    assert "token" not in confirmation_section.casefold()
 
 
 def test_static_demo_evidence_digest_fails_closed_for_pass_like_helper(
@@ -539,3 +643,7 @@ def _section_text(html: str, heading: str) -> str:
     start = html.index(f"<h2>{heading}</h2>")
     end = html.index("</section>", start)
     return html[start:end]
+
+
+def _visible_text(html: str) -> str:
+    return re.sub(r"<[^>]+>", "", html)

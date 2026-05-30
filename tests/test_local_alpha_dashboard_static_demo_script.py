@@ -226,11 +226,12 @@ def _assert_static_html_safe(html: str) -> None:
         "Demo timeline",
         "Detected events",
         "Alert preview",
+        "Confirmation queue",
         "Archive and reviewer",
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 8
+    assert html.count("<section") == 9
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -252,6 +253,13 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Important event - 185s - 88% confidence" in html
     assert "Urgent alert" in html
     assert "Confirmation required" in html
+    visible_html = _visible_html_text(html)
+    assert "User confirmation required" in html
+    assert "Alert status: pending" in html
+    assert "Participation action sent: no" in html
+    assert "Autonomous participation: no" in visible_html
+    assert "Live delivery: no" in html
+    assert "Academic answer behavior: no" in html
     assert "Local archive summary" in html
     assert "Reviewer artifact metadata only." in html
     assert "Safety boundary" in html
@@ -268,6 +276,10 @@ def _assert_static_html_safe(html: str) -> None:
         "product judgment evidence satisfied",
         "server started: yes",
         "browser opened: yes",
+        "participation action sent: yes",
+        "autonomous participation: yes",
+        "live delivery: yes",
+        "academic answer behavior: yes",
         "traceback",
         ".env",
         "cookie",
@@ -281,6 +293,10 @@ def _output_path_from_stdout(stdout: str) -> Path:
     match = re.search(r"^Default output: (?P<path>.+)$", stdout, re.MULTILINE)
     assert match is not None, stdout
     return Path(match.group("path"))
+
+
+def _visible_html_text(html: str) -> str:
+    return re.sub(r"<[^>]+>", "", html)
 
 
 def _run_script(
