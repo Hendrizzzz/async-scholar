@@ -1,0 +1,543 @@
+from __future__ import annotations
+
+import importlib
+import inspect
+import json
+import subprocess
+import sys
+import textwrap
+
+FORBIDDEN_IMPORT_PREFIXES = (
+    "fastapi",
+    "nicegui",
+    "async_scholar.demo",
+    "async_scholar.rules",
+    "async_scholar.artifacts",
+    "async_scholar.alert_dispatch",
+    "async_scholar.desktop_notifier",
+    "async_scholar.telegram_notifier",
+    "async_scholar.scheduler",
+    "async_scholar.browser",
+    "async_scholar.audio",
+    "async_scholar.stt",
+)
+FORBIDDEN_SOURCE_REFERENCES = (
+    "async_scholar.demo",
+    "async_scholar.scheduler",
+    "async_scholar.browser",
+    "run_fixture_demo",
+    "transcript_stream",
+    "alert_dispatch",
+    "desktop_notifier",
+    "telegram_notifier",
+    "fastapi",
+    "uvicorn",
+)
+PRIVATE_RENDER_VALUES = (
+    "Good morning, everyone. I am going to take attendance",
+    "event-123",
+    "segment-123",
+    "alert-123",
+    r"C:\Users\student\data\sessions\fixture\events.jsonl",
+    r"C:\private\lecture.wav",
+    r"C:\private\lecture.mp4",
+    "secret.env",
+    "cookie-value",
+    "token-value",
+    "auth-state",
+    "browser profile",
+    "Traceback (most recent call last)",
+    r"C:\models\private-model.bin",
+    r"C:\generated\clip.png",
+)
+
+
+def test_local_alpha_dashboard_module_import_is_safe() -> None:
+    code = textwrap.dedent(
+        """
+        import importlib
+        import json
+        import sys
+
+        before = set(sys.modules)
+        importlib.import_module("async_scholar.ui.local_alpha_dashboard")
+        loaded = set(sys.modules) - before
+        prefixes = (
+            "fastapi",
+            "nicegui",
+            "async_scholar.demo",
+            "async_scholar.rules",
+            "async_scholar.artifacts",
+            "async_scholar.alert_dispatch",
+            "async_scholar.desktop_notifier",
+            "async_scholar.telegram_notifier",
+            "async_scholar.scheduler",
+            "async_scholar.browser",
+            "async_scholar.audio",
+            "async_scholar.stt",
+        )
+        forbidden = sorted(
+            name
+            for name in loaded
+            if any(
+                name == prefix or name.startswith(f"{prefix}.")
+                for prefix in prefixes
+            )
+        )
+        print(json.dumps(forbidden))
+        raise SystemExit(bool(forbidden))
+        """
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert json.loads(completed.stdout) == []
+
+    module = importlib.import_module("async_scholar.ui.local_alpha_dashboard")
+    source = inspect.getsource(module).casefold()
+    for reference in FORBIDDEN_SOURCE_REFERENCES:
+        assert reference not in source
+
+
+def test_ui_package_lazy_export_for_local_alpha_dashboard_is_safe() -> None:
+    code = textwrap.dedent(
+        """
+        import importlib
+        import json
+        import sys
+
+        package = importlib.import_module("async_scholar.ui")
+        assert "render_local_alpha_dashboard" in package.__all__
+        before = set(sys.modules)
+        render = package.render_local_alpha_dashboard
+        loaded = set(sys.modules) - before
+        prefixes = (
+            "fastapi",
+            "nicegui",
+            "async_scholar.demo",
+            "async_scholar.rules",
+            "async_scholar.artifacts",
+            "async_scholar.alert_dispatch",
+            "async_scholar.desktop_notifier",
+            "async_scholar.telegram_notifier",
+            "async_scholar.scheduler",
+            "async_scholar.browser",
+            "async_scholar.audio",
+            "async_scholar.stt",
+        )
+        forbidden = sorted(
+            name
+            for name in loaded
+            if any(
+                name == prefix or name.startswith(f"{prefix}.")
+                for prefix in prefixes
+            )
+        )
+        print(json.dumps({"callable": callable(render), "forbidden": forbidden}))
+        raise SystemExit(bool(forbidden))
+        """
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert json.loads(completed.stdout) == {"callable": True, "forbidden": []}
+
+
+def test_dashboard_renders_safe_human_facing_sections() -> None:
+    dashboard = _dashboard_module()
+    ui = FakeUI()
+    sources = dashboard.LocalAlphaDashboardSources(
+        session_status=StaticStatusSource(
+            [
+                {
+                    "run_status": "completed",
+                    "source_kind": "fixture_demo",
+                    "segment_count": 5,
+                    "event_count": 2,
+                    "artifact_paths": PRIVATE_RENDER_VALUES[3],
+                    "transcript_text": PRIVATE_RENDER_VALUES[0],
+                    "cookie": PRIVATE_RENDER_VALUES[8],
+                }
+            ]
+        ),
+        events=StaticEventSource(
+            [
+                [
+                    {
+                        "event_type": "attendance_prompt",
+                        "detected_at": 12,
+                        "confidence": 0.88,
+                        "message": PRIVATE_RENDER_VALUES[0],
+                        "event_id": PRIVATE_RENDER_VALUES[1],
+                        "source_segment_id": PRIVATE_RENDER_VALUES[2],
+                    }
+                ]
+            ]
+        ),
+        alerts=StaticAlertSource(
+            [
+                [
+                    {
+                        "severity": "urgent",
+                        "status": "delivered",
+                        "confirmation_required": False,
+                        "message": PRIVATE_RENDER_VALUES[0],
+                        "alert_id": PRIVATE_RENDER_VALUES[3],
+                        "provider_result": "live delivery happened",
+                    }
+                ]
+            ]
+        ),
+        archive=StaticArchiveSource(
+            [
+                [
+                    {
+                        "title": PRIVATE_RENDER_VALUES[1],
+                        "reviewer_excerpt": PRIVATE_RENDER_VALUES[0],
+                        "reviewer_status": "available",
+                        "event_count": 2,
+                        "alert_count": 1,
+                        "updated_time_label": "Updated May 30, 2026",
+                        "events_path": PRIVATE_RENDER_VALUES[3],
+                        "audio_file": PRIVATE_RENDER_VALUES[4],
+                        "reviewer_path": r"C:\private\reviewer.md",
+                    }
+                ]
+            ]
+        ),
+        gate_d={
+            "status": "passed",
+            "product_judgment_evidence": "approved",
+            "raw_note": "ready for release",
+        },
+    )
+
+    view = dashboard.render_local_alpha_dashboard(sources, ui=ui)
+    rendered = "\n".join(ui.texts)
+
+    assert view.gate_d_status.status_label == "Gate D not passed"
+    assert "AsyncScholar local alpha" in rendered
+    assert "Gate D safety" in rendered
+    assert "Gate D not passed" in rendered
+    assert "Blocked on product_judgment_evidence" in rendered
+    assert "Human product judgment: deferred" in rendered
+    assert "Session status" in rendered
+    assert "Completed" in rendered
+    assert "Fixture demo" in rendered
+    assert "Attendance prompt - 12s - 88% confidence" in rendered
+    assert "Urgent alert" in rendered
+    assert "Status: Pending" in rendered
+    assert "Confirmation required" in rendered
+    assert "Review confirmation before acting." in rendered
+    assert "Local archive summary" in rendered
+    assert "Reviewer available" in rendered
+    assert "Reviewer artifact metadata only." in rendered
+    assert "Product Promise Alpha passed" not in rendered
+    assert "ready for release" not in rendered
+    assert "Status: Delivered" not in rendered
+    assert "live delivery happened" not in rendered
+
+    for private_value in PRIVATE_RENDER_VALUES:
+        assert private_value not in rendered
+
+
+def test_archive_display_fields_are_reduced_to_metadata_only() -> None:
+    dashboard = _dashboard_module()
+    ui = FakeUI()
+
+    dashboard.render_local_alpha_dashboard(
+        dashboard.LocalAlphaDashboardSources(
+            session_status=StaticStatusSource([{}]),
+            events=StaticEventSource([[]]),
+            alerts=StaticAlertSource([[]]),
+            archive=StaticArchiveSource(
+                [
+                    [
+                        {
+                            "title": PRIVATE_RENDER_VALUES[4],
+                            "reviewer_excerpt": PRIVATE_RENDER_VALUES[0],
+                            "summary": "segment-123 transcript summary",
+                            "excerpt": "token-value private excerpt",
+                            "reviewer_status": "available",
+                            "event_count": 2,
+                            "alert_count": 1,
+                        }
+                    ]
+                ]
+            ),
+            gate_d={},
+        ),
+        ui=ui,
+    )
+
+    rendered = "\n".join(ui.texts)
+
+    assert "Local archive summary" in rendered
+    assert "Reviewer available" in rendered
+    assert "Events: 2" in rendered
+    assert "Alerts: 1" in rendered
+    assert "Reviewer artifact metadata only." in rendered
+    for private_value in PRIVATE_RENDER_VALUES:
+        assert private_value not in rendered
+    assert "segment-123 transcript summary" not in rendered
+    assert "token-value private excerpt" not in rendered
+
+
+def test_dashboard_refresh_uses_only_injected_sources() -> None:
+    dashboard = _dashboard_module()
+    ui = FakeUI()
+    session_source = StaticStatusSource(
+        [
+            {"run_status": "running", "source_kind": "fixture_demo"},
+            {
+                "run_status": "completed",
+                "source_kind": "fixture_demo",
+                "segment_count": 5,
+                "event_count": 2,
+            },
+        ]
+    )
+    event_source = StaticEventSource(
+        [
+            [{"event_type": "attendance_prompt", "detected_at": 1, "confidence": 0.25}],
+            [{"event_type": "quiz", "detected_at": 2, "confidence": 0.5}],
+        ]
+    )
+    alert_source = StaticAlertSource(
+        [
+            [{"severity": "info", "status": "sent", "confirmation_required": False}],
+            [
+                {
+                    "severity": "urgent",
+                    "status": "delivered",
+                    "confirmation_required": False,
+                }
+            ],
+        ]
+    )
+    archive_source = StaticArchiveSource(
+        [
+            [{"title": "First review", "reviewer_status": "pending"}],
+            [
+                {
+                    "title": "Second review",
+                    "reviewer_status": "available",
+                    "event_count": 4,
+                }
+            ],
+        ]
+    )
+
+    dashboard.render_local_alpha_dashboard(
+        dashboard.LocalAlphaDashboardSources(
+            session_status=session_source,
+            events=event_source,
+            alerts=alert_source,
+            archive=archive_source,
+            gate_d={},
+        ),
+        ui=ui,
+    )
+    first_render = "\n".join(ui.texts)
+
+    assert "Running" in first_render
+    assert "Attendance prompt - 1s - 25% confidence" in first_render
+    assert "Local archive summary" in first_render
+    assert "Reviewer pending" in first_render
+    assert session_source.calls == 1
+    assert event_source.calls == 1
+    assert alert_source.calls == 1
+    assert archive_source.calls == 1
+
+    ui.click("Refresh dashboard")
+    second_render = "\n".join(ui.texts)
+
+    assert "Completed" in second_render
+    assert "Quiz - 2s - 50% confidence" in second_render
+    assert "Severity: Urgent" in second_render
+    assert "Status: Pending" in second_render
+    assert "Reviewer available" in second_render
+    assert "Reviewer pending" not in second_render
+    assert session_source.calls == 2
+    assert event_source.calls == 2
+    assert alert_source.calls == 2
+    assert archive_source.calls == 2
+
+
+def test_gate_d_status_fails_closed_on_pass_like_source() -> None:
+    dashboard = _dashboard_module()
+
+    model = dashboard.normalize_gate_d_status(
+        {
+            "gate_d_status": "passed",
+            "product_promise_alpha": "approved",
+            "product_judgment_evidence": "satisfied",
+            "manual_judgment": "pass",
+        }
+    )
+
+    rendered = dashboard.format_gate_d_status(model)
+    assert model.status_label == "Gate D not passed"
+    assert model.blocker_label == "Blocked on product_judgment_evidence"
+    assert "approved" not in rendered.casefold()
+    assert "satisfied" not in rendered.casefold()
+    assert "pass judgment recorded" not in rendered.casefold()
+
+
+def _dashboard_module():
+    return importlib.import_module("async_scholar.ui.local_alpha_dashboard")
+
+
+class StaticStatusSource:
+    def __init__(self, snapshots: list[object]) -> None:
+        self._snapshots = snapshots
+        self.calls = 0
+
+    def status(self) -> object:
+        index = min(self.calls, len(self._snapshots) - 1)
+        self.calls += 1
+        return self._snapshots[index]
+
+
+class StaticEventSource:
+    def __init__(self, batches: list[list[object]]) -> None:
+        self._batches = batches
+        self.calls = 0
+
+    def __call__(self) -> list[object]:
+        index = min(self.calls, len(self._batches) - 1)
+        self.calls += 1
+        return self._batches[index]
+
+
+class StaticAlertSource:
+    def __init__(self, batches: list[list[object]]) -> None:
+        self._batches = batches
+        self.calls = 0
+
+    def alerts(self) -> list[object]:
+        index = min(self.calls, len(self._batches) - 1)
+        self.calls += 1
+        return self._batches[index]
+
+
+class StaticArchiveSource:
+    def __init__(self, batches: list[list[object]]) -> None:
+        self._batches = batches
+        self.calls = 0
+
+    def items(self) -> list[object]:
+        index = min(self.calls, len(self._batches) - 1)
+        self.calls += 1
+        return self._batches[index]
+
+
+class FakeElement:
+    def __init__(
+        self,
+        ui: FakeUI,
+        kind: str,
+        text: str | None = None,
+        on_click=None,
+    ) -> None:
+        self.ui = ui
+        self.kind = kind
+        self.text = text
+        self.on_click = on_click
+        self.children: list[FakeElement] = []
+        if ui._stack:
+            ui._stack[-1].children.append(self)
+        else:
+            ui.roots.append(self)
+
+    def __enter__(self) -> FakeElement:
+        self.ui._stack.append(self)
+        return self
+
+    def __exit__(self, *_exc_info: object) -> None:
+        self.ui._stack.pop()
+
+    def classes(self, *_classes: str) -> FakeElement:
+        return self
+
+    def props(self, *_props: str) -> FakeElement:
+        return self
+
+    def tooltip(self, *_tooltip: str) -> FakeElement:
+        return self
+
+    def clear(self) -> None:
+        self.children.clear()
+
+
+class FakeUI:
+    def __init__(self) -> None:
+        self.roots: list[FakeElement] = []
+        self._stack: list[FakeElement] = []
+
+    def column(self) -> FakeElement:
+        return self._element("column")
+
+    def row(self) -> FakeElement:
+        return self._element("row")
+
+    def card(self) -> FakeElement:
+        return self._element("card")
+
+    def label(self, text: object = "") -> FakeElement:
+        return self._element("label", str(text))
+
+    def button(
+        self,
+        text: str = "",
+        *args: object,
+        icon: str | None = None,
+        on_click=None,
+        **_kwargs: object,
+    ) -> FakeElement:
+        if args:
+            raise AssertionError(f"unexpected positional button args: {args!r}")
+        label = text or icon or ""
+        return self._element("button", label, on_click)
+
+    @property
+    def texts(self) -> list[str]:
+        return [element.text for element in self._walk() if element.text is not None]
+
+    def click(self, text: str) -> None:
+        matches = [
+            element
+            for element in self._walk()
+            if element.kind == "button" and element.text == text
+        ]
+        assert matches, f"button {text!r} not found"
+        callback = matches[0].on_click
+        assert callable(callback)
+        callback()
+
+    def _element(
+        self,
+        kind: str,
+        text: str | None = None,
+        on_click=None,
+    ) -> FakeElement:
+        return FakeElement(self, kind, text, on_click)
+
+    def _walk(self) -> list[FakeElement]:
+        elements: list[FakeElement] = []
+        stack = list(reversed(self.roots))
+        while stack:
+            element = stack.pop()
+            elements.append(element)
+            stack.extend(reversed(element.children))
+        return elements
