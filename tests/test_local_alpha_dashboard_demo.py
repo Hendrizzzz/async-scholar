@@ -235,6 +235,16 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Live delivery: no" in first
     assert "Server started: no" in first
     assert "Browser opened: no" in first
+    assert "Demo source status" in first
+    assert "Session source: fixed fixture metadata" in first
+    assert "Event source: fixed fixture metadata" in first
+    assert "Alert source: fixed fixture metadata" in first
+    assert "Archive source: fixed fixture metadata" in first
+    assert "Gate D source: local handoff metadata" in first
+    assert "Transcript source: not displayed" in first
+    assert "Recording source: not displayed" in first
+    assert "Private source data read: no" in first
+    assert "Source refresh required: no" in first
     assert "Local demo launch" in first
     assert (
         "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1"
@@ -300,7 +310,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 13
+    assert html.count("<section") == 14
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -360,6 +370,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Gate D safety",
         "Evidence digest",
         "Session status",
+        "Demo source status",
         "Local demo launch",
         "Demo verification status",
         "Demo timeline",
@@ -402,6 +413,76 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Source kind: Fixture demo" in session_section
     assert "Segments: 5" in session_section
     assert "Events: 2" in session_section
+
+    source_section = _section_text(html, "Demo source status")
+    source_visible = _visible_text(source_section)
+    assert "Metadata unavailable." not in source_section
+    for expected in (
+        "Session source: fixed fixture metadata",
+        "Event source: fixed fixture metadata",
+        "Alert source: fixed fixture metadata",
+        "Archive source: fixed fixture metadata",
+        "Gate D source: local handoff metadata",
+        "Transcript source: not displayed",
+        "Recording source: not displayed",
+        "Private source data read: no",
+        "Source refresh required: no",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in source_visible
+    assert "<button" not in source_section.casefold()
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript source: displayed",
+        "recording source: displayed",
+        "private source data read: yes",
+        "source refresh required: yes",
+        "gate d source: passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in source_section.casefold()
+    assert re.search(r"[a-z]:\\", source_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(source_section)
+    assert html.index("<h2>Session status</h2>") < html.index(
+        "<h2>Demo source status</h2>"
+    )
+    assert html.index("<h2>Demo source status</h2>") < html.index(
+        "<h2>Local demo launch</h2>"
+    )
 
     launch_section = _section_text(html, "Local demo launch")
     launch_visible = _visible_text(launch_section)
@@ -1209,6 +1290,146 @@ def test_static_demo_verification_status_fails_closed_for_helper_exception(
 
 
 @pytest.mark.parametrize(
+    "unsafe_source_status",
+    [
+        (
+            "Session source: fixed fixture metadata",
+            "Event source: fixed fixture metadata",
+            "Alert source: fixed fixture metadata",
+            "Archive source: fixed fixture metadata",
+            "Gate D source: passed",
+            "Transcript source: displayed",
+            "Recording source: displayed",
+            "Private source data read: yes",
+            "Source refresh required: yes",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Session source: C:\\Users\\student\\secret-token-auth-profile",
+            "Event source: https://meet.example.edu/class-room?token=private",
+            "Alert source: file:///tmp/private-alerts.jsonl",
+            "\\\\server\\share\\cookie-profile.json",
+            "Good morning, everyone. I am going to take attendance",
+            "transcript text: private class content",
+            "generated-media: lecture.wav lecture.mp4 clip.png",
+            "product judgment evidence satisfied",
+        ),
+        ("Session source: fixed fixture metadata",),
+        (),
+    ],
+)
+def test_static_demo_source_status_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_source_status: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_source_status() -> tuple[str, ...]:
+        return unsafe_source_status
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_source_status_lines",
+        fake_source_status,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    source_section = _section_text(html, "Demo source status")
+    source_visible = _visible_text(source_section)
+    for expected in (
+        "Session source: fixed fixture metadata",
+        "Event source: fixed fixture metadata",
+        "Alert source: fixed fixture metadata",
+        "Archive source: fixed fixture metadata",
+        "Gate D source: local handoff metadata",
+        "Transcript source: not displayed",
+        "Recording source: not displayed",
+        "Private source data read: no",
+        "Source refresh required: no",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in source_visible
+
+    lowered = source_section.casefold()
+    for forbidden in (
+        "<script",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "cookie",
+        "meet.example",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript text",
+        "transcript source: displayed",
+        "recording source: displayed",
+        "private source data read: yes",
+        "source refresh required: yes",
+        "gate d source: passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert "<button" not in lowered
+    _assert_no_event_handler_attributes(source_section)
+
+
+def test_static_demo_source_status_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_source_status() -> tuple[str, ...]:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_source_status_lines",
+        fake_source_status,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    source_section = _section_text(html, "Demo source status")
+    source_visible = _visible_text(source_section)
+    assert "Session source: fixed fixture metadata" in source_visible
+    assert "Event source: fixed fixture metadata" in source_visible
+    assert "Alert source: fixed fixture metadata" in source_visible
+    assert "Archive source: fixed fixture metadata" in source_visible
+    assert "Gate D source: local handoff metadata" in source_visible
+    assert "Transcript source: not displayed" in source_visible
+    assert "Recording source: not displayed" in source_visible
+    assert "Private source data read: no" in source_visible
+    assert "Source refresh required: no" in source_visible
+    assert "Product Promise Alpha not passed" in source_visible
+    assert "traceback" not in source_section.casefold()
+    assert ".env" not in source_section.casefold()
+    assert "token" not in source_section.casefold()
+
+
+@pytest.mark.parametrize(
     "unsafe_launch",
     [
         (
@@ -1573,6 +1794,44 @@ def test_static_demo_archive_review_status_helper_preserves_static_scope() -> No
         "desktop_notifier",
         "scheduler",
         "delete/export execution: yes",
+    ):
+        assert forbidden not in source
+
+
+def test_static_demo_source_status_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_source_status_lines)
+        + inspect.getsource(demo._build_static_demo_source_status_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete",
+        "transcript source: displayed",
+        "recording source: displayed",
+        "private source data read: yes",
+        "source refresh required: yes",
     ):
         assert forbidden not in source
 

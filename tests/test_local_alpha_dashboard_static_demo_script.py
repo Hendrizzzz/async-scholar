@@ -235,6 +235,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Gate D safety",
         "Evidence digest",
         "Session status",
+        "Demo source status",
         "Local demo launch",
         "Demo verification status",
         "Demo timeline",
@@ -247,7 +248,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 13
+    assert html.count("<section") == 14
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -258,6 +259,15 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Handoff status: Ready for manual review" in html
     assert "Local bundle status: Blocked" in html
     assert "AI can complete product judgment: no" in html
+    assert "Session source: fixed fixture metadata" in html
+    assert "Event source: fixed fixture metadata" in html
+    assert "Alert source: fixed fixture metadata" in html
+    assert "Archive source: fixed fixture metadata" in html
+    assert "Gate D source: local handoff metadata" in html
+    assert "Transcript source: not displayed" in html
+    assert "Recording source: not displayed" in html
+    assert "Private source data read: no" in html
+    assert "Source refresh required: no" in html
     visible_html = _visible_html_text(html)
     assert (
         "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1"

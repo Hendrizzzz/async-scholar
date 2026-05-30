@@ -26,6 +26,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Gate D safety",
     "Evidence digest",
     "Session status",
+    "Demo source status",
     "Local demo launch",
     "Demo verification status",
     "Demo timeline",
@@ -111,6 +112,18 @@ _STATIC_DEMO_LOCAL_LAUNCH_LINES = (
     "Live delivery: no",
     "Private data read: no",
     "Gate D not passed",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_SOURCE_STATUS_LINES = (
+    "Session source: fixed fixture metadata",
+    "Event source: fixed fixture metadata",
+    "Alert source: fixed fixture metadata",
+    "Archive source: fixed fixture metadata",
+    "Gate D source: local handoff metadata",
+    "Transcript source: not displayed",
+    "Recording source: not displayed",
+    "Private source data read: no",
+    "Source refresh required: no",
     "Product Promise Alpha not passed",
 )
 _STATIC_DEMO_VERIFICATION_STATUS_LINES = (
@@ -444,6 +457,7 @@ def _build_static_demo_sections(
     if intro_lines:
         grouped["Session status"] = intro_lines + grouped["Session status"]
     grouped["Evidence digest"] = list(_build_static_demo_evidence_digest_lines())
+    grouped["Demo source status"] = list(_safe_static_demo_source_status_lines())
     grouped["Local demo launch"] = list(_safe_static_demo_local_launch_lines())
     grouped["Demo verification status"] = list(
         _safe_static_demo_verification_status_lines()
@@ -639,6 +653,22 @@ def _safe_static_demo_archive_review_status_lines() -> tuple[str, ...]:
 
 def _build_static_demo_archive_review_status_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_ARCHIVE_REVIEW_STATUS_LINES
+
+
+def _safe_static_demo_source_status_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_source_status_lines()
+    except Exception:
+        return _STATIC_DEMO_SOURCE_STATUS_LINES
+    if lines != _STATIC_DEMO_SOURCE_STATUS_LINES:
+        return _STATIC_DEMO_SOURCE_STATUS_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_SOURCE_STATUS_LINES
+    return lines
+
+
+def _build_static_demo_source_status_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_SOURCE_STATUS_LINES
 
 
 def _safe_static_demo_local_launch_lines() -> tuple[str, ...]:

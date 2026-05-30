@@ -219,6 +219,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Gate D safety</h2>" in html
     assert "<h2>Evidence digest</h2>" in html
     assert "<h2>Session status</h2>" in html
+    assert "<h2>Demo source status</h2>" in html
     assert "<h2>Local demo launch</h2>" in html
     assert "<h2>Demo verification status</h2>" in html
     assert "<h2>Demo timeline</h2>" in html
@@ -238,6 +239,15 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Local bundle status: Blocked" in html
     assert "AI can complete product judgment: no" in html
     assert "Run status: Completed" in html
+    assert "Session source: fixed fixture metadata" in html
+    assert "Event source: fixed fixture metadata" in html
+    assert "Alert source: fixed fixture metadata" in html
+    assert "Archive source: fixed fixture metadata" in html
+    assert "Gate D source: local handoff metadata" in html
+    assert "Transcript source: not displayed" in html
+    assert "Recording source: not displayed" in html
+    assert "Private source data read: no" in html
+    assert "Source refresh required: no" in html
     visible_html = _visible_html_text(html)
     assert (
         "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1"
