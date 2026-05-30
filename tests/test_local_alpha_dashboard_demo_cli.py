@@ -11,6 +11,7 @@ from async_scholar import __main__ as cli
 
 DEMO_ERROR = "local alpha dashboard demo could not be built"
 INSPECTION_ERROR = "local alpha dashboard inspection could not be built"
+STATIC_ERROR = "local alpha dashboard static demo could not be built"
 
 
 def test_module_help_lists_local_alpha_dashboard_demo() -> None:
@@ -24,6 +25,7 @@ def test_module_help_lists_local_alpha_dashboard_demo() -> None:
     assert result.returncode == 0
     assert "local-alpha-dashboard-demo" in result.stdout
     assert "local-alpha-dashboard-inspection" in result.stdout
+    assert "local-alpha-dashboard-static-demo" in result.stdout
 
 
 def test_local_alpha_dashboard_demo_help_stays_lazy(monkeypatch) -> None:
@@ -71,6 +73,30 @@ def test_local_alpha_dashboard_inspection_help_stays_lazy(monkeypatch) -> None:
     assert result.returncode == 0
     assert "usage: async_scholar local-alpha-dashboard-inspection" in result.stdout
     assert "no-server" in result.stdout
+    assert module_name not in sys.modules
+
+
+def test_local_alpha_dashboard_static_demo_help_stays_lazy(monkeypatch) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "local-alpha-dashboard-static-demo",
+            "--help",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "usage: async_scholar local-alpha-dashboard-static-demo" in result.stdout
+    assert "--output" in result.stdout
+    assert "static HTML" in result.stdout
     assert module_name not in sys.modules
 
 
@@ -159,12 +185,58 @@ def test_local_alpha_dashboard_inspection_prints_plain_text() -> None:
     _assert_inspection_output_safe(result.stdout, result.stderr)
 
 
+def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
+    output = tmp_path / "async-scholar-local-alpha-dashboard.html"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "local-alpha-dashboard-static-demo",
+            "--output",
+            str(output),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == "local alpha dashboard static demo written\n"
+    html = output.read_text(encoding="utf-8")
+    assert html.startswith("<!doctype html>\n")
+    assert "AsyncScholar local alpha static demo" in html
+    assert "Server started: no" in html
+    assert "Browser opened: no" in html
+    assert "Gate D not passed" in html
+    assert "Blocked on product_judgment_evidence" in html
+    assert "Human product judgment: deferred" in html
+    assert "Run status: Completed" in html
+    assert "Attendance prompt - 42s - 94% confidence" in html
+    assert "Important event - 185s - 88% confidence" in html
+    assert "Urgent alert" in html
+    assert "Confirmation required" in html
+    assert "Local archive summary" in html
+    assert "Reviewer artifact metadata only." in html
+    _assert_static_output_safe(result.stdout, result.stderr, html)
+
+
 def test_readme_lists_local_alpha_dashboard_inspection_command() -> None:
     readme = Path("README.md").read_text(encoding="utf-8")
 
     assert "local-alpha-dashboard-inspection" in readme
     assert "no-server" in readme
     assert "Gate D / Product Promise Alpha" in readme
+
+
+def test_readme_lists_local_alpha_dashboard_static_demo_command() -> None:
+    readme = Path("README.md").read_text(encoding="utf-8")
+
+    assert "local-alpha-dashboard-static-demo" in readme
+    assert "--output" in readme
+    assert "static HTML" in readme
 
 
 def test_local_alpha_dashboard_demo_rejects_public_host_without_echo() -> None:
@@ -232,6 +304,51 @@ def test_local_alpha_dashboard_inspection_rejects_extra_args_safely() -> None:
     assert "token-secret-auth-profile" not in result.stderr
 
 
+def test_local_alpha_dashboard_static_demo_requires_output_safely() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "local-alpha-dashboard-static-demo",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == f"{STATIC_ERROR}\n"
+
+
+def test_local_alpha_dashboard_static_demo_rejects_extra_args_safely(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "dashboard.html"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "local-alpha-dashboard-static-demo",
+            "--output",
+            str(output),
+            "C:\\Users\\student\\token-secret-auth-profile",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == f"{STATIC_ERROR}\n"
+    assert "token-secret-auth-profile" not in result.stderr
+    assert not output.exists()
+
+
 def test_local_alpha_dashboard_demo_misordered_uses_fixed_error() -> None:
     result = subprocess.run(
         [
@@ -269,6 +386,26 @@ def test_local_alpha_dashboard_inspection_misordered_uses_fixed_error() -> None:
     assert result.returncode != 0
     assert result.stdout == ""
     assert result.stderr == f"{INSPECTION_ERROR}\n"
+    assert "token-secret-auth-profile" not in result.stderr
+
+
+def test_local_alpha_dashboard_static_demo_misordered_uses_fixed_error() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "C:\\Users\\student\\token-secret-auth-profile",
+            "local-alpha-dashboard-static-demo",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == f"{STATIC_ERROR}\n"
     assert "token-secret-auth-profile" not in result.stderr
 
 
@@ -359,6 +496,33 @@ def test_local_alpha_dashboard_inspection_command_delegates_to_helper(
     assert called == {"summary": True}
 
 
+def test_local_alpha_dashboard_static_demo_command_delegates_to_helper(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    fake_module = types.ModuleType(module_name)
+    called: dict[str, bool] = {}
+    output = tmp_path / "dashboard.html"
+
+    def fake_build_html() -> str:
+        called["html"] = True
+        return _valid_static_demo_html()
+
+    fake_module.build_local_alpha_dashboard_static_demo_html = fake_build_html
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["local-alpha-dashboard-static-demo", "--output", str(output)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.out == "local alpha dashboard static demo written\n"
+    assert captured.err == ""
+    assert called == {"html": True}
+    assert output.read_text(encoding="utf-8") == _valid_static_demo_html()
+
+
 def test_local_alpha_dashboard_demo_rejects_malformed_helper_payload(
     capsys,
     monkeypatch,
@@ -426,6 +590,31 @@ def test_local_alpha_dashboard_inspection_rejects_malformed_helper_output(
     _assert_inspection_output_safe(captured.out, captured.err)
 
 
+def test_local_alpha_dashboard_static_demo_rejects_malformed_helper_output(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    fake_module = types.ModuleType(module_name)
+    output = tmp_path / "dashboard.html"
+
+    def fake_build_html() -> str:
+        return "Traceback C:\\Users\\student\\.env token Product Promise Alpha passed"
+
+    fake_module.build_local_alpha_dashboard_static_demo_html = fake_build_html
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["local-alpha-dashboard-static-demo", "--output", str(output)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == f"{STATIC_ERROR}\n"
+    assert not output.exists()
+    _assert_static_output_safe(captured.out, captured.err, "")
+
+
 def test_local_alpha_dashboard_inspection_sanitizes_helper_failure(
     capsys,
     monkeypatch,
@@ -446,6 +635,129 @@ def test_local_alpha_dashboard_inspection_sanitizes_helper_failure(
     assert captured.out == ""
     assert captured.err == f"{INSPECTION_ERROR}\n"
     _assert_inspection_output_safe(captured.out, captured.err)
+
+
+def test_local_alpha_dashboard_static_demo_sanitizes_helper_failure(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    fake_module = types.ModuleType(module_name)
+    output = tmp_path / "dashboard.html"
+
+    def fake_build_html() -> str:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    fake_module.build_local_alpha_dashboard_static_demo_html = fake_build_html
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["local-alpha-dashboard-static-demo", "--output", str(output)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == f"{STATIC_ERROR}\n"
+    assert not output.exists()
+    _assert_static_output_safe(captured.out, captured.err, "")
+
+
+def test_local_alpha_dashboard_static_demo_rejects_invalid_output_target(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_html() -> str:
+        return _valid_static_demo_html()
+
+    fake_module.build_local_alpha_dashboard_static_demo_html = fake_build_html
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(
+        ["local-alpha-dashboard-static-demo", "--output", str(tmp_path)]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == f"{STATIC_ERROR}\n"
+    assert str(tmp_path) not in captured.err
+
+
+def test_local_alpha_dashboard_static_demo_rejects_existing_output_file(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    fake_module = types.ModuleType(module_name)
+    output = tmp_path / "dashboard.html"
+    output.write_text("existing", encoding="utf-8")
+
+    def fake_build_html() -> str:
+        return _valid_static_demo_html()
+
+    fake_module.build_local_alpha_dashboard_static_demo_html = fake_build_html
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["local-alpha-dashboard-static-demo", "--output", str(output)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == f"{STATIC_ERROR}\n"
+    assert output.read_text(encoding="utf-8") == "existing"
+
+
+def test_local_alpha_dashboard_static_demo_rejects_missing_parent(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    fake_module = types.ModuleType(module_name)
+    output = tmp_path / "missing" / "dashboard.html"
+
+    def fake_build_html() -> str:
+        return _valid_static_demo_html()
+
+    fake_module.build_local_alpha_dashboard_static_demo_html = fake_build_html
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["local-alpha-dashboard-static-demo", "--output", str(output)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == f"{STATIC_ERROR}\n"
+    assert not output.exists()
+
+
+def test_local_alpha_dashboard_static_demo_rejects_uri_output(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_html() -> str:
+        return _valid_static_demo_html()
+
+    fake_module.build_local_alpha_dashboard_static_demo_html = fake_build_html
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(
+        ["local-alpha-dashboard-static-demo", "--output", "file:///tmp/demo.html"]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == f"{STATIC_ERROR}\n"
+    assert "file://" not in captured.err
 
 
 def test_local_alpha_dashboard_demo_live_mode_delegates_without_dry_run_output(
@@ -578,6 +890,30 @@ def test_local_alpha_dashboard_inspection_sanitizes_import_failure(
     assert captured.err == f"{INSPECTION_ERROR}\n"
 
 
+def test_local_alpha_dashboard_static_demo_sanitizes_import_failure(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    real_import = builtins.__import__
+    output = tmp_path / "dashboard.html"
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "async_scholar.ui.local_alpha_dashboard_demo":
+            raise ImportError("C:\\Users\\student\\.env token traceback")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    exit_code = cli.main(["local-alpha-dashboard-static-demo", "--output", str(output)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == f"{STATIC_ERROR}\n"
+    assert not output.exists()
+
+
 def _valid_dry_run_payload(*, host: str, port: int) -> dict[str, object]:
     return {
         "demo_kind": "local_alpha_dashboard_demo",
@@ -646,6 +982,54 @@ def _valid_inspection_summary() -> str:
     )
 
 
+def _valid_static_demo_html() -> str:
+    return """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AsyncScholar local alpha static demo</title>
+</head>
+<body>
+  <main>
+    <h1>AsyncScholar local alpha static demo</h1>
+    <p>Server started: no</p>
+    <p>Browser opened: no</p>
+    <section>
+      <h2>Gate D safety</h2>
+      <p>Gate D not passed</p>
+      <p>Blocked on product_judgment_evidence</p>
+      <p>Human product judgment: deferred</p>
+      <p>Manual judgment required: yes</p>
+      <p>Manual judgment recorded: no</p>
+    </section>
+    <section>
+      <h2>Session status</h2>
+      <p>Run status: Completed</p>
+      <p>Source kind: Fixture demo</p>
+    </section>
+    <section>
+      <h2>Detected events</h2>
+      <p>Attendance prompt - 42s - 94% confidence</p>
+      <p>Important event - 185s - 88% confidence</p>
+    </section>
+    <section>
+      <h2>Alert preview</h2>
+      <p>Urgent alert | Status: Pending | Confirmation required</p>
+    </section>
+    <section>
+      <h2>Archive and reviewer</h2>
+      <p>Local archive summary | Reviewer artifact metadata only.</p>
+    </section>
+    <section>
+      <h2>Safety boundary</h2>
+      <p>Local alpha demo only.</p>
+    </section>
+  </main>
+</body>
+</html>
+"""
+
+
 def _assert_output_safe(stdout: str, stderr: str) -> None:
     combined = f"{stdout}\n{stderr}".lower()
     for forbidden in (
@@ -687,6 +1071,31 @@ def _assert_inspection_output_safe(stdout: str, stderr: str) -> None:
         "gate d passed",
         "product promise alpha passed",
         "product judgment evidence satisfied",
+        "live delivery performed",
+        "autonomous participation",
+    ):
+        assert forbidden not in combined
+
+
+def _assert_static_output_safe(stdout: str, stderr: str, html: str) -> None:
+    combined = f"{stdout}\n{stderr}\n{html}".lower()
+    for forbidden in (
+        "good morning",
+        "meet.example",
+        "token",
+        "cookie",
+        ".env",
+        "auth",
+        "browser profile",
+        "traceback",
+        ".wav",
+        ".mp4",
+        "c:\\",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+        "server started: yes",
+        "browser opened: yes",
         "live delivery performed",
         "autonomous participation",
     ):

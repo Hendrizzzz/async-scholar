@@ -104,9 +104,11 @@ def test_ui_package_lazy_export_for_dashboard_demo_is_safe() -> None:
         package = importlib.import_module("async_scholar.ui")
         assert "build_local_alpha_dashboard_demo_dry_run" in package.__all__
         assert "build_local_alpha_dashboard_inspection_summary" in package.__all__
+        assert "build_local_alpha_dashboard_static_demo_html" in package.__all__
         before = set(sys.modules)
         build = package.build_local_alpha_dashboard_demo_dry_run
         inspect_summary = package.build_local_alpha_dashboard_inspection_summary
+        build_static = package.build_local_alpha_dashboard_static_demo_html
         loaded = set(sys.modules) - before
         prefixes = ("fastapi", "nicegui", "async_scholar.demo", "async_scholar.audio")
         forbidden = sorted(
@@ -122,6 +124,7 @@ def test_ui_package_lazy_export_for_dashboard_demo_is_safe() -> None:
                 {
                     "callable": callable(build),
                     "inspection_callable": callable(inspect_summary),
+                    "static_callable": callable(build_static),
                     "forbidden": forbidden,
                 }
             )
@@ -140,6 +143,7 @@ def test_ui_package_lazy_export_for_dashboard_demo_is_safe() -> None:
     assert json.loads(completed.stdout) == {
         "callable": True,
         "inspection_callable": True,
+        "static_callable": True,
         "forbidden": [],
     }
 
@@ -207,6 +211,86 @@ def test_build_inspection_summary_is_deterministic_and_metadata_only() -> None:
     serialized = json.dumps({"summary": first})
     for private_value in PRIVATE_VALUES:
         assert private_value not in serialized
+
+
+def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
+    demo = _demo_module()
+
+    first = demo.build_local_alpha_dashboard_static_demo_html()
+    second = demo.build_local_alpha_dashboard_static_demo_html()
+
+    assert first == second
+    assert first.startswith("<!doctype html>\n")
+    assert first.endswith("\n")
+    assert '<html lang="en">' in first
+    assert "<title>AsyncScholar local alpha static demo</title>" in first
+    assert "AsyncScholar local alpha static demo" in first
+    assert "Safety boundary" in first
+    assert "Server started: no" in first
+    assert "Browser opened: no" in first
+    assert "Gate D not passed" in first
+    assert "Blocked on product_judgment_evidence" in first
+    assert "Human product judgment: deferred" in first
+    assert "Satisfactory evidence: 9" in first
+    assert "Missing evidence: 0" in first
+    assert "Manual judgment required: yes" in first
+    assert "Manual judgment recorded: no" in first
+    assert "Run status: Completed" in first
+    assert "Source kind: Fixture demo" in first
+    assert "Attendance prompt - 42s - 94% confidence" in first
+    assert "Important event - 185s - 88% confidence" in first
+    assert "Urgent alert" in first
+    assert "Status: Pending" in first
+    assert "Confirmation required" in first
+    assert "Local archive summary" in first
+    assert "Reviewer available" in first
+    assert "Reviewer artifact metadata only." in first
+    assert "Gate D passed" not in first
+    assert "Product Promise Alpha passed" not in first
+    lowered = first.casefold()
+    for forbidden in ("<script", "<link", "<img", "<iframe", "src=", "href="):
+        assert forbidden not in lowered
+    serialized = json.dumps({"html": first})
+    for private_value in PRIVATE_VALUES:
+        assert private_value not in serialized
+
+
+def test_static_demo_html_helper_does_not_use_live_runner() -> None:
+    demo = _demo_module()
+    source = inspect.getsource(
+        demo.build_local_alpha_dashboard_static_demo_html
+    ).casefold()
+
+    for forbidden in (
+        "run_local_alpha_dashboard_demo",
+        "render_local_alpha_dashboard_demo_page",
+        "nicegui",
+        "ui.run",
+        "webbrowser",
+        "subprocess",
+    ):
+        assert forbidden not in source
+
+
+def test_build_static_demo_html_escapes_summary_text(monkeypatch) -> None:
+    demo = _demo_module()
+
+    def fake_summary() -> str:
+        return (
+            "AsyncScholar local alpha inspection\n"
+            "Server started: no\n"
+            "Browser opened: no\n"
+            "<script>alert('unsafe')</script>\n"
+        )
+
+    monkeypatch.setattr(
+        demo, "build_local_alpha_dashboard_inspection_summary", fake_summary
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    assert "<script>" not in html
+    assert "&lt;script&gt;alert(&#x27;unsafe&#x27;)&lt;/script&gt;" in html
 
 
 def test_dry_run_payload_is_safe_and_loopback_only() -> None:

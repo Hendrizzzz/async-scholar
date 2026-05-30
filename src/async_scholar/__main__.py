@@ -27,6 +27,9 @@ _LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR = "local alpha dashboard demo could not be
 _LOCAL_ALPHA_DASHBOARD_INSPECTION_CLI_ERROR = (
     "local alpha dashboard inspection could not be built"
 )
+_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_CLI_ERROR = (
+    "local alpha dashboard static demo could not be built"
+)
 _LOCAL_ALPHA_DASHBOARD_DEMO_SAFETY_SUMMARY = (
     "Local metadata-only demo for human inspection. Gate D is not passed; "
     "product_judgment_evidence remains blocking. It uses fixed local fixture-style "
@@ -110,6 +113,52 @@ _LOCAL_ALPHA_DASHBOARD_INSPECTION_FORBIDDEN_TEXT = (
     "browser opened: yes",
     "live delivery performed",
     "autonomous participation",
+)
+_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_REQUIRED_TEXT = (
+    "<!doctype html>",
+    '<html lang="en">',
+    "<title>AsyncScholar local alpha static demo</title>",
+    "AsyncScholar local alpha static demo",
+    "Server started: no",
+    "Browser opened: no",
+    "Gate D not passed",
+    "Blocked on product_judgment_evidence",
+    "Human product judgment: deferred",
+    "Manual judgment required: yes",
+    "Manual judgment recorded: no",
+    "Session status",
+    "Detected events",
+    "Alert preview",
+    "Archive and reviewer",
+    "Safety boundary",
+)
+_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_FORBIDDEN_TEXT = (
+    "good morning",
+    "meet.example",
+    "token",
+    "cookie",
+    ".env",
+    "auth",
+    "browser profile",
+    "traceback",
+    ".wav",
+    ".mp4",
+    "c:\\",
+    "gate d passed",
+    "product promise alpha passed",
+    "product judgment evidence satisfied",
+    "server started: yes",
+    "browser opened: yes",
+    "live delivery performed",
+    "autonomous participation",
+    "<script",
+    "<link",
+    "<img",
+    "<iframe",
+    "src=",
+    "href=",
+    "http://",
+    "https://",
 )
 _GATE_D_SECURITY_REVIEW_EVIDENCE_CLI_ERROR = (
     "gate d security review evidence could not be built"
@@ -1483,6 +1532,19 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_local_alpha_dashboard_inspection_command
     )
 
+    local_alpha_dashboard_static_demo = subparsers.add_parser(
+        "local-alpha-dashboard-static-demo",
+        help="write a no-server local alpha dashboard static HTML demo",
+        description=(
+            "Write a standalone static HTML local alpha dashboard demo from "
+            "fixed metadata-only sources."
+        ),
+    )
+    _add_local_alpha_dashboard_static_demo_arguments(local_alpha_dashboard_static_demo)
+    local_alpha_dashboard_static_demo.set_defaults(
+        handler=_run_local_alpha_dashboard_static_demo_command
+    )
+
     session_window_lifecycle_smoke = subparsers.add_parser(
         "session-window-lifecycle-smoke-local",
         help="run a local session-window lifecycle smoke",
@@ -1975,6 +2037,11 @@ def main(argv: list[str] | None = None) -> int:
     if "local-alpha-dashboard-inspection" in argv:
         print(_LOCAL_ALPHA_DASHBOARD_INSPECTION_CLI_ERROR, file=sys.stderr)
         return 2
+    if argv[:1] == ["local-alpha-dashboard-static-demo"]:
+        return _run_local_alpha_dashboard_static_demo_argv(argv[1:])
+    if "local-alpha-dashboard-static-demo" in argv:
+        print(_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_CLI_ERROR, file=sys.stderr)
+        return 2
     if argv[:1] == ["crash-recovery-preflight"]:
         return _run_crash_recovery_preflight_argv(argv[1:])
     if "crash-recovery-preflight" in argv or any(
@@ -2419,6 +2486,17 @@ def _add_local_alpha_dashboard_demo_arguments(
         type=int,
         default=8086,
         help="local TCP port to bind",
+    )
+
+
+def _add_local_alpha_dashboard_static_demo_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="explicit local static HTML output file path",
     )
 
 
@@ -4502,6 +4580,20 @@ def _run_local_alpha_dashboard_inspection_argv(argv: list[str]) -> int:
     return _run_local_alpha_dashboard_inspection_command(args)
 
 
+def _run_local_alpha_dashboard_static_demo_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar local-alpha-dashboard-static-demo",
+        description=(
+            "Write a standalone static HTML local alpha dashboard demo from "
+            "fixed metadata-only sources."
+        ),
+        fixed_error_message=_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_CLI_ERROR,
+    )
+    _add_local_alpha_dashboard_static_demo_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_local_alpha_dashboard_static_demo_command(args)
+
+
 def _run_local_alpha_dashboard_demo_command(args: argparse.Namespace) -> int:
     try:
         from async_scholar.ui.local_alpha_dashboard_demo import (
@@ -4543,6 +4635,26 @@ def _run_local_alpha_dashboard_inspection_command(_args: argparse.Namespace) -> 
         return 1
 
     print(output, end="")
+    return 0
+
+
+def _run_local_alpha_dashboard_static_demo_command(args: argparse.Namespace) -> int:
+    try:
+        from async_scholar.ui.local_alpha_dashboard_demo import (
+            build_local_alpha_dashboard_static_demo_html,
+        )
+
+        output_path = _local_alpha_dashboard_static_demo_output_path(args.output)
+        html = _local_alpha_dashboard_static_demo_html(
+            build_local_alpha_dashboard_static_demo_html()
+        )
+        with output_path.open("x", encoding="utf-8", newline="\n") as handle:
+            handle.write(html)
+    except Exception:
+        print(_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print("local alpha dashboard static demo written")
     return 0
 
 
@@ -4591,6 +4703,52 @@ def _local_alpha_dashboard_inspection_text(output: object) -> str:
         for forbidden in _LOCAL_ALPHA_DASHBOARD_INSPECTION_FORBIDDEN_TEXT
     ):
         raise ValueError(_LOCAL_ALPHA_DASHBOARD_INSPECTION_CLI_ERROR)
+    return output
+
+
+def _local_alpha_dashboard_static_demo_html(output: object) -> str:
+    if (
+        not isinstance(output, str)
+        or not output.startswith("<!doctype html>\n")
+        or not output.endswith("\n")
+    ):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_CLI_ERROR)
+    if any(
+        required not in output
+        for required in _LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_REQUIRED_TEXT
+    ):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_CLI_ERROR)
+    lowered = output.casefold()
+    if any(
+        forbidden in lowered
+        for forbidden in _LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_FORBIDDEN_TEXT
+    ):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_CLI_ERROR)
+    return output
+
+
+def _local_alpha_dashboard_static_demo_output_path(output: object) -> Path:
+    if not isinstance(output, Path):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_CLI_ERROR)
+    raw_output = str(output)
+    if (
+        not raw_output.strip()
+        or any(ord(character) < 32 for character in raw_output)
+        or "://" in raw_output
+        or raw_output.startswith(("\\\\", "//"))
+        or any(part == ".." for part in output.parts)
+    ):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_CLI_ERROR)
+    parent = output.parent
+    if (
+        not output.name
+        or output.exists()
+        or output.is_symlink()
+        or not parent.exists()
+        or not parent.is_dir()
+        or parent.is_symlink()
+    ):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_CLI_ERROR)
     return output
 
 

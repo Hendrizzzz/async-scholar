@@ -42,6 +42,9 @@ _SYMBOL_MODULES = {
     "build_local_alpha_dashboard_inspection_summary": (
         _LOCAL_ALPHA_DASHBOARD_DEMO_MODULE
     ),
+    "build_local_alpha_dashboard_static_demo_html": (
+        _LOCAL_ALPHA_DASHBOARD_DEMO_MODULE
+    ),
     "diagnostics_to_audio_model": "async_scholar.ui.audio_diagnostics",
     "event_to_timeline_model": "async_scholar.ui.event_timeline",
     "format_archive_browser_item": "async_scholar.ui.archive_browser",

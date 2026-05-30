@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from html import escape
 from typing import Any
 
 from async_scholar.ui.local_alpha_dashboard import (
@@ -155,6 +156,47 @@ def build_local_alpha_dashboard_inspection_summary() -> str:
     )
 
 
+def build_local_alpha_dashboard_static_demo_html() -> str:
+    """Build a standalone static HTML local alpha dashboard demo."""
+
+    summary_lines = tuple(
+        line for line in build_local_alpha_dashboard_inspection_summary().splitlines()
+    )
+    summary_items = "\n".join(
+        f"        <li>{escape(line, quote=True)}</li>" for line in summary_lines[1:]
+    )
+    return (
+        "<!doctype html>\n"
+        '<html lang="en">\n'
+        "<head>\n"
+        '  <meta charset="utf-8">\n'
+        '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        "  <title>AsyncScholar local alpha static demo</title>\n"
+        "  <style>\n"
+        "    body { margin: 0; font-family: Arial, sans-serif; "
+        "background: #f7f8fa; color: #17202a; }\n"
+        "    main { max-width: 880px; margin: 0 auto; padding: 40px 20px; }\n"
+        "    h1 { font-size: 28px; margin: 0 0 16px; }\n"
+        "    p { margin: 0 0 24px; color: #4d5b6a; }\n"
+        "    ol { margin: 0; padding: 0; list-style: none; display: grid; "
+        "gap: 8px; }\n"
+        "    li { background: #ffffff; border: 1px solid #d8dee6; "
+        "border-radius: 8px; padding: 10px 12px; }\n"
+        "  </style>\n"
+        "</head>\n"
+        "<body>\n"
+        "  <main>\n"
+        "    <h1>AsyncScholar local alpha static demo</h1>\n"
+        "    <p>No-server, no-browser export of the fixed local alpha story.</p>\n"
+        "    <ol>\n"
+        f"{summary_items}\n"
+        "    </ol>\n"
+        "  </main>\n"
+        "</body>\n"
+        "</html>\n"
+    )
+
+
 def render_local_alpha_dashboard_demo_page(*, ui: Any | None = None) -> object:
     """Render the demo page from fixed local metadata sources."""
 
@@ -254,6 +296,7 @@ __all__ = [
     "build_local_alpha_dashboard_demo_dry_run",
     "build_local_alpha_dashboard_demo_sources",
     "build_local_alpha_dashboard_inspection_summary",
+    "build_local_alpha_dashboard_static_demo_html",
     "render_local_alpha_dashboard_demo_page",
     "run_local_alpha_dashboard_demo",
 ]
