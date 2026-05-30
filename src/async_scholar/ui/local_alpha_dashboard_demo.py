@@ -44,6 +44,7 @@ LOCAL_ALPHA_DASHBOARD_DEMO_DRY_RUN_KEYS = (
     "academic_answer_behavior_performed",
     "safety_summary",
 )
+_GATE_D_BLOCKER = "product_judgment_evidence"
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,7 +108,7 @@ def build_local_alpha_dashboard_demo_sources() -> LocalAlphaDashboardSources:
         events=_DemoEventSource(),
         alerts=_DemoAlertSource(),
         archive=_DemoArchiveSource(),
-        gate_d={"product_judgment_evidence": "blocking"},
+        gate_d=_build_demo_gate_d_metadata(),
     )
 
 
@@ -183,6 +184,57 @@ def _format_local_url(*, host: str, port: int) -> str:
     if host == "::1":
         return f"http://[{host}]:{port}"
     return f"http://{host}:{port}"
+
+
+def _build_demo_gate_d_metadata() -> dict[str, object]:
+    try:
+        from async_scholar.gate_d_handoff_packet import (
+            build_local_gate_d_handoff_packet,
+        )
+
+        packet = build_local_gate_d_handoff_packet()
+    except Exception:
+        return _fallback_gate_d_metadata()
+
+    if not isinstance(packet, dict):
+        return _fallback_gate_d_metadata()
+    return {
+        "product_judgment_evidence_status": "blocking",
+        "blocking_evidence": [_GATE_D_BLOCKER],
+        "satisfactory_evidence_count": _safe_demo_gate_d_count(
+            packet.get("satisfactory_evidence_count")
+        ),
+        "missing_evidence_count": _safe_demo_gate_d_count(
+            packet.get("missing_evidence_count")
+        ),
+        "ready_for_gate_review": False,
+        "manual_product_judgment_required": True,
+        "manual_product_judgment_recorded": False,
+        "gate_d_pass_claimed": False,
+        "product_promise_alpha_pass_claimed": False,
+    }
+
+
+def _fallback_gate_d_metadata() -> dict[str, object]:
+    return {
+        "product_judgment_evidence_status": "blocking",
+        "blocking_evidence": [_GATE_D_BLOCKER],
+        "satisfactory_evidence_count": 0,
+        "missing_evidence_count": 0,
+        "ready_for_gate_review": False,
+        "manual_product_judgment_required": True,
+        "manual_product_judgment_recorded": False,
+        "gate_d_pass_claimed": False,
+        "product_promise_alpha_pass_claimed": False,
+    }
+
+
+def _safe_demo_gate_d_count(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return min(max(value, 0), 9999)
+    return 0
 
 
 __all__ = [

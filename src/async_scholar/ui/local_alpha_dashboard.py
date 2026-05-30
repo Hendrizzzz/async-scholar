@@ -59,6 +59,7 @@ class GateDStatusModel:
     status_label: str
     blocker_label: str
     judgment_label: str
+    evidence_labels: tuple[str, ...]
     safety_label: str
 
 
@@ -141,6 +142,8 @@ class LocalAlphaDashboardView:
             self._ui.label(self.gate_d_status.status_label).classes("text-sm")
             self._ui.label(self.gate_d_status.blocker_label).classes("text-sm")
             self._ui.label(self.gate_d_status.judgment_label).classes("text-sm")
+            for evidence_label in self.gate_d_status.evidence_labels:
+                self._ui.label(evidence_label).classes("text-sm")
             self._ui.label(self.gate_d_status.safety_label).classes("text-sm")
 
     def _render_session_status(self) -> None:
@@ -194,14 +197,16 @@ def normalize_dashboard_session_status(
     )
 
 
-def normalize_gate_d_status(_source: object | None) -> GateDStatusModel:
+def normalize_gate_d_status(source: object | None) -> GateDStatusModel:
     """Return fail-closed Gate D state for the local alpha shell."""
 
+    snapshot = _read_gate_d_snapshot(source)
     return GateDStatusModel(
         title="Gate D safety",
         status_label="Gate D not passed",
         blocker_label="Blocked on product_judgment_evidence",
         judgment_label="Human product judgment: deferred",
+        evidence_labels=_gate_d_evidence_labels(snapshot),
         safety_label=(
             "Local alpha demo only: no real meeting, private meeting data, "
             "audio capture, live delivery, participation, or academic answers."
@@ -214,7 +219,8 @@ def format_gate_d_status(model: GateDStatusModel) -> str:
 
     return (
         f"{model.title} | {model.status_label} | {model.blocker_label} | "
-        f"{model.judgment_label} | {model.safety_label}"
+        f"{model.judgment_label} | {' | '.join(model.evidence_labels)} | "
+        f"{model.safety_label}"
     )
 
 
@@ -324,6 +330,40 @@ def _read_session_snapshot(source: object) -> object | None:
     except Exception:
         return None
     return source
+
+
+def _read_gate_d_snapshot(source: object | None) -> Mapping[str, object] | None:
+    try:
+        value = source() if callable(source) else source
+    except Exception:
+        return None
+    if not isinstance(value, Mapping):
+        return None
+    return value
+
+
+def _gate_d_evidence_labels(snapshot: Mapping[str, object] | None) -> tuple[str, ...]:
+    satisfactory_count = _safe_gate_d_count(snapshot, "satisfactory_evidence_count")
+    missing_count = _safe_gate_d_count(snapshot, "missing_evidence_count")
+    return (
+        f"Satisfactory evidence: {satisfactory_count}",
+        f"Missing evidence: {missing_count}",
+        "Blocking evidence: product_judgment_evidence",
+        "Ready for gate review: no",
+        "Manual judgment required: yes",
+        "Manual judgment recorded: no",
+    )
+
+
+def _safe_gate_d_count(
+    snapshot: Mapping[str, object] | None,
+    name: str,
+) -> int:
+    if snapshot is None:
+        return 0
+    if _field(snapshot, "product_judgment_evidence_status") != "blocking":
+        return 0
+    return _safe_count(_field(snapshot, name))
 
 
 def _field(value: object, name: str) -> object | None:

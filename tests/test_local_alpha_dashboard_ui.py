@@ -218,6 +218,16 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         gate_d={
             "status": "passed",
             "product_judgment_evidence": "approved",
+            "product_judgment_evidence_status": "blocking",
+            "blocking_evidence": [
+                "product_judgment_evidence",
+                r"C:\private\lecture.wav",
+            ],
+            "satisfactory_evidence_count": 9,
+            "missing_evidence_count": 0,
+            "ready_for_gate_review": True,
+            "manual_product_judgment_required": False,
+            "manual_product_judgment_recorded": True,
             "raw_note": "ready for release",
         },
     )
@@ -231,6 +241,12 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Gate D not passed" in rendered
     assert "Blocked on product_judgment_evidence" in rendered
     assert "Human product judgment: deferred" in rendered
+    assert "Satisfactory evidence: 9" in rendered
+    assert "Missing evidence: 0" in rendered
+    assert "Blocking evidence: product_judgment_evidence" in rendered
+    assert "Ready for gate review: no" in rendered
+    assert "Manual judgment required: yes" in rendered
+    assert "Manual judgment recorded: no" in rendered
     assert "Session status" in rendered
     assert "Completed" in rendered
     assert "Fixture demo" in rendered
@@ -382,6 +398,13 @@ def test_gate_d_status_fails_closed_on_pass_like_source() -> None:
             "gate_d_status": "passed",
             "product_promise_alpha": "approved",
             "product_judgment_evidence": "satisfied",
+            "product_judgment_evidence_status": "satisfied",
+            "blocking_evidence": ["private-blocker", "product_judgment_evidence"],
+            "satisfactory_evidence_count": 999999,
+            "missing_evidence_count": -4,
+            "ready_for_gate_review": True,
+            "manual_product_judgment_required": False,
+            "manual_product_judgment_recorded": True,
             "manual_judgment": "pass",
         }
     )
@@ -389,9 +412,92 @@ def test_gate_d_status_fails_closed_on_pass_like_source() -> None:
     rendered = dashboard.format_gate_d_status(model)
     assert model.status_label == "Gate D not passed"
     assert model.blocker_label == "Blocked on product_judgment_evidence"
+    assert "Blocking evidence: product_judgment_evidence" in rendered
+    assert "Ready for gate review: no" in rendered
+    assert "Manual judgment required: yes" in rendered
+    assert "Manual judgment recorded: no" in rendered
     assert "approved" not in rendered.casefold()
     assert "satisfied" not in rendered.casefold()
+    assert "private-blocker" not in rendered
     assert "pass judgment recorded" not in rendered.casefold()
+
+
+def test_gate_d_status_renders_allowlisted_metadata_only() -> None:
+    dashboard = _dashboard_module()
+
+    model = dashboard.normalize_gate_d_status(
+        {
+            "product_judgment_evidence_status": "blocking",
+            "blocking_evidence": ["product_judgment_evidence"],
+            "satisfactory_evidence_count": 9,
+            "missing_evidence_count": 0,
+            "ready_for_gate_review": False,
+            "manual_product_judgment_required": True,
+            "manual_product_judgment_recorded": False,
+            "raw_note": PRIVATE_RENDER_VALUES[0],
+            "private_url": "https://meet.example.edu/class-room?token=private",
+            "traceback": PRIVATE_RENDER_VALUES[10],
+        }
+    )
+
+    rendered = dashboard.format_gate_d_status(model)
+
+    assert "Gate D not passed" in rendered
+    assert "Blocked on product_judgment_evidence" in rendered
+    assert "Human product judgment: deferred" in rendered
+    assert "Satisfactory evidence: 9" in rendered
+    assert "Missing evidence: 0" in rendered
+    assert "Blocking evidence: product_judgment_evidence" in rendered
+    assert "Ready for gate review: no" in rendered
+    assert "Manual judgment required: yes" in rendered
+    assert "Manual judgment recorded: no" in rendered
+    assert "raw_note" not in rendered
+    assert "meet.example" not in rendered
+    for private_value in PRIVATE_RENDER_VALUES:
+        assert private_value not in rendered
+
+
+def test_gate_d_status_fails_closed_for_unavailable_or_hostile_source() -> None:
+    dashboard = _dashboard_module()
+
+    class RaisingGateDSource:
+        def __call__(self) -> object:
+            raise RuntimeError(r"Traceback C:\Users\student\.env token-value")
+
+    hostile_sources = (
+        RaisingGateDSource(),
+        r"Traceback C:\Users\student\.env token-value",
+        {
+            "product_judgment_evidence_status": "blocking",
+            "blocking_evidence": [
+                "product_judgment_evidence",
+                r"C:\private\lecture.wav",
+                "token-value",
+            ],
+            "satisfactory_evidence_count": "not-a-count",
+            "missing_evidence_count": "also-not-a-count",
+            "ready_for_gate_review": True,
+            "manual_product_judgment_required": False,
+            "manual_product_judgment_recorded": True,
+            "auth_profile": "browser profile",
+            "raw_exception": "Traceback (most recent call last)",
+        },
+    )
+
+    for source in hostile_sources:
+        rendered = dashboard.format_gate_d_status(
+            dashboard.normalize_gate_d_status(source)
+        )
+        assert "Gate D not passed" in rendered
+        assert "Blocked on product_judgment_evidence" in rendered
+        assert "Blocking evidence: product_judgment_evidence" in rendered
+        assert "Ready for gate review: no" in rendered
+        assert "Manual judgment required: yes" in rendered
+        assert "Manual judgment recorded: no" in rendered
+        assert "token-value" not in rendered
+        assert "Traceback" not in rendered
+        assert r"C:\private\lecture.wav" not in rendered
+        assert "browser profile" not in rendered
 
 
 def _dashboard_module():

@@ -144,7 +144,15 @@ def test_build_demo_sources_are_deterministic_and_metadata_only() -> None:
     assert first.alerts.alerts()[0]["status"] == "pending"
     assert first.alerts.alerts()[0]["confirmation_required"] is True
     assert first.archive.items()[0]["title"] == "Local archive summary"
-    assert first.gate_d == {"product_judgment_evidence": "blocking"}
+    assert first.gate_d["product_judgment_evidence_status"] == "blocking"
+    assert first.gate_d["blocking_evidence"] == ["product_judgment_evidence"]
+    assert first.gate_d["satisfactory_evidence_count"] == 9
+    assert first.gate_d["missing_evidence_count"] == 0
+    assert first.gate_d["ready_for_gate_review"] is False
+    assert first.gate_d["manual_product_judgment_required"] is True
+    assert first.gate_d["manual_product_judgment_recorded"] is False
+    assert first.gate_d["gate_d_pass_claimed"] is False
+    assert first.gate_d["product_promise_alpha_pass_claimed"] is False
 
     exposed = repr(first)
     for private_value in PRIVATE_VALUES:
