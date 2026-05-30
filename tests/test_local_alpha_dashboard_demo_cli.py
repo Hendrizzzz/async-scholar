@@ -209,6 +209,13 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     html = output.read_text(encoding="utf-8")
     assert html.startswith("<!doctype html>\n")
     assert "AsyncScholar local alpha static demo" in html
+    assert "Gate D: blocked" in html
+    assert "Product judgment: deferred" in html
+    assert "Session: completed" in html
+    assert "Detected events: 2" in html
+    assert "Alert: pending confirmation" in html
+    assert "Live delivery: no" in html
+    assert html.index('class="summary-status-strip"') < html.index("<section")
     assert "<h2>Gate D safety</h2>" in html
     assert "<h2>Evidence digest</h2>" in html
     assert "<h2>Session status</h2>" in html
@@ -243,6 +250,11 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Browser opened: yes" not in html
     assert "Live delivery: yes" not in html
     assert "Private data read: yes" not in html
+    status_strip = _summary_status_strip_html(html)
+    assert "<button" not in status_strip.casefold()
+    assert "<a " not in status_strip.casefold()
+    assert "href=" not in status_strip.casefold()
+    assert "src=" not in status_strip.casefold()
     assert "Fixture source prepared" in html
     assert "Session completed" in html
     assert "Event detected" in html
@@ -1183,6 +1195,13 @@ def _assert_static_output_safe(stdout: str, stderr: str, html: str) -> None:
 
 def _visible_html_text(html: str) -> str:
     return re.sub(r"<[^>]+>", "", html)
+
+
+def _summary_status_strip_html(html: str) -> str:
+    start = html.index('class="summary-status-strip"')
+    start = html.rfind("<div", 0, start)
+    end = html.index("</div>", start)
+    return html[start:end]
 
 
 def _assert_no_event_handler_attributes(html: str) -> None:

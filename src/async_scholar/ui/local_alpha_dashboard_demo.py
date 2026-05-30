@@ -99,8 +99,17 @@ _STATIC_DEMO_LOCAL_LAUNCH_LINES = (
     "Gate D not passed",
     "Product Promise Alpha not passed",
 )
+_STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES = (
+    "Gate D: blocked",
+    "Product judgment: deferred",
+    "Session: completed",
+    "Detected events: 2",
+    "Alert: pending confirmation",
+    "Live delivery: no",
+)
 _UNSAFE_STATIC_DEMO_TEXT_MARKERS = (
     "traceback",
+    "sec" + "ret",
     "." + "env",
     "coo" + "kie",
     "tok" + "en",
@@ -112,11 +121,15 @@ _UNSAFE_STATIC_DEMO_TEXT_MARKERS = (
     "file:",
     "\\\\",
     "c:\\",
+    ":/",
     ".jsonl",
     ".wav",
     ".mp4",
     ".png",
     "transcript",
+    "gate d: passed",
+    "product promise alpha: passed",
+    "product_judgment_evidence_status: satisfactory",
     "server started: yes",
     "browser opened: yes",
     "live delivery: yes",
@@ -240,6 +253,9 @@ def build_local_alpha_dashboard_static_demo_html() -> str:
     summary_lines = tuple(
         line for line in build_local_alpha_dashboard_inspection_summary().splitlines()
     )
+    status_strip_html = _render_static_demo_summary_status_strip(
+        _safe_static_demo_summary_status_strip_lines()
+    )
     sections = _build_static_demo_sections(summary_lines)
     section_html = "\n".join(
         _render_static_demo_section(heading, lines) for heading, lines in sections
@@ -258,6 +274,11 @@ def build_local_alpha_dashboard_static_demo_html() -> str:
         "    h1 { font-size: 28px; margin: 0 0 16px; }\n"
         "    p { margin: 0; color: #4d5b6a; line-height: 1.5; }\n"
         "    .intro { margin: 0 0 24px; }\n"
+        "    .summary-status-strip { display: flex; flex-wrap: wrap; "
+        "gap: 8px; margin: 0 0 16px; }\n"
+        "    .summary-status-strip span { border: 1px solid #d8dee6; "
+        "border-radius: 6px; padding: 7px 9px; background: #ffffff; "
+        "color: #324153; font-size: 14px; }\n"
         "    .dashboard { display: grid; grid-template-columns: repeat(2, "
         "minmax(0, 1fr)); gap: 14px; }\n"
         "    section { background: #ffffff; border: 1px solid #d8dee6; "
@@ -279,6 +300,7 @@ def build_local_alpha_dashboard_static_demo_html() -> str:
         "    <h1>AsyncScholar local alpha static demo</h1>\n"
         '    <p class="intro">No-server, no-browser export of the fixed local '
         "alpha story.</p>\n"
+        f"{status_strip_html}\n"
         '    <div class="dashboard">\n'
         f"{section_html}\n"
         "    </div>\n"
@@ -438,6 +460,14 @@ def _render_static_demo_action_control_item(label: str) -> str:
     return f'<button type="button" disabled aria-disabled="true">{safe_label}</button>'
 
 
+def _render_static_demo_summary_status_strip(lines: tuple[str, ...]) -> str:
+    items = "".join(
+        f"<span>{escape(line, quote=True)}</span>"
+        for line in _safe_static_demo_summary_status_strip_lines_from(lines)
+    )
+    return f'    <div class="summary-status-strip">{items}</div>'
+
+
 def _build_static_demo_evidence_digest_lines() -> tuple[str, ...]:
     digest = _build_static_demo_evidence_digest()
     return (
@@ -579,11 +609,40 @@ def _build_static_demo_local_launch_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_LOCAL_LAUNCH_LINES
 
 
+def _safe_static_demo_summary_status_strip_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_summary_status_strip_lines()
+    except Exception:
+        return _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES
+    return _safe_static_demo_summary_status_strip_lines_from(lines)
+
+
+def _build_static_demo_summary_status_strip_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES
+
+
+def _safe_static_demo_summary_status_strip_lines_from(
+    lines: tuple[str, ...],
+) -> tuple[str, ...]:
+    if lines != _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES:
+        return _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES
+    return lines
+
+
 def _static_demo_text_is_unsafe(value: object) -> bool:
     if not isinstance(value, str) or not value:
         return True
     lowered = value.casefold()
     if lowered.startswith("/") or lowered.startswith("\\"):
+        return True
+    if (
+        len(lowered) >= 3
+        and lowered[0].isalpha()
+        and lowered[1] == ":"
+        and lowered[2] in ("/", "\\")
+    ):
         return True
     return any(marker in lowered for marker in _UNSAFE_STATIC_DEMO_TEXT_MARKERS)
 

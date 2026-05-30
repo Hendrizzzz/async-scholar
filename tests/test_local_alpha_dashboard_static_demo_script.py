@@ -219,6 +219,18 @@ def test_readme_documents_static_demo_script_boundaries() -> None:
 
 def _assert_static_html_safe(html: str) -> None:
     assert "AsyncScholar local alpha static demo" in html
+    assert "Gate D: blocked" in html
+    assert "Product judgment: deferred" in html
+    assert "Session: completed" in html
+    assert "Detected events: 2" in html
+    assert "Alert: pending confirmation" in html
+    assert "Live delivery: no" in html
+    assert html.index('class="summary-status-strip"') < html.index("<section")
+    status_strip = _summary_status_strip_html(html)
+    assert "<button" not in status_strip.casefold()
+    assert "<a " not in status_strip.casefold()
+    assert "href=" not in status_strip.casefold()
+    assert "src=" not in status_strip.casefold()
     for heading in (
         "Gate D safety",
         "Evidence digest",
@@ -341,6 +353,13 @@ def _output_path_from_stdout(stdout: str) -> Path:
 
 def _visible_html_text(html: str) -> str:
     return re.sub(r"<[^>]+>", "", html)
+
+
+def _summary_status_strip_html(html: str) -> str:
+    start = html.index('class="summary-status-strip"')
+    start = html.rfind("<div", 0, start)
+    end = html.index("</div>", start)
+    return html[start:end]
 
 
 def _assert_no_event_handler_attributes(html: str) -> None:

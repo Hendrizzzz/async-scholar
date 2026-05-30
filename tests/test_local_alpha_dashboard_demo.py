@@ -227,6 +227,12 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "<title>AsyncScholar local alpha static demo</title>" in first
     assert "AsyncScholar local alpha static demo" in first
     assert "Safety boundary" in first
+    assert "Gate D: blocked" in first
+    assert "Product judgment: deferred" in first
+    assert "Session: completed" in first
+    assert "Detected events: 2" in first
+    assert "Alert: pending confirmation" in first
+    assert "Live delivery: no" in first
     assert "Server started: no" in first
     assert "Browser opened: no" in first
     assert "Local demo launch" in first
@@ -286,6 +292,61 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
     assert html.count("<section") == 11
+    strip_text = _summary_status_strip_text(html)
+    assert "Gate D: blocked" in strip_text
+    assert "Product judgment: deferred" in strip_text
+    assert "Session: completed" in strip_text
+    assert "Detected events: 2" in strip_text
+    assert "Alert: pending confirmation" in strip_text
+    assert "Live delivery: no" in strip_text
+    assert html.index('class="summary-status-strip"') < html.index("<section")
+    assert "Metadata unavailable." not in strip_text
+    strip_html = _summary_status_strip_html(html)
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "c:/",
+        "d:\\",
+        "d:/",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "secret",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "gate d: passed",
+        "product promise alpha: passed",
+        "gate d passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in strip_html.casefold()
+    _assert_no_event_handler_attributes(strip_html)
+
     expected_headings = (
         "Gate D safety",
         "Evidence digest",
@@ -835,6 +896,125 @@ def test_static_demo_local_launch_fails_closed_for_helper_exception(
     assert "token" not in launch_section.casefold()
 
 
+@pytest.mark.parametrize(
+    "unsafe_strip",
+    [
+        (
+            "Gate D: passed",
+            "Product judgment: satisfied",
+            "Session: completed",
+            "Detected events: 2",
+            "Alert: pending confirmation",
+            "Live delivery: yes",
+        ),
+        (
+            "Gate D: blocked",
+            "Product Promise Alpha: passed",
+            "product_judgment_evidence_status: satisfactory",
+            "https://meet.example.edu/class-room?token=private",
+            "D:\\private\\lecture.wav",
+            "transcript text: Good morning, everyone",
+        ),
+        (
+            "Gate D: blocked",
+            "file:///tmp/async-scholar-local-alpha-dashboard.html",
+            "\\\\server\\share\\cookie-profile.json",
+            "C:/Users/student/private/events.jsonl",
+            "generated-media: lecture.mp4 clip.png",
+            "product judgment evidence satisfied",
+        ),
+        ("Gate D: blocked",),
+        (),
+    ],
+)
+def test_static_demo_summary_status_strip_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_strip: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_strip() -> tuple[str, ...]:
+        return unsafe_strip
+
+    monkeypatch.setattr(
+        demo, "_build_static_demo_summary_status_strip_lines", fake_strip
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    strip_html = _summary_status_strip_html(html)
+    strip_text = _summary_status_strip_text(html)
+    for expected in (
+        "Gate D: blocked",
+        "Product judgment: deferred",
+        "Session: completed",
+        "Detected events: 2",
+        "Alert: pending confirmation",
+        "Live delivery: no",
+    ):
+        assert expected in strip_text
+
+    lowered = strip_html.casefold()
+    for forbidden in (
+        "gate d: passed",
+        "product judgment: satisfied",
+        "product promise alpha: passed",
+        "product_judgment_evidence_status: satisfactory",
+        "live delivery: yes",
+        "good morning",
+        "transcript",
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "cookie",
+        "meet.example",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "c:/",
+        "d:\\",
+        "d:/",
+        "\\\\",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+
+
+def test_static_demo_summary_status_strip_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_strip() -> tuple[str, ...]:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    monkeypatch.setattr(
+        demo, "_build_static_demo_summary_status_strip_lines", fake_strip
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    strip_html = _summary_status_strip_html(html)
+    strip_text = _summary_status_strip_text(html)
+    assert "Gate D: blocked" in strip_text
+    assert "Product judgment: deferred" in strip_text
+    assert "Session: completed" in strip_text
+    assert "Detected events: 2" in strip_text
+    assert "Alert: pending confirmation" in strip_text
+    assert "Live delivery: no" in strip_text
+    assert "traceback" not in strip_html.casefold()
+    assert ".env" not in strip_html.casefold()
+    assert "token" not in strip_html.casefold()
+
+
 def test_static_demo_evidence_digest_fails_closed_for_pass_like_helper(
     monkeypatch,
 ) -> None:
@@ -966,6 +1146,41 @@ def test_static_demo_local_launch_helper_preserves_static_scope() -> None:
         assert forbidden not in source
 
 
+def test_static_demo_summary_status_strip_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_summary_status_strip_lines)
+        + inspect.getsource(demo._build_static_demo_summary_status_strip_lines)
+        + inspect.getsource(demo._render_static_demo_summary_status_strip)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete",
+    ):
+        assert forbidden not in source
+
+
 def test_build_static_demo_html_escapes_summary_text(monkeypatch) -> None:
     demo = _demo_module()
 
@@ -1065,6 +1280,17 @@ def _section_text(html: str, heading: str) -> str:
 
 def _visible_text(html: str) -> str:
     return re.sub(r"<[^>]+>", "", html)
+
+
+def _summary_status_strip_html(html: str) -> str:
+    start = html.index('class="summary-status-strip"')
+    start = html.rfind("<div", 0, start)
+    end = html.index("</div>", start)
+    return html[start:end]
+
+
+def _summary_status_strip_text(html: str) -> str:
+    return _visible_text(_summary_status_strip_html(html))
 
 
 def _assert_no_event_handler_attributes(html: str) -> None:
