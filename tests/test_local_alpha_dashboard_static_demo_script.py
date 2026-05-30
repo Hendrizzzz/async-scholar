@@ -236,6 +236,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Evidence digest",
         "Session status",
         "Local demo launch",
+        "Demo verification status",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -246,7 +247,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 12
+    assert html.count("<section") == 13
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -267,6 +268,18 @@ def _assert_static_html_safe(html: str) -> None:
         "local-html-file" in visible_html
     )
     assert "Private data read: no" in html
+    assert "Static artifact: generated locally" in html
+    assert "Source mode: fixed fixture metadata" in html
+    assert "Server required: no" in html
+    assert "Browser required: no" in html
+    assert "Inspection command: local-alpha-dashboard-inspection" in html
+    assert (
+        "Static export command: local-alpha-dashboard-static-demo --output "
+        "local-html-file" in visible_html
+    )
+    assert "Gate D evidence bundle: blocked" in html
+    assert "Blocking evidence: product_judgment_evidence" in html
+    assert "Manual product judgment required: yes" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html
     assert "Live delivery: yes" not in html

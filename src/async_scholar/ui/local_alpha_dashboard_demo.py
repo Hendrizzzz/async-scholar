@@ -27,6 +27,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Evidence digest",
     "Session status",
     "Local demo launch",
+    "Demo verification status",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -110,6 +111,18 @@ _STATIC_DEMO_LOCAL_LAUNCH_LINES = (
     "Live delivery: no",
     "Private data read: no",
     "Gate D not passed",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_VERIFICATION_STATUS_LINES = (
+    "Static artifact: generated locally",
+    "Source mode: fixed fixture metadata",
+    "Server required: no",
+    "Browser required: no",
+    "Inspection command: local-alpha-dashboard-inspection",
+    "Static export command: local-alpha-dashboard-static-demo --output local-html-file",
+    "Gate D evidence bundle: blocked",
+    "Blocking evidence: product_judgment_evidence",
+    "Manual product judgment required: yes",
     "Product Promise Alpha not passed",
 )
 _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES = (
@@ -432,6 +445,9 @@ def _build_static_demo_sections(
         grouped["Session status"] = intro_lines + grouped["Session status"]
     grouped["Evidence digest"] = list(_build_static_demo_evidence_digest_lines())
     grouped["Local demo launch"] = list(_safe_static_demo_local_launch_lines())
+    grouped["Demo verification status"] = list(
+        _safe_static_demo_verification_status_lines()
+    )
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
     grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
@@ -639,6 +655,22 @@ def _safe_static_demo_local_launch_lines() -> tuple[str, ...]:
 
 def _build_static_demo_local_launch_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_LOCAL_LAUNCH_LINES
+
+
+def _safe_static_demo_verification_status_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_verification_status_lines()
+    except Exception:
+        return _STATIC_DEMO_VERIFICATION_STATUS_LINES
+    if lines != _STATIC_DEMO_VERIFICATION_STATUS_LINES:
+        return _STATIC_DEMO_VERIFICATION_STATUS_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_VERIFICATION_STATUS_LINES
+    return lines
+
+
+def _build_static_demo_verification_status_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_VERIFICATION_STATUS_LINES
 
 
 def _safe_static_demo_summary_status_strip_lines() -> tuple[str, ...]:

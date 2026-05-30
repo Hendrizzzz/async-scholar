@@ -220,6 +220,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Evidence digest</h2>" in html
     assert "<h2>Session status</h2>" in html
     assert "<h2>Local demo launch</h2>" in html
+    assert "<h2>Demo verification status</h2>" in html
     assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
@@ -247,6 +248,18 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
         "local-html-file" in visible_html
     )
     assert "Private data read: no" in html
+    assert "Static artifact: generated locally" in html
+    assert "Source mode: fixed fixture metadata" in html
+    assert "Server required: no" in html
+    assert "Browser required: no" in html
+    assert "Inspection command: local-alpha-dashboard-inspection" in html
+    assert (
+        "Static export command: local-alpha-dashboard-static-demo --output "
+        "local-html-file" in visible_html
+    )
+    assert "Gate D evidence bundle: blocked" in html
+    assert "Blocking evidence: product_judgment_evidence" in html
+    assert "Manual product judgment required: yes" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html
     assert "Live delivery: yes" not in html

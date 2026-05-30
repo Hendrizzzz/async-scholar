@@ -300,7 +300,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 12
+    assert html.count("<section") == 13
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -361,6 +361,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Evidence digest",
         "Session status",
         "Local demo launch",
+        "Demo verification status",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -455,6 +456,77 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         assert forbidden not in launch_section.casefold()
     assert re.search(r"[a-z]:\\", launch_section, flags=re.IGNORECASE) is None
     _assert_no_event_handler_attributes(launch_section)
+
+    verification_section = _section_text(html, "Demo verification status")
+    verification_visible = _visible_text(verification_section)
+    assert "Metadata unavailable." not in verification_section
+    for expected in (
+        "Static artifact: generated locally",
+        "Source mode: fixed fixture metadata",
+        "Server required: no",
+        "Browser required: no",
+        "Inspection command: local-alpha-dashboard-inspection",
+        "Static export command: local-alpha-dashboard-static-demo --output "
+        "local-html-file",
+        "Gate D evidence bundle: blocked",
+        "Blocking evidence: product_judgment_evidence",
+        "Manual product judgment required: yes",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in verification_visible
+    assert "<button" not in verification_section.casefold()
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "server required: yes",
+        "browser required: yes",
+        "gate d evidence bundle: passed",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in verification_section.casefold()
+    assert re.search(r"[a-z]:\\", verification_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(verification_section)
+    assert html.index("<h2>Local demo launch</h2>") < html.index(
+        "<h2>Demo verification status</h2>"
+    )
+    assert html.index("<h2>Demo verification status</h2>") < html.index(
+        "<h2>Demo timeline</h2>"
+    )
 
     timeline_section = _section_text(html, "Demo timeline")
     assert "Fixture source prepared" in timeline_section
@@ -988,6 +1060,152 @@ def test_static_demo_archive_review_status_fails_closed_for_helper_exception(
     assert "traceback" not in archive_review_section.casefold()
     assert ".env" not in archive_review_section.casefold()
     assert "token" not in archive_review_section.casefold()
+
+
+@pytest.mark.parametrize(
+    "unsafe_verification",
+    [
+        (
+            "Static artifact: generated locally",
+            "Source mode: fixed fixture metadata",
+            "Server required: yes",
+            "Browser required: yes",
+            "Inspection command: https://meet.example.edu/class-room?token=private",
+            "Static export command: file:///tmp/private-demo.html",
+            "Gate D evidence bundle: passed",
+            "Blocking evidence: none",
+            "Manual product judgment required: no",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Static artifact: C:\\Users\\student\\secret-token-auth-profile",
+            "Source mode: transcript text: private class content",
+            "Server required: no",
+            "Browser required: no",
+            "Inspection command: local-alpha-dashboard-inspection",
+            "Static export command: local-alpha-dashboard-static-demo --output "
+            "data\\sessions\\private.jsonl",
+            "Gate D evidence bundle: blocked",
+            "Blocking evidence: product_judgment_evidence",
+            "Manual product judgment required: yes",
+            "product judgment evidence satisfied",
+        ),
+        ("Static artifact: generated locally",),
+        (),
+    ],
+)
+def test_static_demo_verification_status_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_verification: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_verification() -> tuple[str, ...]:
+        return unsafe_verification
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_verification_status_lines",
+        fake_verification,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    verification_section = _section_text(html, "Demo verification status")
+    verification_visible = _visible_text(verification_section)
+    for expected in (
+        "Static artifact: generated locally",
+        "Source mode: fixed fixture metadata",
+        "Server required: no",
+        "Browser required: no",
+        "Inspection command: local-alpha-dashboard-inspection",
+        "Static export command: local-alpha-dashboard-static-demo --output "
+        "local-html-file",
+        "Gate D evidence bundle: blocked",
+        "Blocking evidence: product_judgment_evidence",
+        "Manual product judgment required: yes",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in verification_visible
+
+    lowered = verification_section.casefold()
+    for forbidden in (
+        "<script",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "meet.example",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "transcript",
+        "server required: yes",
+        "browser required: yes",
+        "gate d evidence bundle: passed",
+        "blocking evidence: none",
+        "manual product judgment required: no",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert "<button" not in lowered
+    _assert_no_event_handler_attributes(verification_section)
+
+
+def test_static_demo_verification_status_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_verification() -> tuple[str, ...]:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_verification_status_lines",
+        fake_verification,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    verification_section = _section_text(html, "Demo verification status")
+    verification_visible = _visible_text(verification_section)
+    assert "Static artifact: generated locally" in verification_visible
+    assert "Source mode: fixed fixture metadata" in verification_visible
+    assert "Server required: no" in verification_visible
+    assert "Browser required: no" in verification_visible
+    assert (
+        "Inspection command: local-alpha-dashboard-inspection" in verification_visible
+    )
+    assert (
+        "Static export command: local-alpha-dashboard-static-demo --output "
+        "local-html-file" in verification_visible
+    )
+    assert "Gate D evidence bundle: blocked" in verification_visible
+    assert "Blocking evidence: product_judgment_evidence" in verification_visible
+    assert "Manual product judgment required: yes" in verification_visible
+    assert "Product Promise Alpha not passed" in verification_visible
+    assert "traceback" not in verification_section.casefold()
+    assert ".env" not in verification_section.casefold()
+    assert "token" not in verification_section.casefold()
 
 
 @pytest.mark.parametrize(
