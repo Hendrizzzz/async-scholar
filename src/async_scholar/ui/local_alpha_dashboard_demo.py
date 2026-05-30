@@ -26,6 +26,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Gate D safety",
     "Evidence digest",
     "Session status",
+    "Demo timeline",
     "Detected events",
     "Alert preview",
     "Archive and reviewer",
@@ -56,6 +57,31 @@ LOCAL_ALPHA_DASHBOARD_DEMO_DRY_RUN_KEYS = (
     "safety_summary",
 )
 _GATE_D_BLOCKER = "product_judgment_evidence"
+_STATIC_DEMO_TIMELINE_LINES = (
+    "Fixture source prepared",
+    "Session completed",
+    "Event detected",
+    "Alert awaiting confirmation",
+    "Archive/reviewer metadata ready",
+    "Gate D blocked",
+)
+_UNSAFE_STATIC_DEMO_TEXT_MARKERS = (
+    "traceback",
+    "." + "env",
+    "coo" + "kie",
+    "tok" + "en",
+    "au" + "th",
+    "pro" + "file",
+    "meet.",
+    "http:",
+    "https:",
+    "c:\\",
+    ".wav",
+    ".mp4",
+    "gate d passed",
+    "product promise alpha passed",
+    "product judgment evidence satisfied",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -323,6 +349,7 @@ def _build_static_demo_sections(
     if intro_lines:
         grouped["Session status"] = intro_lines + grouped["Session status"]
     grouped["Evidence digest"] = list(_build_static_demo_evidence_digest_lines())
+    grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
 
     return tuple(
         (heading, tuple(grouped[heading])) for heading in _STATIC_DEMO_SECTION_HEADINGS
@@ -420,6 +447,29 @@ def _fallback_static_demo_evidence_digest() -> dict[str, object]:
         "manual_product_judgment_recorded": "no",
         "review_can_be_completed_by_ai": "no",
     }
+
+
+def _safe_static_demo_timeline_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_timeline_lines()
+    except Exception:
+        return _STATIC_DEMO_TIMELINE_LINES
+    if lines != _STATIC_DEMO_TIMELINE_LINES:
+        return _STATIC_DEMO_TIMELINE_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_TIMELINE_LINES
+    return lines
+
+
+def _build_static_demo_timeline_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_TIMELINE_LINES
+
+
+def _static_demo_text_is_unsafe(value: object) -> bool:
+    if not isinstance(value, str) or not value:
+        return True
+    lowered = value.casefold()
+    return any(marker in lowered for marker in _UNSAFE_STATIC_DEMO_TEXT_MARKERS)
 
 
 def _build_local_gate_d_handoff_packet() -> dict[str, object]:

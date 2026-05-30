@@ -211,6 +211,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Gate D safety</h2>" in html
     assert "<h2>Evidence digest</h2>" in html
     assert "<h2>Session status</h2>" in html
+    assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
     assert "<h2>Archive and reviewer</h2>" in html
@@ -224,6 +225,12 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Local bundle status: Blocked" in html
     assert "AI can complete product judgment: no" in html
     assert "Run status: Completed" in html
+    assert "Fixture source prepared" in html
+    assert "Session completed" in html
+    assert "Event detected" in html
+    assert "Alert awaiting confirmation" in html
+    assert "Archive/reviewer metadata ready" in html
+    assert "Gate D blocked" in html
     assert "Attendance prompt - 42s - 94% confidence" in html
     assert "Important event - 185s - 88% confidence" in html
     assert "Urgent alert" in html

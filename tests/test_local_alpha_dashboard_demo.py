@@ -260,11 +260,12 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 7
+    assert html.count("<section") == 8
     expected_headings = (
         "Gate D safety",
         "Evidence digest",
         "Session status",
+        "Demo timeline",
         "Detected events",
         "Alert preview",
         "Archive and reviewer",
@@ -302,6 +303,14 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Segments: 5" in session_section
     assert "Events: 2" in session_section
 
+    timeline_section = _section_text(html, "Demo timeline")
+    assert "Fixture source prepared" in timeline_section
+    assert "Session completed" in timeline_section
+    assert "Event detected" in timeline_section
+    assert "Alert awaiting confirmation" in timeline_section
+    assert "Archive/reviewer metadata ready" in timeline_section
+    assert "Gate D blocked" in timeline_section
+
     events_section = _section_text(html, "Detected events")
     assert "Attendance prompt - 42s - 94% confidence" in events_section
     assert "Important event - 185s - 88% confidence" in events_section
@@ -325,6 +334,49 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "live delivery" in safety_section
     assert "participation" in safety_section
     assert "academic answers" in safety_section
+
+
+def test_static_demo_timeline_fails_closed_for_private_values(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_timeline() -> tuple[str, ...]:
+        return (
+            "Fixture source prepared",
+            "C:\\Users\\student\\secret-token-auth-profile",
+            "Gate D passed",
+            "https://meet.example.edu/class-room?token=private",
+        )
+
+    monkeypatch.setattr(demo, "_build_static_demo_timeline_lines", fake_timeline)
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    timeline_section = _section_text(html, "Demo timeline")
+    for expected in (
+        "Fixture source prepared",
+        "Session completed",
+        "Event detected",
+        "Alert awaiting confirmation",
+        "Archive/reviewer metadata ready",
+        "Gate D blocked",
+    ):
+        assert expected in timeline_section
+
+    lowered = timeline_section.casefold()
+    for forbidden in (
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "meet.example",
+        "c:\\",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
 
 
 def test_static_demo_evidence_digest_fails_closed_for_pass_like_helper(

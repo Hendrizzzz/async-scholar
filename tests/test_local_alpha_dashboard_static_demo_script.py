@@ -223,13 +223,14 @@ def _assert_static_html_safe(html: str) -> None:
         "Gate D safety",
         "Evidence digest",
         "Session status",
+        "Demo timeline",
         "Detected events",
         "Alert preview",
         "Archive and reviewer",
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 7
+    assert html.count("<section") == 8
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -240,6 +241,12 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Handoff status: Ready for manual review" in html
     assert "Local bundle status: Blocked" in html
     assert "AI can complete product judgment: no" in html
+    assert "Fixture source prepared" in html
+    assert "Session completed" in html
+    assert "Event detected" in html
+    assert "Alert awaiting confirmation" in html
+    assert "Archive/reviewer metadata ready" in html
+    assert "Gate D blocked" in html
     assert "Run status: Completed" in html
     assert "Attendance prompt - 42s - 94% confidence" in html
     assert "Important event - 185s - 88% confidence" in html
