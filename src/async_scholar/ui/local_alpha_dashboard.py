@@ -34,6 +34,9 @@ _RUN_STATUS_LABELS = {
     "stopped": "Stopped",
     "unknown": "Unknown",
 }
+_SUMMARY_RUN_STATUS_LABELS = {
+    key: label.casefold() for key, label in _RUN_STATUS_LABELS.items()
+}
 _SOURCE_KIND_LABELS = {
     "fixture": "Fixture",
     "fixture_demo": "Fixture demo",
@@ -81,6 +84,7 @@ class LocalAlphaDashboardView:
     def __init__(self, sources: LocalAlphaDashboardSources, ui: Any) -> None:
         self._sources = sources
         self._ui = ui
+        self._summary_status_container: Any | None = None
         self._session_container: Any | None = None
         self._gate_d_container: Any | None = None
         self.session_status = LocalAlphaSessionStatusModel(
@@ -107,6 +111,9 @@ class LocalAlphaDashboardView:
                     icon="refresh",
                     on_click=self.refresh,
                 ).props("outline")
+            self._summary_status_container = self._ui.row().classes(
+                "async-scholar-local-alpha-dashboard__summary gap-2 flex-wrap"
+            )
             self._gate_d_container = self._ui.column().classes(
                 "async-scholar-local-alpha-dashboard__gate gap-1"
             )
@@ -115,6 +122,7 @@ class LocalAlphaDashboardView:
             )
             self._render_gate_d_status()
             self._render_session_status()
+            self._render_summary_status_strip()
             self.event_timeline = render_event_timeline_view(
                 self._sources.events,
                 ui=self._ui,
@@ -134,6 +142,7 @@ class LocalAlphaDashboardView:
 
         self._render_gate_d_status()
         self._render_session_status()
+        self._render_summary_status_strip()
         if self.event_timeline is not None:
             self.event_timeline.refresh()
         if self.alert_history is not None:
@@ -174,6 +183,20 @@ class LocalAlphaDashboardView:
             self._ui.label(f"Segments: {self.session_status.segment_count}")
             self._ui.label(f"Events: {self.session_status.event_count}")
 
+    def _render_summary_status_strip(self) -> None:
+        container = self._summary_status_container
+        if container is None:
+            return
+        if hasattr(container, "clear"):
+            container.clear()
+        labels = _normalize_summary_status_strip(
+            self.gate_d_status,
+            self.session_status,
+        )
+        with container:
+            for label in labels:
+                self._ui.label(label).classes("text-sm")
+
 
 def render_local_alpha_dashboard(
     sources: LocalAlphaDashboardSources,
@@ -207,6 +230,37 @@ def normalize_dashboard_session_status(
         segment_count=_safe_count(_field(snapshot, "segment_count")),
         event_count=_safe_count(_field(snapshot, "event_count")),
     )
+
+
+def _normalize_summary_status_strip(
+    gate_d_status: GateDStatusModel,
+    session_status: LocalAlphaSessionStatusModel,
+) -> tuple[str, ...]:
+    return (
+        _summary_gate_d_label(gate_d_status),
+        "Product judgment: deferred",
+        f"Session: {_summary_session_status_label(session_status)}",
+        f"Detected events: {_summary_event_count_label(session_status)}",
+        "Alert: pending confirmation",
+        "Live delivery: no",
+    )
+
+
+def _summary_gate_d_label(_gate_d_status: GateDStatusModel) -> str:
+    return "Gate D: blocked"
+
+
+def _summary_session_status_label(
+    session_status: LocalAlphaSessionStatusModel,
+) -> str:
+    run_status_label = getattr(session_status, "run_status_label", None)
+    return _SUMMARY_RUN_STATUS_LABELS.get(_safe_token(run_status_label), "unknown")
+
+
+def _summary_event_count_label(
+    session_status: LocalAlphaSessionStatusModel,
+) -> int:
+    return _safe_count(getattr(session_status, "event_count", None))
 
 
 def normalize_gate_d_status(source: object | None) -> GateDStatusModel:

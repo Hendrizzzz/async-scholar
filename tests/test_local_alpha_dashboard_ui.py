@@ -241,6 +241,12 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Gate D not passed" in rendered
     assert "Blocked on product_judgment_evidence" in rendered
     assert "Human product judgment: deferred" in rendered
+    assert "Gate D: blocked" in rendered
+    assert "Product judgment: deferred" in rendered
+    assert "Session: completed" in rendered
+    assert "Detected events: 2" in rendered
+    assert "Alert: pending confirmation" in rendered
+    assert "Live delivery: no" in rendered
     assert "Satisfactory evidence: 9" in rendered
     assert "Missing evidence: 0" in rendered
     assert "Blocking evidence: product_judgment_evidence" in rendered
@@ -262,6 +268,23 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "ready for release" not in rendered
     assert "Status: Delivered" not in rendered
     assert "live delivery happened" not in rendered
+
+    summary = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__summary",
+    )
+    assert summary is not None
+    assert [child.text for child in summary.children] == [
+        "Gate D: blocked",
+        "Product judgment: deferred",
+        "Session: completed",
+        "Detected events: 2",
+        "Alert: pending confirmation",
+        "Live delivery: no",
+    ]
+    assert {child.kind for child in summary.children} == {"label"}
+    assert ui.texts.index("Live delivery: no") < ui.texts.index("Gate D safety")
+    assert ui.texts.index("Gate D safety") < ui.texts.index("Session status")
 
     for private_value in PRIVATE_RENDER_VALUES:
         assert private_value not in rendered
@@ -470,6 +493,8 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     )
     first_render = "\n".join(ui.texts)
 
+    assert "Session: running" in first_render
+    assert "Detected events: 0" in first_render
     assert "Running" in first_render
     assert "Attendance prompt - 1s - 25% confidence" in first_render
     assert "Local archive summary" in first_render
@@ -482,6 +507,9 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     ui.click("Refresh dashboard")
     second_render = "\n".join(ui.texts)
 
+    assert "Session: completed" in second_render
+    assert "Detected events: 2" in second_render
+    assert "Session: running" not in second_render
     assert "Completed" in second_render
     assert "Quiz - 2s - 50% confidence" in second_render
     assert "Severity: Urgent" in second_render
@@ -604,6 +632,60 @@ def test_gate_d_status_fails_closed_for_unavailable_or_hostile_source() -> None:
         assert "browser profile" not in rendered
 
 
+def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
+    dashboard = _dashboard_module()
+    ui = FakeUI()
+
+    dashboard.render_local_alpha_dashboard(
+        dashboard.LocalAlphaDashboardSources(
+            session_status=StaticStatusSource(
+                [
+                    {
+                        "run_status": r"C:\private\lecture.wav",
+                        "source_kind": "fixture_demo",
+                        "segment_count": "token-value",
+                        "event_count": "999999999",
+                        "transcript_text": PRIVATE_RENDER_VALUES[0],
+                    }
+                ]
+            ),
+            events=StaticEventSource([[]]),
+            alerts=StaticAlertSource([[]]),
+            archive=StaticArchiveSource([[]]),
+            gate_d={
+                "status": "passed",
+                "product_judgment_evidence": "satisfied",
+                "product_judgment_evidence_status": "satisfied",
+                "raw_note": "Product Promise Alpha passed",
+                "private_path": r"C:\private\lecture.wav",
+                "auth_profile": "browser profile",
+            },
+        ),
+        ui=ui,
+    )
+
+    summary = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__summary",
+    )
+    assert summary is not None
+    assert [child.text for child in summary.children] == [
+        "Gate D: blocked",
+        "Product judgment: deferred",
+        "Session: unknown",
+        "Detected events: 9999",
+        "Alert: pending confirmation",
+        "Live delivery: no",
+    ]
+
+    rendered = "\n".join(ui.texts)
+    assert "Gate D passed" not in rendered
+    assert "Product Promise Alpha passed" not in rendered
+    assert "satisfied" not in rendered.casefold()
+    for private_value in PRIVATE_RENDER_VALUES:
+        assert private_value not in rendered
+
+
 def _dashboard_module():
     return importlib.import_module("async_scholar.ui.local_alpha_dashboard")
 
@@ -665,6 +747,7 @@ class FakeElement:
         self.text = text
         self.on_click = on_click
         self.children: list[FakeElement] = []
+        self.class_names: list[str] = []
         if ui._stack:
             ui._stack[-1].children.append(self)
         else:
@@ -678,6 +761,7 @@ class FakeElement:
         self.ui._stack.pop()
 
     def classes(self, *_classes: str) -> FakeElement:
+        self.class_names.extend(_classes)
         return self
 
     def props(self, *_props: str) -> FakeElement:
@@ -751,3 +835,10 @@ class FakeUI:
             elements.append(element)
             stack.extend(reversed(element.children))
         return elements
+
+
+def _find_element_by_class(ui: FakeUI, class_name: str) -> FakeElement | None:
+    for element in ui._walk():
+        if any(class_name in value.split() for value in element.class_names):
+            return element
+    return None
