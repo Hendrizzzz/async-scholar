@@ -23,6 +23,56 @@ _ALERT_ROUTING_SMOKE_CLI_ERROR = "local alert routing smoke could not be built"
 _POLICY_GATE_SMOKE_CLI_ERROR = "policy gate smoke could not be built"
 _DELIVERY_PATH_SMOKE_CLI_ERROR = "delivery path smoke could not be built"
 _MONITORING_BOUNDARY_SMOKE_CLI_ERROR = "monitoring boundary smoke could not be built"
+_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR = "local alpha dashboard demo could not be built"
+_LOCAL_ALPHA_DASHBOARD_DEMO_SAFETY_SUMMARY = (
+    "Local metadata-only demo for human inspection. Gate D is not passed; "
+    "product_judgment_evidence remains blocking. It uses fixed local fixture-style "
+    "metadata and performs no real meeting access, private content reads, capture, "
+    "live delivery, timed runner, deletion/export, participation, or answer behavior."
+)
+_LOCAL_ALPHA_DASHBOARD_DEMO_KEYS = (
+    "demo_kind",
+    "url",
+    "host",
+    "port",
+    "dry_run",
+    "server_started",
+    "browser_opened",
+    "gate_d_status",
+    "product_judgment_evidence_status",
+    "manual_product_judgment_required",
+    "product_promise_alpha_pass_claimed",
+    "metadata_only_demo_sources",
+    "private_data_read",
+    "audio_capture_performed",
+    "browser_automation_performed",
+    "live_delivery_performed",
+    "scheduler_loop_performed",
+    "deletion_or_export_performed",
+    "real_online_monitoring_performed",
+    "autonomous_participation_performed",
+    "academic_answer_behavior_performed",
+    "safety_summary",
+)
+_LOCAL_ALPHA_DASHBOARD_DEMO_TRUE_FLAGS = (
+    "dry_run",
+    "manual_product_judgment_required",
+    "metadata_only_demo_sources",
+)
+_LOCAL_ALPHA_DASHBOARD_DEMO_FALSE_FLAGS = (
+    "server_started",
+    "browser_opened",
+    "product_promise_alpha_pass_claimed",
+    "private_data_read",
+    "audio_capture_performed",
+    "browser_automation_performed",
+    "live_delivery_performed",
+    "scheduler_loop_performed",
+    "deletion_or_export_performed",
+    "real_online_monitoring_performed",
+    "autonomous_participation_performed",
+    "academic_answer_behavior_performed",
+)
 _GATE_D_SECURITY_REVIEW_EVIDENCE_CLI_ERROR = (
     "gate d security review evidence could not be built"
 )
@@ -1370,6 +1420,19 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_gate_d_local_evidence_bundle_command
     )
 
+    local_alpha_dashboard_demo = subparsers.add_parser(
+        "local-alpha-dashboard-demo",
+        help="run the loopback-only local alpha dashboard demo",
+        description=(
+            "Run or dry-run a loopback-only local alpha dashboard demo with "
+            "fixed metadata-only sources."
+        ),
+    )
+    _add_local_alpha_dashboard_demo_arguments(local_alpha_dashboard_demo)
+    local_alpha_dashboard_demo.set_defaults(
+        handler=_run_local_alpha_dashboard_demo_command
+    )
+
     session_window_lifecycle_smoke = subparsers.add_parser(
         "session-window-lifecycle-smoke-local",
         help="run a local session-window lifecycle smoke",
@@ -1852,6 +1915,11 @@ def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     if argv[:1] == ["mic-recording-diagnostic"]:
         return _run_mic_recording_diagnostic_command(argv[1:])
+    if argv[:1] == ["local-alpha-dashboard-demo"]:
+        return _run_local_alpha_dashboard_demo_argv(argv[1:])
+    if "local-alpha-dashboard-demo" in argv:
+        print(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR, file=sys.stderr)
+        return 2
     if argv[:1] == ["crash-recovery-preflight"]:
         return _run_crash_recovery_preflight_argv(argv[1:])
     if "crash-recovery-preflight" in argv or any(
@@ -2276,6 +2344,27 @@ def main(argv: list[str] | None = None) -> int:
     if handler is None:
         return 0
     return handler(args)
+
+
+def _add_local_alpha_dashboard_demo_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the local URL and safety summary without starting the server",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="loopback host to bind: 127.0.0.1, localhost, or ::1",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8086,
+        help="local TCP port to bind",
+    )
 
 
 def _add_crash_recovery_preflight_arguments(
@@ -4329,6 +4418,84 @@ def _gate_d_local_evidence_bundle_json(payload: object) -> str:
     ):
         raise ValueError(_GATE_D_LOCAL_EVIDENCE_BUNDLE_CLI_ERROR)
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _run_local_alpha_dashboard_demo_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar local-alpha-dashboard-demo",
+        description=(
+            "Run or dry-run a loopback-only local alpha dashboard demo with "
+            "fixed metadata-only sources."
+        ),
+        fixed_error_message=_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR,
+    )
+    _add_local_alpha_dashboard_demo_arguments(parser)
+    args = parser.parse_args(argv)
+    return _run_local_alpha_dashboard_demo_command(args)
+
+
+def _run_local_alpha_dashboard_demo_command(args: argparse.Namespace) -> int:
+    try:
+        from async_scholar.ui.local_alpha_dashboard_demo import (
+            build_local_alpha_dashboard_demo_dry_run,
+        )
+
+        payload = build_local_alpha_dashboard_demo_dry_run(
+            host=args.host,
+            port=args.port,
+        )
+        output = _local_alpha_dashboard_demo_json(payload)
+        if args.dry_run:
+            print(output)
+            return 0
+
+        from async_scholar.ui.local_alpha_dashboard_demo import (
+            run_local_alpha_dashboard_demo,
+        )
+
+        run_local_alpha_dashboard_demo(host=args.host, port=args.port)
+    except Exception:
+        print(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    return 0
+
+
+def _local_alpha_dashboard_demo_json(payload: object) -> str:
+    if type(payload) is not dict or tuple(payload) != _LOCAL_ALPHA_DASHBOARD_DEMO_KEYS:
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
+    if payload["demo_kind"] != "local_alpha_dashboard_demo":
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
+    if payload["host"] not in ("127.0.0.1", "localhost", "::1"):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
+    if type(payload["port"]) is not int or not 1 <= payload["port"] <= 65535:
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
+    if payload["url"] != _local_alpha_dashboard_demo_expected_url(
+        host=payload["host"],
+        port=payload["port"],
+    ):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
+    if payload["gate_d_status"] != "not_passed":
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
+    if payload["product_judgment_evidence_status"] != "blocking":
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
+    if payload["safety_summary"] != _LOCAL_ALPHA_DASHBOARD_DEMO_SAFETY_SUMMARY:
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
+    if any(
+        payload[flag] is not True for flag in _LOCAL_ALPHA_DASHBOARD_DEMO_TRUE_FLAGS
+    ):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
+    if any(
+        payload[flag] is not False for flag in _LOCAL_ALPHA_DASHBOARD_DEMO_FALSE_FLAGS
+    ):
+        raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _local_alpha_dashboard_demo_expected_url(*, host: object, port: object) -> str:
+    if host == "::1":
+        return f"http://[{host}]:{port}"
+    return f"http://{host}:{port}"
 
 
 def _run_session_window_lifecycle_smoke_local_argv(argv: list[str]) -> int:

@@ -5,6 +5,8 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
+_LOCAL_ALPHA_DASHBOARD_DEMO_MODULE = "async_scholar.ui.local_alpha_dashboard_demo"
+
 _SYMBOL_MODULES = {
     "ArchiveBrowserItemModel": "async_scholar.ui.archive_browser",
     "ArchiveBrowserSource": "async_scholar.ui.archive_browser",
@@ -35,6 +37,8 @@ _SYMBOL_MODULES = {
     "TranscriptStreamView": "async_scholar.ui.transcript_stream",
     "archive_item_to_browser_model": "async_scholar.ui.archive_browser",
     "alert_to_history_model": "async_scholar.ui.alert_history",
+    "build_local_alpha_dashboard_demo_dry_run": _LOCAL_ALPHA_DASHBOARD_DEMO_MODULE,
+    "build_local_alpha_dashboard_demo_sources": _LOCAL_ALPHA_DASHBOARD_DEMO_MODULE,
     "diagnostics_to_audio_model": "async_scholar.ui.audio_diagnostics",
     "event_to_timeline_model": "async_scholar.ui.event_timeline",
     "format_archive_browser_item": "async_scholar.ui.archive_browser",
@@ -55,9 +59,11 @@ _SYMBOL_MODULES = {
     "render_alert_history_view": "async_scholar.ui.alert_history",
     "render_audio_diagnostics_view": "async_scholar.ui.audio_diagnostics",
     "render_event_timeline_view": "async_scholar.ui.event_timeline",
+    "render_local_alpha_dashboard_demo_page": _LOCAL_ALPHA_DASHBOARD_DEMO_MODULE,
     "render_local_alpha_dashboard": "async_scholar.ui.local_alpha_dashboard",
     "render_session_status_view": "async_scholar.ui.session_status",
     "render_transcript_stream_view": "async_scholar.ui.transcript_stream",
+    "run_local_alpha_dashboard_demo": _LOCAL_ALPHA_DASHBOARD_DEMO_MODULE,
     "segment_to_transcript_model": "async_scholar.ui.transcript_stream",
     "snapshot_to_status_model": "async_scholar.ui.session_status",
 }

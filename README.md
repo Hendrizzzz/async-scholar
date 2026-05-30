@@ -177,6 +177,30 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_gate_d_human_wal
 This one-command human walkthrough explains what each local step proves and
 stops before the human pass/fail/defer judgment.
 
+For a local human-facing alpha dashboard inspection surface, first dry-run the
+launcher:
+
+```powershell
+uv run python -m async_scholar local-alpha-dashboard-demo --dry-run --host 127.0.0.1 --port 8086
+```
+
+The dry run prints the loopback URL and a safety summary without starting a
+server. To inspect the dashboard locally, run the same command without
+`--dry-run` and open the same loopback URL:
+
+```powershell
+uv run python -m async_scholar local-alpha-dashboard-demo --host 127.0.0.1 --port 8086
+```
+
+The dashboard uses fixed metadata-only demo sources for session status, detected
+event summary, confirmation-required alert preview, archive/reviewer metadata,
+and the Gate D safety panel. It is local inspection support only: it does not
+read private transcripts, recordings, meeting links, auth profiles, cookies, or
+tokens; it does not perform real online monitoring, browser automation, capture,
+live delivery, deletion/export, autonomous participation, or academic-answer
+behavior; and it does not replace product judgment evidence or pass Gate D /
+Product Promise Alpha.
+
 Show read-only crash recovery preflight metadata for one explicit local session root:
 
 ```powershell
