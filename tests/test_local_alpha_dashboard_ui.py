@@ -256,6 +256,19 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Session status" in rendered
     assert "Completed" in rendered
     assert "Fixture demo" in rendered
+    assert "Local demo launch" in rendered
+    assert "Demo mode: local fixture/static only" in rendered
+    assert (
+        "Launch command: python -m async_scholar "
+        "local-alpha-dashboard-static-demo --output TEMP_HTML"
+    ) in rendered
+    assert (
+        "Inspection command: python -m async_scholar local-alpha-dashboard-inspection"
+    ) in rendered
+    assert "Server started: no" in rendered
+    assert "Browser opened: no" in rendered
+    assert "Private data read: no" in rendered
+    assert "Product Promise Alpha not passed" in rendered
     assert "Attendance prompt - 12s - 88% confidence" in rendered
     assert "Urgent alert" in rendered
     assert "Status: Pending" in rendered
@@ -285,6 +298,30 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert {child.kind for child in summary.children} == {"label"}
     assert ui.texts.index("Live delivery: no") < ui.texts.index("Gate D safety")
     assert ui.texts.index("Gate D safety") < ui.texts.index("Session status")
+
+    launch = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__launch",
+    )
+    assert launch is not None
+    assert [child.text for child in launch.children] == [
+        "Local demo launch",
+        "Demo mode: local fixture/static only",
+        "Launch command: python -m async_scholar "
+        "local-alpha-dashboard-static-demo --output TEMP_HTML",
+        "Inspection command: python -m async_scholar local-alpha-dashboard-inspection",
+        "Server started: no",
+        "Browser opened: no",
+        "Live delivery: no",
+        "Private data read: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in launch.children} == {"label"}
+    assert ui.texts.index("Events: 2") < ui.texts.index("Local demo launch")
+    assert ui.texts.index("Local demo launch") < ui.texts.index(
+        "Attendance prompt - 12s - 88% confidence"
+    )
 
     for private_value in PRIVATE_RENDER_VALUES:
         assert private_value not in rendered
@@ -510,6 +547,9 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert "Session: completed" in second_render
     assert "Detected events: 2" in second_render
     assert "Session: running" not in second_render
+    assert second_render.count("Local demo launch") == 1
+    assert second_render.count("Launch command:") == 1
+    assert second_render.count("Private data read: no") == 1
     assert "Completed" in second_render
     assert "Quiz - 2s - 50% confidence" in second_render
     assert "Severity: Urgent" in second_render
@@ -677,6 +717,26 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
         "Alert: pending confirmation",
         "Live delivery: no",
     ]
+
+    launch = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__launch",
+    )
+    assert launch is not None
+    assert [child.text for child in launch.children] == [
+        "Local demo launch",
+        "Demo mode: local fixture/static only",
+        "Launch command: python -m async_scholar "
+        "local-alpha-dashboard-static-demo --output TEMP_HTML",
+        "Inspection command: python -m async_scholar local-alpha-dashboard-inspection",
+        "Server started: no",
+        "Browser opened: no",
+        "Live delivery: no",
+        "Private data read: no",
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in launch.children} == {"label"}
 
     rendered = "\n".join(ui.texts)
     assert "Gate D passed" not in rendered

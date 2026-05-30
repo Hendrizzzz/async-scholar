@@ -37,6 +37,19 @@ _RUN_STATUS_LABELS = {
 _SUMMARY_RUN_STATUS_LABELS = {
     key: label.casefold() for key, label in _RUN_STATUS_LABELS.items()
 }
+_LOCAL_DEMO_LAUNCH_LABELS = (
+    "Local demo launch",
+    "Demo mode: local fixture/static only",
+    "Launch command: python -m async_scholar "
+    "local-alpha-dashboard-static-demo --output TEMP_HTML",
+    "Inspection command: python -m async_scholar local-alpha-dashboard-inspection",
+    "Server started: no",
+    "Browser opened: no",
+    "Live delivery: no",
+    "Private data read: no",
+    "Gate D not passed",
+    "Product Promise Alpha not passed",
+)
 _SOURCE_KIND_LABELS = {
     "fixture": "Fixture",
     "fixture_demo": "Fixture demo",
@@ -86,6 +99,7 @@ class LocalAlphaDashboardView:
         self._ui = ui
         self._summary_status_container: Any | None = None
         self._session_container: Any | None = None
+        self._local_demo_launch_container: Any | None = None
         self._gate_d_container: Any | None = None
         self.session_status = LocalAlphaSessionStatusModel(
             run_status_label="Unknown",
@@ -120,9 +134,13 @@ class LocalAlphaDashboardView:
             self._session_container = self._ui.column().classes(
                 "async-scholar-local-alpha-dashboard__session gap-2"
             )
+            self._local_demo_launch_container = self._ui.column().classes(
+                "async-scholar-local-alpha-dashboard__launch gap-1"
+            )
             self._render_gate_d_status()
             self._render_session_status()
             self._render_summary_status_strip()
+            self._render_local_demo_launch_panel()
             self.event_timeline = render_event_timeline_view(
                 self._sources.events,
                 ui=self._ui,
@@ -143,6 +161,7 @@ class LocalAlphaDashboardView:
         self._render_gate_d_status()
         self._render_session_status()
         self._render_summary_status_strip()
+        self._render_local_demo_launch_panel()
         if self.event_timeline is not None:
             self.event_timeline.refresh()
         if self.alert_history is not None:
@@ -195,6 +214,16 @@ class LocalAlphaDashboardView:
         )
         with container:
             for label in labels:
+                self._ui.label(label).classes("text-sm")
+
+    def _render_local_demo_launch_panel(self) -> None:
+        container = self._local_demo_launch_container
+        if container is None:
+            return
+        if hasattr(container, "clear"):
+            container.clear()
+        with container:
+            for label in _LOCAL_DEMO_LAUNCH_LABELS:
                 self._ui.label(label).classes("text-sm")
 
 
