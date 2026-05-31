@@ -43,6 +43,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Human judgment handoff",
     "Local alpha product loop summary",
     "Local alpha demo review snapshot",
+    "Human decision boundary",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -307,6 +308,16 @@ _STATIC_DEMO_REVIEW_SNAPSHOT_LINES = (
     "Private content: not displayed",
     "Gate D: blocked on product_judgment_evidence",
     "Product judgment: human-only",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES = (
+    "Current product judgment: deferred",
+    "Human decision required: yes",
+    "Demo evidence scope: local fixture demo only",
+    "AI can complete product judgment: no",
+    "AI can record product judgment: no",
+    "Acceptable human choices: pass, fail, or defer",
+    "Gate D blocker: product_judgment_evidence",
     "Product Promise Alpha not passed",
 )
 _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES = (
@@ -665,6 +676,9 @@ def _build_static_demo_sections(
     )
     grouped["Local alpha demo review snapshot"] = list(
         _safe_static_demo_review_snapshot_lines()
+    )
+    grouped["Human decision boundary"] = list(
+        _safe_static_demo_human_decision_boundary_lines()
     )
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
@@ -1125,6 +1139,22 @@ def _safe_static_demo_review_snapshot_lines() -> tuple[str, ...]:
 
 def _build_static_demo_review_snapshot_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_REVIEW_SNAPSHOT_LINES
+
+
+def _safe_static_demo_human_decision_boundary_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_human_decision_boundary_lines()
+    except Exception:
+        return _STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES
+    if lines != _STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES:
+        return _STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES
+    return lines
+
+
+def _build_static_demo_human_decision_boundary_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES
 
 
 def _static_demo_artifact_summary_text_is_unsafe(value: object) -> bool:

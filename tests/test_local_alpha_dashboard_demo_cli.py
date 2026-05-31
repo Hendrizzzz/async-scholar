@@ -252,6 +252,13 @@ def test_local_alpha_dashboard_inspection_prints_plain_text() -> None:
     assert "Private content: not displayed" in result.stdout
     assert "Gate D: blocked on product_judgment_evidence" in result.stdout
     assert "Product judgment: human-only" in result.stdout
+    assert "Human decision boundary" in result.stdout
+    assert "Current product judgment: deferred" in result.stdout
+    assert "Human decision required: yes" in result.stdout
+    assert "Demo evidence scope: local fixture demo only" in result.stdout
+    assert "AI can record product judgment: no" in result.stdout
+    assert "Acceptable human choices: pass, fail, or defer" in result.stdout
+    assert "Gate D blocker: product_judgment_evidence" in result.stdout
     _assert_inspection_output_safe(result.stdout, result.stderr)
 
 
@@ -304,6 +311,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Human judgment handoff</h2>" in html
     assert "<h2>Local alpha product loop summary</h2>" in html
     assert "<h2>Local alpha demo review snapshot</h2>" in html
+    assert "<h2>Human decision boundary</h2>" in html
     assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
@@ -464,6 +472,14 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Private content: not displayed" in visible_html
     assert "Gate D: blocked on product_judgment_evidence" in visible_html
     assert "Product judgment: human-only" in visible_html
+    assert "Human decision boundary" in visible_html
+    assert "Current product judgment: deferred" in visible_html
+    assert "Human decision required: yes" in visible_html
+    assert "Demo evidence scope: local fixture demo only" in visible_html
+    assert "AI can complete product judgment: no" in visible_html
+    assert "AI can record product judgment: no" in visible_html
+    assert "Acceptable human choices: pass, fail, or defer" in visible_html
+    assert "Gate D blocker: product_judgment_evidence" in visible_html
     assert "Alert preview: pending user confirmation" in visible_html
     assert "Archive/reviewer: metadata summary only" in visible_html
     assert "Gate D bundle: blocked on product_judgment_evidence" in visible_html
