@@ -218,6 +218,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert html.index('class="summary-status-strip"') < html.index("<section")
     assert "<h2>Gate D safety</h2>" in html
     assert "<h2>Evidence digest</h2>" in html
+    assert "<h2>Manual review status</h2>" in html
     assert "<h2>Session status</h2>" in html
     assert "<h2>Demo source status</h2>" in html
     assert "<h2>Local demo launch</h2>" in html
@@ -238,6 +239,13 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Handoff status: Ready for manual review" in html
     assert "Local bundle status: Blocked" in html
     assert "AI can complete product judgment: no" in html
+    assert "Review packet: local metadata only" in html
+    assert "Human product judgment: required" in html
+    assert "Final product judgment recorded: no" in html
+    assert "Gate D blocker: product_judgment_evidence" in html
+    assert "Private data needed for review: no" in html
+    assert "Live services needed for review: no" in html
+    assert "Action execution allowed: no" in html
     assert "Run status: Completed" in html
     assert "Session source: fixed fixture metadata" in html
     assert "Event source: fixed fixture metadata" in html

@@ -310,7 +310,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 14
+    assert html.count("<section") == 15
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -369,6 +369,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     expected_headings = (
         "Gate D safety",
         "Evidence digest",
+        "Manual review status",
         "Session status",
         "Demo source status",
         "Local demo launch",
@@ -405,6 +406,79 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Manual product judgment required: yes" in digest_section
     assert "Manual product judgment recorded: no" in digest_section
     assert "AI can complete product judgment: no" in digest_section
+
+    manual_review_section = _section_text(html, "Manual review status")
+    manual_review_visible = _visible_text(manual_review_section)
+    assert "Metadata unavailable." not in manual_review_section
+    for expected in (
+        "Review packet: local metadata only",
+        "Human product judgment: required",
+        "Final product judgment recorded: no",
+        "AI can complete product judgment: no",
+        "Gate D blocker: product_judgment_evidence",
+        "Private data needed for review: no",
+        "Live services needed for review: no",
+        "Action execution allowed: no",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in manual_review_visible
+    assert "<button" not in manual_review_section.casefold()
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "recording",
+        "final product judgment recorded: yes",
+        "ai can complete product judgment: yes",
+        "private data needed for review: yes",
+        "live services needed for review: yes",
+        "action execution allowed: yes",
+        "gate d passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in manual_review_section.casefold()
+    assert re.search(r"[a-z]:\\", manual_review_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(manual_review_section)
+    assert html.index("<h2>Evidence digest</h2>") < html.index(
+        "<h2>Manual review status</h2>"
+    )
+    assert html.index("<h2>Manual review status</h2>") < html.index(
+        "<h2>Session status</h2>"
+    )
 
     session_section = _section_text(html, "Session status")
     assert "Server started: no" in session_section
@@ -1427,6 +1501,146 @@ def test_static_demo_source_status_fails_closed_for_helper_exception(
     assert "traceback" not in source_section.casefold()
     assert ".env" not in source_section.casefold()
     assert "token" not in source_section.casefold()
+
+
+@pytest.mark.parametrize(
+    "unsafe_manual_review",
+    [
+        (
+            "Review packet: public transcript",
+            "Human product judgment: completed",
+            "Final product judgment recorded: yes",
+            "AI can complete product judgment: yes",
+            "Gate D blocker: none",
+            "Private data needed for review: yes",
+            "Live services needed for review: yes",
+            "Action execution allowed: yes",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Review packet: C:\\Users\\student\\secret-token-auth-profile",
+            "https://meet.example.edu/class-room?token=private",
+            "file:///tmp/private-review.jsonl",
+            "\\\\server\\share\\cookie-profile.json",
+            "Good morning, everyone. I am going to take attendance",
+            "transcript text: private class content",
+            "recording path: lecture.wav lecture.mp4 clip.png",
+            "product judgment evidence satisfied",
+        ),
+        ("Review packet: local metadata only",),
+        (),
+    ],
+)
+def test_static_demo_manual_review_status_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_manual_review: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_manual_review() -> tuple[str, ...]:
+        return unsafe_manual_review
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_manual_review_status_lines",
+        fake_manual_review,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    manual_review_section = _section_text(html, "Manual review status")
+    manual_review_visible = _visible_text(manual_review_section)
+    for expected in (
+        "Review packet: local metadata only",
+        "Human product judgment: required",
+        "Final product judgment recorded: no",
+        "AI can complete product judgment: no",
+        "Gate D blocker: product_judgment_evidence",
+        "Private data needed for review: no",
+        "Live services needed for review: no",
+        "Action execution allowed: no",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in manual_review_visible
+
+    lowered = manual_review_section.casefold()
+    for forbidden in (
+        "<script",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "cookie",
+        "meet.example",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript text",
+        "recording path",
+        "public transcript",
+        "final product judgment recorded: yes",
+        "ai can complete product judgment: yes",
+        "private data needed for review: yes",
+        "live services needed for review: yes",
+        "action execution allowed: yes",
+        "gate d blocker: none",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert "<button" not in lowered
+    _assert_no_event_handler_attributes(manual_review_section)
+
+
+def test_static_demo_manual_review_status_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_manual_review() -> tuple[str, ...]:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_manual_review_status_lines",
+        fake_manual_review,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    manual_review_section = _section_text(html, "Manual review status")
+    manual_review_visible = _visible_text(manual_review_section)
+    assert "Review packet: local metadata only" in manual_review_visible
+    assert "Human product judgment: required" in manual_review_visible
+    assert "Final product judgment recorded: no" in manual_review_visible
+    assert "AI can complete product judgment: no" in manual_review_visible
+    assert "Gate D blocker: product_judgment_evidence" in manual_review_visible
+    assert "Private data needed for review: no" in manual_review_visible
+    assert "Live services needed for review: no" in manual_review_visible
+    assert "Action execution allowed: no" in manual_review_visible
+    assert "Product Promise Alpha not passed" in manual_review_visible
+    assert "traceback" not in manual_review_section.casefold()
+    assert ".env" not in manual_review_section.casefold()
+    assert "token" not in manual_review_section.casefold()
 
 
 @pytest.mark.parametrize(

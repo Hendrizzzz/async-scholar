@@ -25,6 +25,7 @@ _TIMED_RUNNER_FLAG = "sche" + "duler_loop_performed"
 _STATIC_DEMO_SECTION_HEADINGS = (
     "Gate D safety",
     "Evidence digest",
+    "Manual review status",
     "Session status",
     "Demo source status",
     "Local demo launch",
@@ -102,6 +103,17 @@ _STATIC_DEMO_ARCHIVE_REVIEW_STATUS_LINES = (
     "Private paths displayed: no",
     "Delete/export execution: no",
     "Gate D not passed",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_MANUAL_REVIEW_STATUS_LINES = (
+    "Review packet: local metadata only",
+    "Human product judgment: required",
+    "Final product judgment recorded: no",
+    "AI can complete product judgment: no",
+    "Gate D blocker: product_judgment_evidence",
+    "Private data needed for review: no",
+    "Live services needed for review: no",
+    "Action execution allowed: no",
     "Product Promise Alpha not passed",
 )
 _STATIC_DEMO_LOCAL_LAUNCH_LINES = (
@@ -457,6 +469,7 @@ def _build_static_demo_sections(
     if intro_lines:
         grouped["Session status"] = intro_lines + grouped["Session status"]
     grouped["Evidence digest"] = list(_build_static_demo_evidence_digest_lines())
+    grouped["Manual review status"] = list(_safe_static_demo_manual_review_lines())
     grouped["Demo source status"] = list(_safe_static_demo_source_status_lines())
     grouped["Local demo launch"] = list(_safe_static_demo_local_launch_lines())
     grouped["Demo verification status"] = list(
@@ -653,6 +666,22 @@ def _safe_static_demo_archive_review_status_lines() -> tuple[str, ...]:
 
 def _build_static_demo_archive_review_status_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_ARCHIVE_REVIEW_STATUS_LINES
+
+
+def _safe_static_demo_manual_review_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_manual_review_status_lines()
+    except Exception:
+        return _STATIC_DEMO_MANUAL_REVIEW_STATUS_LINES
+    if lines != _STATIC_DEMO_MANUAL_REVIEW_STATUS_LINES:
+        return _STATIC_DEMO_MANUAL_REVIEW_STATUS_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_MANUAL_REVIEW_STATUS_LINES
+    return lines
+
+
+def _build_static_demo_manual_review_status_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_MANUAL_REVIEW_STATUS_LINES
 
 
 def _safe_static_demo_source_status_lines() -> tuple[str, ...]:

@@ -234,6 +234,7 @@ def _assert_static_html_safe(html: str) -> None:
     for heading in (
         "Gate D safety",
         "Evidence digest",
+        "Manual review status",
         "Session status",
         "Demo source status",
         "Local demo launch",
@@ -248,7 +249,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 14
+    assert html.count("<section") == 15
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -259,6 +260,13 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Handoff status: Ready for manual review" in html
     assert "Local bundle status: Blocked" in html
     assert "AI can complete product judgment: no" in html
+    assert "Review packet: local metadata only" in html
+    assert "Human product judgment: required" in html
+    assert "Final product judgment recorded: no" in html
+    assert "Gate D blocker: product_judgment_evidence" in html
+    assert "Private data needed for review: no" in html
+    assert "Live services needed for review: no" in html
+    assert "Action execution allowed: no" in html
     assert "Session source: fixed fixture metadata" in html
     assert "Event source: fixed fixture metadata" in html
     assert "Alert source: fixed fixture metadata" in html
