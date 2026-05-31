@@ -165,6 +165,24 @@ LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS = [
     "Product judgment required: yes",
     "Product Promise Alpha not passed",
 ]
+LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS = [
+    "Human judgment handoff",
+    "Product judgment: deferred",
+    "Human reviewer required: yes",
+    "AI can record pass judgment: no",
+    "Gate D blocking evidence: product_judgment_evidence",
+    "Evidence source: local fixture demo only",
+    "Static dashboard available: yes",
+    "Gate D handoff packet available: yes",
+    "Real online monitoring approved: no",
+    "Product Promise Alpha passed: no",
+]
+LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_INSPECTION_LABELS = [
+    "Product Promise Alpha pass&#101;d: no"
+    if label == "Product Promise Alpha passed: no"
+    else label
+    for label in LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS
+]
 
 
 def test_local_alpha_dashboard_module_import_is_safe() -> None:
@@ -440,6 +458,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         assert gate_d_safety_status_label in rendered
     for readiness_checklist_label in LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS:
         assert readiness_checklist_label in rendered
+    for handoff_label in LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS:
+        assert handoff_label in rendered
     assert "Attendance prompt - 12s - 88% confidence" in rendered
     assert "Urgent alert" in rendered
     assert "Status: Pending" in rendered
@@ -468,7 +488,7 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Local archive summary" in rendered
     assert "Reviewer available" in rendered
     assert "Reviewer artifact metadata only." in rendered
-    assert "Product Promise Alpha passed" not in rendered
+    assert "Product Promise Alpha passed: yes" not in rendered
     assert "ready for release" not in rendered
     assert "Status: Delivered" not in rendered
     assert "live delivery happened" not in rendered
@@ -744,6 +764,20 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert {child.kind for child in readiness_checklist.children} == {"label"}
     assert all(child.on_click is None for child in readiness_checklist.children)
     assert ui.texts.index("Local alpha demo readiness checklist") < ui.texts.index(
+        "Human judgment handoff"
+    )
+
+    human_judgment_handoff = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__human-judgment-handoff",
+    )
+    assert human_judgment_handoff is not None
+    assert [child.text for child in human_judgment_handoff.children] == (
+        LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS
+    )
+    assert {child.kind for child in human_judgment_handoff.children} == {"label"}
+    assert all(child.on_click is None for child in human_judgment_handoff.children)
+    assert ui.texts.index("Human judgment handoff") < ui.texts.index(
         "Attendance prompt - 12s - 88% confidence"
     )
 
@@ -935,6 +969,9 @@ def test_dashboard_inspection_summary_is_metadata_only_and_no_server() -> None:
     assert "Local alpha demo readiness checklist" in summary
     for readiness_checklist_label in LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS[1:]:
         assert readiness_checklist_label in summary
+    assert "Human judgment handoff" in summary
+    for handoff_label in LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_INSPECTION_LABELS[1:]:
+        assert handoff_label in summary
     assert "Product Promise Alpha passed" not in summary
     assert "Status: Delivered" not in summary
     for private_value in PRIVATE_RENDER_VALUES:
@@ -1267,7 +1304,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Gate D safety status") == 2
     assert second_render.count("Gate D status: blocked") == 1
     assert second_render.count("Manual product judgment required: yes") == 2
-    assert second_render.count("Real online monitoring approved: no") == 1
+    assert second_render.count("Real online monitoring approved: no") == 2
     assert second_render.count("Browser/auth/profile access: no") == 1
     assert second_render.count("Loopback/system audio access: no") == 1
     assert second_render.count("Academic answers: no") == 1
@@ -1288,6 +1325,26 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Archive/reviewer summary visible: yes") == 1
     assert second_render.count("Gate D safety status visible: yes") == 1
     assert second_render.count("Product judgment required: yes") == 1
+    human_judgment_handoff = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__human-judgment-handoff",
+    )
+    assert human_judgment_handoff is not None
+    assert [child.text for child in human_judgment_handoff.children] == (
+        LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS
+    )
+    assert {child.kind for child in human_judgment_handoff.children} == {"label"}
+    assert all(child.on_click is None for child in human_judgment_handoff.children)
+    assert second_render.count("Human judgment handoff") == 1
+    assert second_render.count("Human reviewer required: yes") == 1
+    assert second_render.count("AI can record pass judgment: no") == 1
+    assert (
+        second_render.count("Gate D blocking evidence: product_judgment_evidence") == 1
+    )
+    assert second_render.count("Evidence source: local fixture demo only") == 1
+    assert second_render.count("Static dashboard available: yes") == 1
+    assert second_render.count("Gate D handoff packet available: yes") == 1
+    assert second_render.count("Product Promise Alpha passed: no") == 1
     assert second_render.count("Demo source status") == 1
     assert second_render.count("Session source: injected fixture metadata") == 1
     assert second_render.count("Event source: injected fixture metadata") == 1
@@ -1650,6 +1707,17 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     assert {child.kind for child in readiness_checklist.children} == {"label"}
     assert all(child.on_click is None for child in readiness_checklist.children)
 
+    human_judgment_handoff = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__human-judgment-handoff",
+    )
+    assert human_judgment_handoff is not None
+    assert [child.text for child in human_judgment_handoff.children] == (
+        LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS
+    )
+    assert {child.kind for child in human_judgment_handoff.children} == {"label"}
+    assert all(child.on_click is None for child in human_judgment_handoff.children)
+
     source_status = _find_element_by_class(
         ui,
         "async-scholar-local-alpha-dashboard__source-status",
@@ -1732,7 +1800,7 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
 
     rendered = "\n".join(ui.texts)
     assert "Gate D passed" not in rendered
-    assert "Product Promise Alpha passed" not in rendered
+    assert "Product Promise Alpha passed: yes" not in rendered
     assert "satisfied" not in rendered.casefold()
     for private_value in PRIVATE_RENDER_VALUES:
         assert private_value not in rendered

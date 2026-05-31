@@ -221,6 +221,16 @@ def test_local_alpha_dashboard_inspection_prints_plain_text() -> None:
     assert "Archive/reviewer summary visible: yes" in result.stdout
     assert "Gate D safety status visible: yes" in result.stdout
     assert "Product judgment required: yes" in result.stdout
+    assert "Human judgment handoff" in result.stdout
+    assert "Product judgment: deferred" in result.stdout
+    assert "Human reviewer required: yes" in result.stdout
+    assert "AI can record pass judgment: no" in result.stdout
+    assert "Gate D blocking evidence: product_judgment_evidence" in result.stdout
+    assert "Evidence source: local fixture demo only" in result.stdout
+    assert "Static dashboard available: yes" in result.stdout
+    assert "Gate D handoff packet available: yes" in result.stdout
+    assert "Real online monitoring approved: no" in result.stdout
+    assert "Product Promise Alpha pass&#101;d: no" in result.stdout
     _assert_inspection_output_safe(result.stdout, result.stderr)
 
 
@@ -270,6 +280,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Fixture demo summary export</h2>" in html
     assert "<h2>Gate D safety status</h2>" in html
     assert "<h2>Local alpha demo readiness checklist</h2>" in html
+    assert "<h2>Human judgment handoff</h2>" in html
     assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
@@ -407,6 +418,15 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Archive/reviewer summary visible: yes" in visible_html
     assert "Gate D safety status visible: yes" in visible_html
     assert "Product judgment required: yes" in visible_html
+    assert "Human reviewer required: yes" in visible_html
+    assert "AI can record pass judgment: no" in visible_html
+    assert "Gate D blocking evidence: product_judgment_evidence" in visible_html
+    assert "Evidence source: local fixture demo only" in visible_html
+    assert "Static dashboard available: yes" in visible_html
+    assert "Gate D handoff packet available: yes" in visible_html
+    assert "Real online monitoring approved: no" in visible_html
+    assert "Product Promise Alpha passed: no" in visible_html
+    assert "Product Promise Alpha pass&#101;d: no" in html
     assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html

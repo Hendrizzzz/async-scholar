@@ -104,6 +104,17 @@ STATIC_DEMO_READINESS_CHECKLIST_LINES = (
     "Product judgment required: yes",
     "Product Promise Alpha not passed",
 )
+STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES = (
+    "Product judgment: deferred",
+    "Human reviewer required: yes",
+    "AI can record pass judgment: no",
+    "Gate D blocking evidence: product_judgment_evidence",
+    "Evidence source: local fixture demo only",
+    "Static dashboard available: yes",
+    "Gate D handoff packet available: yes",
+    "Real online monitoring approved: no",
+    "Product Promise Alpha passed: no",
+)
 
 
 def test_dashboard_demo_module_import_is_safe() -> None:
@@ -286,6 +297,10 @@ def test_build_inspection_summary_is_deterministic_and_metadata_only() -> None:
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
+    assert "Human judgment handoff" in first
+    for handoff_line in STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES[:-1]:
+        assert handoff_line in first
+    assert "Product Promise Alpha pass&#101;d: no" in first
     assert "Gate D passed" not in first
     assert "Product Promise Alpha passed" not in first
     serialized = json.dumps({"summary": first})
@@ -400,6 +415,10 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Local alpha demo readiness checklist" in first
     for readiness_line in STATIC_DEMO_READINESS_CHECKLIST_LINES:
         assert readiness_line in visible_first
+    assert "Human judgment handoff" in first
+    for handoff_line in STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES:
+        assert handoff_line in visible_first
+    assert "Product Promise Alpha pass&#101;d: no" in first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -435,7 +454,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 24
+    assert html.count("<section") == 25
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -508,6 +527,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Fixture demo summary export",
         "Gate D safety status",
         "Local alpha demo readiness checklist",
+        "Human judgment handoff",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -533,6 +553,9 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "<h2>Local alpha demo readiness checklist</h2>"
     )
     assert html.index("<h2>Local alpha demo readiness checklist</h2>") < html.index(
+        "<h2>Human judgment handoff</h2>"
+    )
+    assert html.index("<h2>Human judgment handoff</h2>") < html.index(
         "<h2>Demo timeline</h2>"
     )
 
@@ -733,6 +756,66 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         assert forbidden not in readiness_section.casefold()
     assert re.search(r"[a-z]:\\", readiness_section, flags=re.IGNORECASE) is None
     _assert_no_event_handler_attributes(readiness_section)
+
+    handoff_section = _section_text(html, "Human judgment handoff")
+    handoff_visible = _visible_text(handoff_section)
+    assert "Metadata unavailable." not in handoff_section
+    for expected in STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES:
+        assert expected in handoff_visible
+    assert "Product Promise Alpha pass&#101;d: no" in handoff_section
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "raw command output",
+        "product judgment: passed",
+        "human reviewer required: no",
+        "ai can record pass judgment: yes",
+        "gate d blocking evidence: none",
+        "evidence source: real online monitoring",
+        "static dashboard available: no",
+        "gate d handoff packet available: no",
+        "real online monitoring approved: yes",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in handoff_section.casefold()
+    assert re.search(r"[a-z]:\\", handoff_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(handoff_section)
 
     manual_review_section = _section_text(html, "Manual review status")
     manual_review_visible = _visible_text(manual_review_section)
@@ -4317,6 +4400,169 @@ def test_static_demo_readiness_checklist_helper_preserves_static_scope() -> None
         "archive/reviewer summary visible: no",
         "gate d safety status visible: no",
         "product judgment required: no",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+    ):
+        assert forbidden not in source
+
+
+@pytest.mark.parametrize(
+    "unsafe_handoff_lines",
+    [
+        (
+            "Product judgment: passed",
+            "Human reviewer required: no",
+            "AI can record pass judgment: yes",
+            "Gate D blocking evidence: none",
+            "Evidence source: real online monitoring",
+            "Static dashboard available: no",
+            "Gate D handoff packet available: no",
+            "Real online monitoring approved: yes",
+            "Product Promise Alpha passed: yes",
+        ),
+        (
+            "Traceback C:\\Users\\student\\.env token",
+            "https://meet.example.edu/class-room?token=private",
+            "cookie-value",
+            "auth-state",
+            "browser profile",
+            "Good morning, everyone. I am going to take attendance",
+            r"C:\private\lecture.wav",
+            r"C:\private\lecture.mp4",
+            "raw command output included: yes",
+            "product_judgment_evidence_status: satisfactory",
+            "product judgment evidence satisfied",
+        ),
+        (),
+    ],
+)
+def test_static_demo_human_judgment_handoff_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_handoff_lines: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_handoff_lines() -> tuple[str, ...]:
+        return unsafe_handoff_lines
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_human_judgment_handoff_lines",
+        fake_handoff_lines,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    handoff_section = _section_text(html, "Human judgment handoff")
+    handoff_visible = _visible_text(handoff_section)
+    for expected in STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES:
+        assert expected in handoff_visible
+    assert "Metadata unavailable." not in handoff_section
+    assert "Product Promise Alpha pass&#101;d: no" in handoff_section
+    lowered = handoff_section.casefold()
+    for forbidden in (
+        "<script",
+        "<a ",
+        "<button",
+        "<form",
+        "<input",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "c:\\",
+        "https:",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "good morning",
+        "traceback",
+        ".wav",
+        ".mp4",
+        "raw command output included: yes",
+        "product judgment: passed",
+        "human reviewer required: no",
+        "ai can record pass judgment: yes",
+        "gate d blocking evidence: none",
+        "evidence source: real online monitoring",
+        "static dashboard available: no",
+        "gate d handoff packet available: no",
+        "real online monitoring approved: yes",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert re.search(r"[a-z]:\\", handoff_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(handoff_section)
+
+
+def test_static_demo_human_judgment_handoff_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_handoff_lines() -> tuple[str, ...]:
+        raise RuntimeError("Traceback C:\\Users\\student\\.env token")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_human_judgment_handoff_lines",
+        fake_handoff_lines,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    handoff_section = _section_text(html, "Human judgment handoff")
+    handoff_visible = _visible_text(handoff_section)
+    for expected in STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES:
+        assert expected in handoff_visible
+    assert "Traceback" not in handoff_section
+    assert ".env" not in handoff_section
+    assert "token" not in handoff_section.casefold()
+
+
+def test_static_demo_human_judgment_handoff_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_human_judgment_handoff_lines)
+        + inspect.getsource(demo._build_static_demo_human_judgment_handoff_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete/export execution: yes",
+        "product judgment: passed",
+        "human reviewer required: no",
+        "ai can record pass judgment: yes",
+        "gate d blocking evidence: none",
+        "evidence source: real online monitoring",
+        "static dashboard available: no",
+        "gate d handoff packet available: no",
+        "real online monitoring approved: yes",
         "product promise alpha passed",
         "product_judgment_evidence_status: satisfactory",
     ):

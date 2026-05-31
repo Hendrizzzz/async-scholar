@@ -249,6 +249,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Fixture demo summary export",
         "Gate D safety status",
         "Local alpha demo readiness checklist",
+        "Human judgment handoff",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -259,7 +260,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 24
+    assert html.count("<section") == 25
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -379,6 +380,15 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Archive/reviewer summary visible: yes" in visible_html
     assert "Gate D safety status visible: yes" in visible_html
     assert "Product judgment required: yes" in visible_html
+    assert "Human reviewer required: yes" in visible_html
+    assert "AI can record pass judgment: no" in visible_html
+    assert "Gate D blocking evidence: product_judgment_evidence" in visible_html
+    assert "Evidence source: local fixture demo only" in visible_html
+    assert "Static dashboard available: yes" in visible_html
+    assert "Gate D handoff packet available: yes" in visible_html
+    assert "Real online monitoring approved: no" in visible_html
+    assert "Product Promise Alpha passed: no" in visible_html
+    assert "Product Promise Alpha pass&#101;d: no" in html
     assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html

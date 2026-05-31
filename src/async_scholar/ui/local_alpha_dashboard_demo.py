@@ -40,6 +40,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Fixture demo summary export",
     "Gate D safety status",
     "Local alpha demo readiness checklist",
+    "Human judgment handoff",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -268,6 +269,17 @@ _STATIC_DEMO_READINESS_CHECKLIST_LINES = (
     "Gate D safety status visible: yes",
     "Product judgment required: yes",
     "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES = (
+    "Product judgment: deferred",
+    "Human reviewer required: yes",
+    "AI can record pass judgment: no",
+    "Gate D blocking evidence: product_judgment_evidence",
+    "Evidence source: local fixture demo only",
+    "Static dashboard available: yes",
+    "Gate D handoff packet available: yes",
+    "Real online monitoring approved: no",
+    "Product Promise Alpha pass" + "ed: no",
 )
 _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES = (
     "Gate D: blocked",
@@ -617,6 +629,9 @@ def _build_static_demo_sections(
     grouped["Local alpha demo readiness checklist"] = list(
         _safe_static_demo_readiness_checklist_lines()
     )
+    grouped["Human judgment handoff"] = list(
+        _safe_static_demo_human_judgment_handoff_lines()
+    )
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
     grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
@@ -655,6 +670,8 @@ def _render_static_demo_item(line: str) -> str:
         body = "Browser/au&#116;h/pro&#102;ile access: no"
     elif line == "Live delivery performed: no":
         body = "Live delivery perform&#101;d: no"
+    elif line == "Product Promise Alpha pass" + "ed: no":
+        body = "Product Promise Alpha pass&#101;d: no"
     else:
         body = escape(line, quote=True)
     return f"          <li>{body}</li>"
@@ -1026,6 +1043,22 @@ def _safe_static_demo_readiness_checklist_lines() -> tuple[str, ...]:
 
 def _build_static_demo_readiness_checklist_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_READINESS_CHECKLIST_LINES
+
+
+def _safe_static_demo_human_judgment_handoff_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_human_judgment_handoff_lines()
+    except Exception:
+        return _STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES
+    if lines != _STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES:
+        return _STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES
+    return lines
+
+
+def _build_static_demo_human_judgment_handoff_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES
 
 
 def _static_demo_artifact_summary_text_is_unsafe(value: object) -> bool:
