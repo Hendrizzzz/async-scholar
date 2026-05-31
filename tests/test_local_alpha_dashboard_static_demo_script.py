@@ -236,6 +236,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Evidence digest",
         "Manual review status",
         "Demo review checklist",
+        "Human judgment next step",
         "Session status",
         "Demo source status",
         "Local demo launch",
@@ -250,7 +251,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 16
+    assert html.count("<section") == 17
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -339,6 +340,10 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Archive/reviewer metadata visible: yes" in html
     assert "Gate D blocker visible: product_judgment_evidence" in html
     assert "Human product judgment required: yes" in html
+    assert "Manual inspection required: yes" in html
+    assert "Product judgment recorded: no" in html
+    assert "AI can record product judgment: no" in html
+    assert "product_judgment_evidence remains blocking" in html
     assert "Gate D not passed" in html
     assert "Product Promise Alpha not passed" in html
     assert html.count("<button ") == 4

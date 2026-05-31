@@ -27,6 +27,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Evidence digest",
     "Manual review status",
     "Demo review checklist",
+    "Human judgment next step",
     "Session status",
     "Demo source status",
     "Local demo launch",
@@ -124,6 +125,15 @@ _STATIC_DEMO_REVIEW_CHECKLIST_LINES = (
     "Archive/reviewer metadata visible: yes",
     "Gate D blocker visible: product_judgment_evidence",
     "Human product judgment required: yes",
+    "Action execution allowed: no",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_HUMAN_JUDGMENT_NEXT_STEP_LINES = (
+    "Manual inspection required: yes",
+    "Product judgment recorded: no",
+    "AI can complete product judgment: no",
+    "AI can record product judgment: no",
+    "product_judgment_evidence remains blocking",
     "Action execution allowed: no",
     "Product Promise Alpha not passed",
 )
@@ -482,6 +492,9 @@ def _build_static_demo_sections(
     grouped["Evidence digest"] = list(_build_static_demo_evidence_digest_lines())
     grouped["Manual review status"] = list(_safe_static_demo_manual_review_lines())
     grouped["Demo review checklist"] = list(_safe_static_demo_review_checklist_lines())
+    grouped["Human judgment next step"] = list(
+        _safe_static_demo_human_judgment_next_step_lines()
+    )
     grouped["Demo source status"] = list(_safe_static_demo_source_status_lines())
     grouped["Local demo launch"] = list(_safe_static_demo_local_launch_lines())
     grouped["Demo verification status"] = list(
@@ -710,6 +723,22 @@ def _safe_static_demo_review_checklist_lines() -> tuple[str, ...]:
 
 def _build_static_demo_review_checklist_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_REVIEW_CHECKLIST_LINES
+
+
+def _safe_static_demo_human_judgment_next_step_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_human_judgment_next_step_lines()
+    except Exception:
+        return _STATIC_DEMO_HUMAN_JUDGMENT_NEXT_STEP_LINES
+    if lines != _STATIC_DEMO_HUMAN_JUDGMENT_NEXT_STEP_LINES:
+        return _STATIC_DEMO_HUMAN_JUDGMENT_NEXT_STEP_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_HUMAN_JUDGMENT_NEXT_STEP_LINES
+    return lines
+
+
+def _build_static_demo_human_judgment_next_step_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_HUMAN_JUDGMENT_NEXT_STEP_LINES
 
 
 def _safe_static_demo_source_status_lines() -> tuple[str, ...]:

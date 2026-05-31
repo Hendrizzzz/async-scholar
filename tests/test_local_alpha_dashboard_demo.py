@@ -283,6 +283,12 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Gate D blocker visible: product_judgment_evidence" in first
     assert "Human product judgment required: yes" in first
     assert "Action execution allowed: no" in first
+    assert "Human judgment next step" in first
+    assert "Manual inspection required: yes" in first
+    assert "Product judgment recorded: no" in first
+    assert "AI can complete product judgment: no" in first
+    assert "AI can record product judgment: no" in first
+    assert "product_judgment_evidence remains blocking" in first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -318,7 +324,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 16
+    assert html.count("<section") == 17
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -379,6 +385,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Evidence digest",
         "Manual review status",
         "Demo review checklist",
+        "Human judgment next step",
         "Session status",
         "Demo source status",
         "Local demo launch",
@@ -557,6 +564,74 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert re.search(r"[a-z]:\\", checklist_section, flags=re.IGNORECASE) is None
     _assert_no_event_handler_attributes(checklist_section)
     assert html.index("<h2>Demo review checklist</h2>") < html.index(
+        "<h2>Human judgment next step</h2>"
+    )
+
+    human_judgment_section = _section_text(html, "Human judgment next step")
+    human_judgment_visible = _visible_text(human_judgment_section)
+    assert "Metadata unavailable." not in human_judgment_section
+    for expected in (
+        "Manual inspection required: yes",
+        "Product judgment recorded: no",
+        "AI can complete product judgment: no",
+        "AI can record product judgment: no",
+        "product_judgment_evidence remains blocking",
+        "Action execution allowed: no",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in human_judgment_visible
+    assert "<button" not in human_judgment_section.casefold()
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "recording",
+        "manual inspection required: no",
+        "product judgment recorded: yes",
+        "ai can complete product judgment: yes",
+        "ai can record product judgment: yes",
+        "product_judgment_evidence_status: satisfactory",
+        "action execution allowed: yes",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in human_judgment_section.casefold()
+    assert re.search(r"[a-z]:\\", human_judgment_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(human_judgment_section)
+    assert html.index("<h2>Human judgment next step</h2>") < html.index(
         "<h2>Session status</h2>"
     )
 
@@ -1861,6 +1936,139 @@ def test_static_demo_review_checklist_fails_closed_for_helper_exception(
 
 
 @pytest.mark.parametrize(
+    "unsafe_next_step",
+    [
+        (
+            "Manual inspection required: no",
+            "Product judgment recorded: yes",
+            "AI can complete product judgment: yes",
+            "AI can record product judgment: yes",
+            "product_judgment_evidence_status: satisfactory",
+            "Action execution allowed: yes",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Manual inspection required: C:\\Users\\student\\secret-token-auth-profile",
+            "https://meet.example.edu/class-room?token=private",
+            "file:///tmp/private-judgment.jsonl",
+            "\\\\server\\share\\cookie-profile.json",
+            "Good morning, everyone. I am going to take attendance",
+            "transcript text: private class content",
+            "recording path: lecture.wav lecture.mp4 clip.png",
+            "product judgment evidence satisfied",
+        ),
+        ("Manual inspection required: yes",),
+        (),
+    ],
+)
+def test_static_demo_human_judgment_next_step_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_next_step: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_next_step() -> tuple[str, ...]:
+        return unsafe_next_step
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_human_judgment_next_step_lines",
+        fake_next_step,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    next_step_section = _section_text(html, "Human judgment next step")
+    next_step_visible = _visible_text(next_step_section)
+    for expected in (
+        "Manual inspection required: yes",
+        "Product judgment recorded: no",
+        "AI can complete product judgment: no",
+        "AI can record product judgment: no",
+        "product_judgment_evidence remains blocking",
+        "Action execution allowed: no",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in next_step_visible
+
+    lowered = next_step_section.casefold()
+    for forbidden in (
+        "<script",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "cookie",
+        "meet.example",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript text",
+        "recording path",
+        "manual inspection required: no",
+        "product judgment recorded: yes",
+        "ai can complete product judgment: yes",
+        "ai can record product judgment: yes",
+        "product_judgment_evidence_status: satisfactory",
+        "action execution allowed: yes",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert "<button" not in lowered
+    _assert_no_event_handler_attributes(next_step_section)
+
+
+def test_static_demo_human_judgment_next_step_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_next_step() -> tuple[str, ...]:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_human_judgment_next_step_lines",
+        fake_next_step,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    next_step_section = _section_text(html, "Human judgment next step")
+    next_step_visible = _visible_text(next_step_section)
+    assert "Manual inspection required: yes" in next_step_visible
+    assert "Product judgment recorded: no" in next_step_visible
+    assert "AI can complete product judgment: no" in next_step_visible
+    assert "AI can record product judgment: no" in next_step_visible
+    assert "product_judgment_evidence remains blocking" in next_step_visible
+    assert "Action execution allowed: no" in next_step_visible
+    assert "Product Promise Alpha not passed" in next_step_visible
+    assert "traceback" not in next_step_section.casefold()
+    assert ".env" not in next_step_section.casefold()
+    assert "token" not in next_step_section.casefold()
+
+
+@pytest.mark.parametrize(
     "unsafe_launch",
     [
         (
@@ -2265,6 +2473,45 @@ def test_static_demo_review_checklist_helper_preserves_static_scope() -> None:
         "archive/reviewer metadata visible: no",
         "gate d blocker visible: none",
         "human product judgment required: no",
+        "action execution allowed: yes",
+    ):
+        assert forbidden not in source
+
+
+def test_static_demo_human_judgment_next_step_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_human_judgment_next_step_lines)
+        + inspect.getsource(demo._build_static_demo_human_judgment_next_step_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete",
+        "manual inspection required: no",
+        "product judgment recorded: yes",
+        "ai can complete product judgment: yes",
+        "ai can record product judgment: yes",
         "action execution allowed: yes",
     ):
         assert forbidden not in source

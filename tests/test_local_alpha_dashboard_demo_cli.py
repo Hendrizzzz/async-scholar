@@ -220,6 +220,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Evidence digest</h2>" in html
     assert "<h2>Manual review status</h2>" in html
     assert "<h2>Demo review checklist</h2>" in html
+    assert "<h2>Human judgment next step</h2>" in html
     assert "<h2>Session status</h2>" in html
     assert "<h2>Demo source status</h2>" in html
     assert "<h2>Local demo launch</h2>" in html
@@ -253,6 +254,10 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Archive/reviewer metadata visible: yes" in html
     assert "Gate D blocker visible: product_judgment_evidence" in html
     assert "Human product judgment required: yes" in html
+    assert "Manual inspection required: yes" in html
+    assert "Product judgment recorded: no" in html
+    assert "AI can record product judgment: no" in html
+    assert "product_judgment_evidence remains blocking" in html
     assert "Run status: Completed" in html
     assert "Session source: fixed fixture metadata" in html
     assert "Event source: fixed fixture metadata" in html
