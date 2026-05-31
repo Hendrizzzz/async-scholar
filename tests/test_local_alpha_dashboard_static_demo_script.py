@@ -241,6 +241,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Demo source status",
         "Local demo launch",
         "Demo verification status",
+        "Backend evidence trail",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -251,7 +252,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 17
+    assert html.count("<section") == 18
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -300,6 +301,18 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Gate D evidence bundle: blocked" in html
     assert "Blocking evidence: product_judgment_evidence" in html
     assert "Manual product judgment required: yes" in html
+    assert "Fixture/local demo evidence: existing CLI surfaces" in html
+    assert "Inspection summary: local-alpha-dashboard-inspection" in html
+    assert (
+        "Static export: local-alpha-dashboard-static-demo --output "
+        "local-html-file" in visible_html
+    )
+    assert "Gate D evidence bundle: gate-d-local-evidence-bundle" in html
+    assert "Gate D handoff packet: gate-d-handoff-packet-local" in html
+    assert "Artifact access performed: no" in html
+    assert "Command execution performed by page: no" in html
+    assert "Private data required: no" in html
+    assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html
     assert "Live delivery: yes" not in html

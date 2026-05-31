@@ -225,6 +225,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Demo source status</h2>" in html
     assert "<h2>Local demo launch</h2>" in html
     assert "<h2>Demo verification status</h2>" in html
+    assert "<h2>Backend evidence trail</h2>" in html
     assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
@@ -290,6 +291,18 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Gate D evidence bundle: blocked" in html
     assert "Blocking evidence: product_judgment_evidence" in html
     assert "Manual product judgment required: yes" in html
+    assert "Fixture/local demo evidence: existing CLI surfaces" in html
+    assert "Inspection summary: local-alpha-dashboard-inspection" in html
+    assert (
+        "Static export: local-alpha-dashboard-static-demo --output "
+        "local-html-file" in visible_html
+    )
+    assert "Gate D evidence bundle: gate-d-local-evidence-bundle" in html
+    assert "Gate D handoff packet: gate-d-handoff-packet-local" in html
+    assert "Artifact access performed: no" in html
+    assert "Command execution performed by page: no" in html
+    assert "Private data required: no" in html
+    assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html
     assert "Live delivery: yes" not in html

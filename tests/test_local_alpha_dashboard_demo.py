@@ -289,6 +289,18 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "AI can complete product judgment: no" in first
     assert "AI can record product judgment: no" in first
     assert "product_judgment_evidence remains blocking" in first
+    assert "Backend evidence trail" in first
+    assert "Fixture/local demo evidence: existing CLI surfaces" in first
+    assert "Inspection summary: local-alpha-dashboard-inspection" in first
+    assert (
+        "Static export: local-alpha-dashboard-static-demo --output local-html-file"
+        in first
+    )
+    assert "Gate D evidence bundle: gate-d-local-evidence-bundle" in first
+    assert "Gate D handoff packet: gate-d-handoff-packet-local" in first
+    assert "Artifact access performed: no" in first
+    assert "Command execution performed by page: no" in first
+    assert "Private data required: no" in first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -324,7 +336,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 17
+    assert html.count("<section") == 18
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -390,6 +402,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Demo source status",
         "Local demo launch",
         "Demo verification status",
+        "Backend evidence trail",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -835,6 +848,76 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "<h2>Demo verification status</h2>"
     )
     assert html.index("<h2>Demo verification status</h2>") < html.index(
+        "<h2>Backend evidence trail</h2>"
+    )
+
+    backend_evidence_section = _section_text(html, "Backend evidence trail")
+    backend_evidence_visible = _visible_text(backend_evidence_section)
+    assert "Metadata unavailable." not in backend_evidence_section
+    for expected in (
+        "Fixture/local demo evidence: existing CLI surfaces",
+        "Inspection summary: local-alpha-dashboard-inspection",
+        "Static export: local-alpha-dashboard-static-demo --output local-html-file",
+        "Gate D evidence bundle: gate-d-local-evidence-bundle",
+        "Gate D handoff packet: gate-d-handoff-packet-local",
+        "Artifact access performed: no",
+        "Command execution performed by page: no",
+        "Private data required: no",
+        "product_judgment_evidence remains blocking",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in backend_evidence_visible
+    assert "<button" not in backend_evidence_section.casefold()
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "recording",
+        "artifact access performed: yes",
+        "command execution performed by page: yes",
+        "private data required: yes",
+        "gate d evidence bundle: passed",
+        "product_judgment_evidence_status: satisfactory",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in backend_evidence_section.casefold()
+    assert re.search(r"[a-z]:\\", backend_evidence_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(backend_evidence_section)
+    assert html.index("<h2>Backend evidence trail</h2>") < html.index(
         "<h2>Demo timeline</h2>"
     )
 
@@ -1516,6 +1599,157 @@ def test_static_demo_verification_status_fails_closed_for_helper_exception(
     assert "traceback" not in verification_section.casefold()
     assert ".env" not in verification_section.casefold()
     assert "token" not in verification_section.casefold()
+
+
+@pytest.mark.parametrize(
+    "unsafe_backend_evidence",
+    [
+        (
+            "Fixture/local demo evidence: live meeting data",
+            "Inspection summary: https://meet.example.edu/class-room?token=private",
+            "Static export: file:///tmp/private-dashboard.html",
+            "Gate D evidence bundle: passed",
+            "Gate D handoff packet: C:\\Users\\student\\auth-profile.json",
+            "Artifact access performed: yes",
+            "Command execution performed by page: yes",
+            "Private data required: yes",
+            "product_judgment_evidence_status: satisfactory",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Fixture/local demo evidence: existing CLI surfaces",
+            "Inspection summary: local-alpha-dashboard-inspection",
+            "Static export: data\\sessions\\private.jsonl",
+            "Gate D evidence bundle: gate-d-local-evidence-bundle",
+            "Gate D handoff packet: gate-d-handoff-packet-local",
+            "Artifact access performed: no",
+            "Command execution performed by page: no",
+            "Private data required: no",
+            "transcript text: Good morning, everyone",
+            "product judgment evidence satisfied",
+        ),
+        ("Fixture/local demo evidence: existing CLI surfaces",),
+        (),
+    ],
+)
+def test_static_demo_backend_evidence_trail_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_backend_evidence: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_backend_evidence() -> tuple[str, ...]:
+        return unsafe_backend_evidence
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_backend_evidence_trail_lines",
+        fake_backend_evidence,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    backend_evidence_section = _section_text(html, "Backend evidence trail")
+    backend_evidence_visible = _visible_text(backend_evidence_section)
+    for expected in (
+        "Fixture/local demo evidence: existing CLI surfaces",
+        "Inspection summary: local-alpha-dashboard-inspection",
+        "Static export: local-alpha-dashboard-static-demo --output local-html-file",
+        "Gate D evidence bundle: gate-d-local-evidence-bundle",
+        "Gate D handoff packet: gate-d-handoff-packet-local",
+        "Artifact access performed: no",
+        "Command execution performed by page: no",
+        "Private data required: no",
+        "product_judgment_evidence remains blocking",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in backend_evidence_visible
+
+    lowered = backend_evidence_section.casefold()
+    for forbidden in (
+        "<script",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "meet.example",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "auth",
+        "profile",
+        "token",
+        "artifact access performed: yes",
+        "command execution performed by page: yes",
+        "private data required: yes",
+        "gate d evidence bundle: passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert "<button" not in lowered
+    _assert_no_event_handler_attributes(backend_evidence_section)
+
+
+def test_static_demo_backend_evidence_trail_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_backend_evidence() -> tuple[str, ...]:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_backend_evidence_trail_lines",
+        fake_backend_evidence,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    backend_evidence_section = _section_text(html, "Backend evidence trail")
+    backend_evidence_visible = _visible_text(backend_evidence_section)
+    assert (
+        "Fixture/local demo evidence: existing CLI surfaces" in backend_evidence_visible
+    )
+    assert "Inspection summary: local-alpha-dashboard-inspection" in (
+        backend_evidence_visible
+    )
+    assert (
+        "Static export: local-alpha-dashboard-static-demo --output local-html-file"
+        in backend_evidence_visible
+    )
+    assert (
+        "Gate D evidence bundle: gate-d-local-evidence-bundle"
+        in backend_evidence_visible
+    )
+    assert "Gate D handoff packet: gate-d-handoff-packet-local" in (
+        backend_evidence_visible
+    )
+    assert "Artifact access performed: no" in backend_evidence_visible
+    assert "Command execution performed by page: no" in backend_evidence_visible
+    assert "Private data required: no" in backend_evidence_visible
+    assert "product_judgment_evidence remains blocking" in backend_evidence_visible
+    assert "Product Promise Alpha not passed" in backend_evidence_visible
+    assert "traceback" not in backend_evidence_section.casefold()
+    assert ".env" not in backend_evidence_section.casefold()
+    assert "token" not in backend_evidence_section.casefold()
 
 
 @pytest.mark.parametrize(
@@ -2584,6 +2818,48 @@ def test_static_demo_local_launch_helper_preserves_static_scope() -> None:
         "desktop_notifier",
         "scheduler",
         "delete",
+    ):
+        assert forbidden not in source
+
+
+def test_static_demo_backend_evidence_trail_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_backend_evidence_trail_lines)
+        + inspect.getsource(demo._build_static_demo_backend_evidence_trail_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete",
+        "open(",
+        "read_text",
+        "write_text",
+        "artifact access performed: yes",
+        "command execution performed by page: yes",
+        "private data required: yes",
+        "gate d evidence bundle: passed",
+        "product_judgment_evidence_status: satisfactory",
     ):
         assert forbidden not in source
 

@@ -32,6 +32,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Demo source status",
     "Local demo launch",
     "Demo verification status",
+    "Backend evidence trail",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -169,6 +170,18 @@ _STATIC_DEMO_VERIFICATION_STATUS_LINES = (
     "Gate D evidence bundle: blocked",
     "Blocking evidence: product_judgment_evidence",
     "Manual product judgment required: yes",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_BACKEND_EVIDENCE_TRAIL_LINES = (
+    "Fixture/local demo evidence: existing CLI surfaces",
+    "Inspection summary: local-alpha-dashboard-inspection",
+    "Static export: local-alpha-dashboard-static-demo --output local-html-file",
+    "Gate D evidence bundle: gate-d-local-evidence-bundle",
+    "Gate D handoff packet: gate-d-handoff-packet-local",
+    "Artifact access performed: no",
+    "Command execution performed by page: no",
+    "Private data required: no",
+    "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
 )
 _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES = (
@@ -500,6 +513,9 @@ def _build_static_demo_sections(
     grouped["Demo verification status"] = list(
         _safe_static_demo_verification_status_lines()
     )
+    grouped["Backend evidence trail"] = list(
+        _safe_static_demo_backend_evidence_trail_lines()
+    )
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
     grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
@@ -787,6 +803,22 @@ def _safe_static_demo_verification_status_lines() -> tuple[str, ...]:
 
 def _build_static_demo_verification_status_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_VERIFICATION_STATUS_LINES
+
+
+def _safe_static_demo_backend_evidence_trail_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_backend_evidence_trail_lines()
+    except Exception:
+        return _STATIC_DEMO_BACKEND_EVIDENCE_TRAIL_LINES
+    if lines != _STATIC_DEMO_BACKEND_EVIDENCE_TRAIL_LINES:
+        return _STATIC_DEMO_BACKEND_EVIDENCE_TRAIL_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_BACKEND_EVIDENCE_TRAIL_LINES
+    return lines
+
+
+def _build_static_demo_backend_evidence_trail_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_BACKEND_EVIDENCE_TRAIL_LINES
 
 
 def _safe_static_demo_summary_status_strip_lines() -> tuple[str, ...]:
