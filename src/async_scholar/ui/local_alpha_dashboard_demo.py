@@ -41,6 +41,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Gate D safety status",
     "Local alpha demo readiness checklist",
     "Human judgment handoff",
+    "Local alpha product loop summary",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -280,6 +281,19 @@ _STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES = (
     "Gate D handoff packet available: yes",
     "Real online monitoring approved: no",
     "Product Promise Alpha pass" + "ed: no",
+)
+_STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES = (
+    "Product loop: fixture to reviewer",
+    "Fixture input: local metadata only",
+    "Session status: completed",
+    "Detected events: 2 demo events",
+    "Alert preview: pending user confirmation",
+    "Archive/reviewer: metadata summary only",
+    "Gate D bundle: blocked on product_judgment_evidence",
+    "Product judgment: deferred",
+    "Private content displayed: no",
+    "Live delivery performed: no",
+    "Product Promise Alpha not passed",
 )
 _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES = (
     "Gate D: blocked",
@@ -631,6 +645,9 @@ def _build_static_demo_sections(
     )
     grouped["Human judgment handoff"] = list(
         _safe_static_demo_human_judgment_handoff_lines()
+    )
+    grouped["Local alpha product loop summary"] = list(
+        _safe_static_demo_product_loop_summary_lines()
     )
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
@@ -1059,6 +1076,22 @@ def _safe_static_demo_human_judgment_handoff_lines() -> tuple[str, ...]:
 
 def _build_static_demo_human_judgment_handoff_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES
+
+
+def _safe_static_demo_product_loop_summary_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_product_loop_summary_lines()
+    except Exception:
+        return _STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES
+    if lines != _STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES:
+        return _STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES
+    return lines
+
+
+def _build_static_demo_product_loop_summary_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES
 
 
 def _static_demo_artifact_summary_text_is_unsafe(value: object) -> bool:

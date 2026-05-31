@@ -115,6 +115,19 @@ STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES = (
     "Real online monitoring approved: no",
     "Product Promise Alpha passed: no",
 )
+STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES = (
+    "Product loop: fixture to reviewer",
+    "Fixture input: local metadata only",
+    "Session status: completed",
+    "Detected events: 2 demo events",
+    "Alert preview: pending user confirmation",
+    "Archive/reviewer: metadata summary only",
+    "Gate D bundle: blocked on product_judgment_evidence",
+    "Product judgment: deferred",
+    "Private content displayed: no",
+    "Live delivery performed: no",
+    "Product Promise Alpha not passed",
+)
 
 
 def test_dashboard_demo_module_import_is_safe() -> None:
@@ -419,6 +432,10 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     for handoff_line in STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES:
         assert handoff_line in visible_first
     assert "Product Promise Alpha pass&#101;d: no" in first
+    assert "Local alpha product loop summary" in first
+    for product_loop_line in STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES:
+        assert product_loop_line in visible_first
+    assert "Live delivery perform&#101;d: no" in first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -454,7 +471,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 25
+    assert html.count("<section") == 26
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -528,6 +545,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Gate D safety status",
         "Local alpha demo readiness checklist",
         "Human judgment handoff",
+        "Local alpha product loop summary",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -556,6 +574,9 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "<h2>Human judgment handoff</h2>"
     )
     assert html.index("<h2>Human judgment handoff</h2>") < html.index(
+        "<h2>Local alpha product loop summary</h2>"
+    )
+    assert html.index("<h2>Local alpha product loop summary</h2>") < html.index(
         "<h2>Demo timeline</h2>"
     )
 
@@ -816,6 +837,67 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         assert forbidden not in handoff_section.casefold()
     assert re.search(r"[a-z]:\\", handoff_section, flags=re.IGNORECASE) is None
     _assert_no_event_handler_attributes(handoff_section)
+
+    product_loop_section = _section_text(html, "Local alpha product loop summary")
+    product_loop_visible = _visible_text(product_loop_section)
+    assert "Metadata unavailable." not in product_loop_section
+    for expected in STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES:
+        assert expected in product_loop_visible
+    assert "Live delivery perform&#101;d: no" in product_loop_section
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "raw command output",
+        "fixture input: private",
+        "session status: failed",
+        "detected events: 0",
+        "alert preview: sent",
+        "archive/reviewer: transcript",
+        "gate d bundle: passed",
+        "product judgment: passed",
+        "private content displayed: yes",
+        "live delivery performed: yes",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in product_loop_section.casefold()
+    assert re.search(r"[a-z]:\\", product_loop_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(product_loop_section)
 
     manual_review_section = _section_text(html, "Manual review status")
     manual_review_visible = _visible_text(manual_review_section)
@@ -4563,6 +4645,168 @@ def test_static_demo_human_judgment_handoff_helper_preserves_static_scope() -> N
         "static dashboard available: no",
         "gate d handoff packet available: no",
         "real online monitoring approved: yes",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+    ):
+        assert forbidden not in source
+
+
+@pytest.mark.parametrize(
+    "unsafe_product_loop_lines",
+    [
+        (
+            "Product loop: real meeting to reviewer",
+            "Fixture input: private transcript",
+            "Session status: failed",
+            "Detected events: 0",
+            "Alert preview: sent",
+            "Archive/reviewer: transcript contents",
+            "Gate D bundle: passed",
+            "Product judgment: passed",
+            "Private content displayed: yes",
+            "Live delivery performed: yes",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Traceback C:\\Users\\student\\.env token",
+            "https://meet.example.edu/class-room?token=private",
+            "cookie-value",
+            "auth-state",
+            "browser profile",
+            "Good morning, everyone. I am going to take attendance",
+            r"C:\private\lecture.wav",
+            r"C:\private\lecture.mp4",
+            "raw command output included: yes",
+            "product_judgment_evidence_status: satisfactory",
+            "product judgment evidence satisfied",
+        ),
+        (),
+    ],
+)
+def test_static_demo_product_loop_summary_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_product_loop_lines: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_product_loop_lines() -> tuple[str, ...]:
+        return unsafe_product_loop_lines
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_product_loop_summary_lines",
+        fake_product_loop_lines,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    product_loop_section = _section_text(html, "Local alpha product loop summary")
+    product_loop_visible = _visible_text(product_loop_section)
+    for expected in STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES:
+        assert expected in product_loop_visible
+    assert "Metadata unavailable." not in product_loop_section
+    assert "Live delivery perform&#101;d: no" in product_loop_section
+    lowered = product_loop_section.casefold()
+    for forbidden in (
+        "<script",
+        "<a ",
+        "<button",
+        "<form",
+        "<input",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "c:\\",
+        "https:",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "good morning",
+        "traceback",
+        ".wav",
+        ".mp4",
+        "raw command output included: yes",
+        "product loop: real meeting to reviewer",
+        "fixture input: private transcript",
+        "session status: failed",
+        "detected events: 0",
+        "alert preview: sent",
+        "archive/reviewer: transcript contents",
+        "gate d bundle: passed",
+        "product judgment: passed",
+        "private content displayed: yes",
+        "live delivery performed: yes",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert re.search(r"[a-z]:\\", product_loop_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(product_loop_section)
+
+
+def test_static_demo_product_loop_summary_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_product_loop_lines() -> tuple[str, ...]:
+        raise RuntimeError("Traceback C:\\Users\\student\\.env token")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_product_loop_summary_lines",
+        fake_product_loop_lines,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    product_loop_section = _section_text(html, "Local alpha product loop summary")
+    product_loop_visible = _visible_text(product_loop_section)
+    for expected in STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES:
+        assert expected in product_loop_visible
+    assert "Traceback" not in product_loop_section
+    assert ".env" not in product_loop_section
+    assert "token" not in product_loop_section.casefold()
+
+
+def test_static_demo_product_loop_summary_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_product_loop_summary_lines)
+        + inspect.getsource(demo._build_static_demo_product_loop_summary_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "gate d bundle: passed",
+        "product judgment: passed",
+        "private content displayed: yes",
+        "live delivery performed: yes",
         "product promise alpha passed",
         "product_judgment_evidence_status: satisfactory",
     ):

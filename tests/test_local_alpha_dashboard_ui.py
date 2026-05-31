@@ -183,6 +183,26 @@ LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_INSPECTION_LABELS = [
     else label
     for label in LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS
 ]
+LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS = [
+    "Local alpha product loop summary",
+    "Product loop: fixture to reviewer",
+    "Fixture input: local metadata only",
+    "Session status: completed",
+    "Detected events: 2 demo events",
+    "Alert preview: pending user confirmation",
+    "Archive/reviewer: metadata summary only",
+    "Gate D bundle: blocked on product_judgment_evidence",
+    "Product judgment: deferred",
+    "Private content displayed: no",
+    "Live delivery performed: no",
+    "Product Promise Alpha not passed",
+]
+LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_INSPECTION_LABELS = [
+    "Live delivery perform&#101;d: no"
+    if label == "Live delivery performed: no"
+    else label
+    for label in LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS
+]
 
 
 def test_local_alpha_dashboard_module_import_is_safe() -> None:
@@ -460,6 +480,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         assert readiness_checklist_label in rendered
     for handoff_label in LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS:
         assert handoff_label in rendered
+    for product_loop_label in LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS:
+        assert product_loop_label in rendered
     assert "Attendance prompt - 12s - 88% confidence" in rendered
     assert "Urgent alert" in rendered
     assert "Status: Pending" in rendered
@@ -778,6 +800,20 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert {child.kind for child in human_judgment_handoff.children} == {"label"}
     assert all(child.on_click is None for child in human_judgment_handoff.children)
     assert ui.texts.index("Human judgment handoff") < ui.texts.index(
+        "Local alpha product loop summary"
+    )
+
+    product_loop_summary = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__product-loop-summary",
+    )
+    assert product_loop_summary is not None
+    assert [child.text for child in product_loop_summary.children] == (
+        LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS
+    )
+    assert {child.kind for child in product_loop_summary.children} == {"label"}
+    assert all(child.on_click is None for child in product_loop_summary.children)
+    assert ui.texts.index("Local alpha product loop summary") < ui.texts.index(
         "Attendance prompt - 12s - 88% confidence"
     )
 
@@ -972,7 +1008,11 @@ def test_dashboard_inspection_summary_is_metadata_only_and_no_server() -> None:
     assert "Human judgment handoff" in summary
     for handoff_label in LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_INSPECTION_LABELS[1:]:
         assert handoff_label in summary
+    assert "Local alpha product loop summary" in summary
+    for product_loop_label in LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_INSPECTION_LABELS[1:]:
+        assert product_loop_label in summary
     assert "Product Promise Alpha passed" not in summary
+    assert "Live delivery performed" not in summary
     assert "Status: Delivered" not in summary
     for private_value in PRIVATE_RENDER_VALUES:
         assert private_value not in summary
@@ -1289,7 +1329,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Raw command output included: no") == 1
     assert second_render.count("Private paths included: no") == 1
     assert second_render.count("Browser/server launched: no") == 1
-    assert second_render.count("Live delivery performed: no") == 2
+    assert second_render.count("Live delivery performed: no") == 3
     assert second_render.count("Gate D handoff packet: manual judgment required") == 1
     gate_d_safety_status = _find_element_by_class(
         ui,
@@ -1345,6 +1385,27 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Static dashboard available: yes") == 1
     assert second_render.count("Gate D handoff packet available: yes") == 1
     assert second_render.count("Product Promise Alpha passed: no") == 1
+    product_loop_summary = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__product-loop-summary",
+    )
+    assert product_loop_summary is not None
+    assert [child.text for child in product_loop_summary.children] == (
+        LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS
+    )
+    assert {child.kind for child in product_loop_summary.children} == {"label"}
+    assert all(child.on_click is None for child in product_loop_summary.children)
+    assert second_render.count("Local alpha product loop summary") == 1
+    assert second_render.count("Product loop: fixture to reviewer") == 1
+    assert second_render.count("Fixture input: local metadata only") == 1
+    assert second_render.count("Session status: completed") == 1
+    assert second_render.count("Detected events: 2 demo events") == 1
+    assert second_render.count("Alert preview: pending user confirmation") == 1
+    assert second_render.count("Archive/reviewer: metadata summary only") == 1
+    assert (
+        second_render.count("Gate D bundle: blocked on product_judgment_evidence") == 1
+    )
+    assert second_render.count("Private content displayed: no") == 1
     assert second_render.count("Demo source status") == 1
     assert second_render.count("Session source: injected fixture metadata") == 1
     assert second_render.count("Event source: injected fixture metadata") == 1
@@ -1717,6 +1778,17 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     )
     assert {child.kind for child in human_judgment_handoff.children} == {"label"}
     assert all(child.on_click is None for child in human_judgment_handoff.children)
+
+    product_loop_summary = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__product-loop-summary",
+    )
+    assert product_loop_summary is not None
+    assert [child.text for child in product_loop_summary.children] == (
+        LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS
+    )
+    assert {child.kind for child in product_loop_summary.children} == {"label"}
+    assert all(child.on_click is None for child in product_loop_summary.children)
 
     source_status = _find_element_by_class(
         ui,
