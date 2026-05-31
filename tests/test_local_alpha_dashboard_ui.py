@@ -256,6 +256,15 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Ready for gate review: no" in rendered
     assert "Manual judgment required: yes" in rendered
     assert "Manual judgment recorded: no" in rendered
+    assert "Manual review status" in rendered
+    assert "Review packet: local metadata only" in rendered
+    assert "Human product judgment: required" in rendered
+    assert "Final product judgment recorded: no" in rendered
+    assert "AI can complete product judgment: no" in rendered
+    assert "Gate D blocker: product_judgment_evidence" in rendered
+    assert "Private data needed for review: no" in rendered
+    assert "Live services needed for review: no" in rendered
+    assert "Action execution allowed: no" in rendered
     assert "Session status" in rendered
     assert "Completed" in rendered
     assert "Fixture demo" in rendered
@@ -361,6 +370,28 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     ]
     assert {child.kind for child in evidence_digest.children} == {"label"}
     assert all(child.on_click is None for child in evidence_digest.children)
+
+    manual_review = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__manual-review",
+    )
+    assert manual_review is not None
+    assert [child.text for child in manual_review.children] == [
+        "Manual review status",
+        "Review packet: local metadata only",
+        "Human product judgment: required",
+        "Final product judgment recorded: no",
+        "AI can complete product judgment: no",
+        "Gate D blocker: product_judgment_evidence",
+        "Private data needed for review: no",
+        "Live services needed for review: no",
+        "Action execution allowed: no",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in manual_review.children} == {"label"}
+    assert all(child.on_click is None for child in manual_review.children)
+    assert ui.texts.index("Evidence digest") < ui.texts.index("Manual review status")
+    assert ui.texts.index("Manual review status") < ui.texts.index("Session status")
 
     source_status = _find_element_by_class(
         ui,
@@ -734,6 +765,15 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Evidence digest") == 1
     assert second_render.count("Product judgment evidence: blocking") == 1
     assert second_render.count("Local evidence bundle: metadata only") == 1
+    assert second_render.count("Manual review status") == 1
+    assert second_render.count("Review packet: local metadata only") == 1
+    assert second_render.count("Human product judgment: required") == 1
+    assert second_render.count("Final product judgment recorded: no") == 1
+    assert second_render.count("AI can complete product judgment: no") == 1
+    assert second_render.count("Gate D blocker: product_judgment_evidence") == 1
+    assert second_render.count("Private data needed for review: no") == 1
+    assert second_render.count("Live services needed for review: no") == 1
+    assert second_render.count("Action execution allowed: no") == 1
     assert second_render.count("Local demo launch") == 1
     assert second_render.count("Launch command:") == 1
     assert second_render.count("Private data read: no") == 1
