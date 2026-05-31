@@ -50,6 +50,19 @@ PRIVATE_RENDER_VALUES = (
     r"C:\models\private-model.bin",
     r"C:\generated\clip.png",
 )
+BACKEND_EVIDENCE_TRAIL_LABELS = [
+    "Backend evidence trail",
+    "Fixture/local demo evidence: existing CLI surfaces",
+    "Inspection summary: local-alpha-dashboard-inspection",
+    "Static export: local-alpha-dashboard-static-demo --output local-html-file",
+    "Gate D evidence bundle: gate-d-local-evidence-bundle",
+    "Gate D handoff packet: gate-d-handoff-packet-local",
+    "Artifact access performed: no",
+    "Command execution performed by page: no",
+    "Private data required: no",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+]
 
 
 def test_local_alpha_dashboard_module_import_is_safe() -> None:
@@ -311,6 +324,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         "local-alpha-dashboard-static-demo --output TEMP_HTML"
     ) in rendered
     assert "Gate D evidence bundle: blocked" in rendered
+    for backend_evidence_label in BACKEND_EVIDENCE_TRAIL_LABELS:
+        assert backend_evidence_label in rendered
     assert "Attendance prompt - 12s - 88% confidence" in rendered
     assert "Urgent alert" in rendered
     assert "Status: Pending" in rendered
@@ -522,6 +537,20 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         "Demo verification status"
     )
     assert ui.texts.index("Demo verification status") < ui.texts.index(
+        "Backend evidence trail"
+    )
+
+    backend_evidence_trail = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__backend-evidence-trail",
+    )
+    assert backend_evidence_trail is not None
+    assert [child.text for child in backend_evidence_trail.children] == (
+        BACKEND_EVIDENCE_TRAIL_LABELS
+    )
+    assert {child.kind for child in backend_evidence_trail.children} == {"label"}
+    assert all(child.on_click is None for child in backend_evidence_trail.children)
+    assert ui.texts.index("Backend evidence trail") < ui.texts.index(
         "Attendance prompt - 12s - 88% confidence"
     )
 
@@ -877,7 +906,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Manual inspection required: yes") == 1
     assert second_render.count("Product judgment recorded: no") == 1
     assert second_render.count("AI can record product judgment: no") == 1
-    assert second_render.count("product_judgment_evidence remains blocking") == 1
+    assert second_render.count("product_judgment_evidence remains blocking") == 2
     assert second_render.count("Local demo launch") == 1
     assert second_render.count("Launch command:") == 1
     assert second_render.count("Private data read: no") == 1
@@ -885,6 +914,38 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Dashboard surface: local injected UI") == 1
     assert second_render.count("Source mode: injected fixture metadata") == 1
     assert second_render.count("Gate D evidence bundle: blocked") == 1
+    backend_evidence_trail = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__backend-evidence-trail",
+    )
+    assert backend_evidence_trail is not None
+    assert [child.text for child in backend_evidence_trail.children] == (
+        BACKEND_EVIDENCE_TRAIL_LABELS
+    )
+    assert {child.kind for child in backend_evidence_trail.children} == {"label"}
+    assert all(child.on_click is None for child in backend_evidence_trail.children)
+    assert second_render.count("Backend evidence trail") == 1
+    assert (
+        second_render.count("Fixture/local demo evidence: existing CLI surfaces") == 1
+    )
+    assert (
+        second_render.count("Inspection summary: local-alpha-dashboard-inspection") == 1
+    )
+    assert (
+        second_render.count(
+            "Static export: local-alpha-dashboard-static-demo --output local-html-file"
+        )
+        == 1
+    )
+    assert (
+        second_render.count("Gate D evidence bundle: gate-d-local-evidence-bundle") == 1
+    )
+    assert (
+        second_render.count("Gate D handoff packet: gate-d-handoff-packet-local") == 1
+    )
+    assert second_render.count("Artifact access performed: no") == 1
+    assert second_render.count("Command execution performed by page: no") == 1
+    assert second_render.count("Private data required: no") == 1
     assert second_render.count("Demo source status") == 1
     assert second_render.count("Session source: injected fixture metadata") == 1
     assert second_render.count("Event source: injected fixture metadata") == 1
@@ -1171,6 +1232,17 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     ]
     assert {child.kind for child in verification.children} == {"label"}
     assert all(child.on_click is None for child in verification.children)
+
+    backend_evidence_trail = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__backend-evidence-trail",
+    )
+    assert backend_evidence_trail is not None
+    assert [child.text for child in backend_evidence_trail.children] == (
+        BACKEND_EVIDENCE_TRAIL_LABELS
+    )
+    assert {child.kind for child in backend_evidence_trail.children} == {"label"}
+    assert all(child.on_click is None for child in backend_evidence_trail.children)
 
     source_status = _find_element_by_class(
         ui,
