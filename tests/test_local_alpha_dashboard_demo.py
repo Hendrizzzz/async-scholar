@@ -37,6 +37,18 @@ STATIC_DEMO_RUNBOOK_LINES = (
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
 )
+STATIC_DEMO_ARTIFACT_SUMMARY_LINES = (
+    "Fixture artifacts: events.jsonl, alerts.log, reviewer.md",
+    "Static dashboard artifact: local HTML export",
+    "Gate D evidence bundle: stdout metadata only",
+    "Gate D handoff packet: stdout metadata only",
+    "Archive/reviewer contents displayed: no",
+    "Private paths displayed: no",
+    "Artifact opening performed: no",
+    "Generated artifacts committed: no",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+)
 
 
 def test_dashboard_demo_module_import_is_safe() -> None:
@@ -316,6 +328,9 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Local alpha demo runbook" in first
     for runbook_line in STATIC_DEMO_RUNBOOK_LINES:
         assert runbook_line in first
+    assert "Local alpha artifact summary" in first
+    for artifact_summary_line in STATIC_DEMO_ARTIFACT_SUMMARY_LINES:
+        assert artifact_summary_line in first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -351,7 +366,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 19
+    assert html.count("<section") == 20
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -419,6 +434,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Demo verification status",
         "Backend evidence trail",
         "Local alpha demo runbook",
+        "Local alpha artifact summary",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -992,6 +1008,73 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert re.search(r"[a-z]:\\", runbook_section, flags=re.IGNORECASE) is None
     _assert_no_event_handler_attributes(runbook_section)
     assert html.index("<h2>Local alpha demo runbook</h2>") < html.index(
+        "<h2>Local alpha artifact summary</h2>"
+    )
+
+    artifact_summary_section = _section_text(html, "Local alpha artifact summary")
+    artifact_summary_visible = _visible_text(artifact_summary_section)
+    assert "Metadata unavailable." not in artifact_summary_section
+    for expected in STATIC_DEMO_ARTIFACT_SUMMARY_LINES:
+        assert expected in artifact_summary_visible
+    assert artifact_summary_section.count("events.jsonl") == 1
+    assert artifact_summary_section.count("alerts.log") == 1
+    assert artifact_summary_section.count("reviewer.md") == 1
+    assert "<button" not in artifact_summary_section.casefold()
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "c:/",
+        "\\\\",
+        "/tmp/",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "private.jsonl",
+        "session.jsonl",
+        "private-alerts.log",
+        "private-reviewer.md",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "recording",
+        "archive/reviewer contents displayed: yes",
+        "private paths displayed: yes",
+        "artifact opening performed: yes",
+        "generated artifacts committed: yes",
+        "product_judgment_evidence_status: satisfactory",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in artifact_summary_section.casefold()
+    assert re.search(r"[a-z]:\\", artifact_summary_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(artifact_summary_section)
+    assert html.index("<h2>Local alpha artifact summary</h2>") < html.index(
         "<h2>Demo timeline</h2>"
     )
 
@@ -3075,6 +3158,175 @@ def test_static_demo_runbook_helper_preserves_static_scope() -> None:
         "page executes commands",
         "artifacts are opened by the page",
         "private data required: yes",
+        "gate d passed",
+        "product_judgment_evidence_status: satisfactory",
+    ):
+        assert forbidden not in source
+
+
+def test_static_demo_artifact_summary_allows_only_exact_fixture_metadata_line() -> None:
+    demo = _demo_module()
+
+    assert demo._safe_static_demo_artifact_summary_lines() == (
+        STATIC_DEMO_ARTIFACT_SUMMARY_LINES
+    )
+    assert demo._static_demo_text_is_unsafe(
+        "Fixture artifacts: events.jsonl, alerts.log, reviewer.md"
+    )
+
+
+@pytest.mark.parametrize(
+    "unsafe_artifact_summary",
+    [
+        (
+            "Fixture artifacts: private.jsonl, alerts.log, reviewer.md",
+            "Static dashboard artifact: C:\\Users\\student\\dashboard.html",
+            "Gate D evidence bundle: stdout metadata only",
+            "Gate D handoff packet: stdout metadata only",
+            "Archive/reviewer contents displayed: yes",
+            "Private paths displayed: yes",
+            "Artifact opening performed: yes",
+            "Generated artifacts committed: yes",
+            "Gate D passed",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Traceback C:\\Users\\student\\.env token",
+            "https://meet.example.edu/class-room?token=private",
+            "cookie-value",
+            "auth-state",
+            "browser profile",
+            "Good morning, everyone. I am going to take attendance",
+            r"C:\private\lecture.wav",
+            r"C:\private\lecture.mp4",
+            "product_judgment_evidence_status: satisfactory",
+            "product judgment evidence satisfied",
+        ),
+        (),
+    ],
+)
+def test_static_demo_artifact_summary_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_artifact_summary: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_artifact_summary() -> tuple[str, ...]:
+        return unsafe_artifact_summary
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_artifact_summary_lines",
+        fake_artifact_summary,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    artifact_summary_section = _section_text(html, "Local alpha artifact summary")
+    artifact_summary_visible = _visible_text(artifact_summary_section)
+    for expected in STATIC_DEMO_ARTIFACT_SUMMARY_LINES:
+        assert expected in artifact_summary_visible
+    assert "Metadata unavailable." not in artifact_summary_section
+    lowered = artifact_summary_section.casefold()
+    for forbidden in (
+        "<script",
+        "<a ",
+        "<button",
+        "<form",
+        "<input",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "private.jsonl",
+        "c:\\",
+        "https:",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "good morning",
+        "traceback",
+        ".wav",
+        ".mp4",
+        "archive/reviewer contents displayed: yes",
+        "private paths displayed: yes",
+        "artifact opening performed: yes",
+        "generated artifacts committed: yes",
+        "gate d passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert re.search(r"[a-z]:\\", artifact_summary_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(artifact_summary_section)
+
+
+def test_static_demo_artifact_summary_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_artifact_summary() -> tuple[str, ...]:
+        raise RuntimeError("Traceback C:\\Users\\student\\.env token")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_artifact_summary_lines",
+        fake_artifact_summary,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    artifact_summary_section = _section_text(html, "Local alpha artifact summary")
+    artifact_summary_visible = _visible_text(artifact_summary_section)
+    for expected in STATIC_DEMO_ARTIFACT_SUMMARY_LINES:
+        assert expected in artifact_summary_visible
+    assert "Traceback" not in artifact_summary_section
+    assert ".env" not in artifact_summary_section
+    assert "token" not in artifact_summary_section.casefold()
+
+
+def test_static_demo_artifact_summary_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_artifact_summary_lines)
+        + inspect.getsource(demo._build_static_demo_artifact_summary_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete",
+        "open(",
+        "read_text",
+        "write_text",
+        "archive/reviewer contents displayed: yes",
+        "private paths displayed: yes",
+        "artifact opening performed: yes",
+        "generated artifacts committed: yes",
         "gate d passed",
         "product_judgment_evidence_status: satisfactory",
     ):

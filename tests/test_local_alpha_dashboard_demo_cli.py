@@ -227,6 +227,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Demo verification status</h2>" in html
     assert "<h2>Backend evidence trail</h2>" in html
     assert "<h2>Local alpha demo runbook</h2>" in html
+    assert "<h2>Local alpha artifact summary</h2>" in html
     assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
@@ -311,6 +312,14 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Commands are copied manually; the page executes none" in visible_html
     assert "Artifacts are not opened by the page" in visible_html
     assert "Private data required: no" in visible_html
+    assert "Fixture artifacts: events.jsonl, alerts.log, reviewer.md" in visible_html
+    assert "Static dashboard artifact: local HTML export" in visible_html
+    assert "Gate D evidence bundle: stdout metadata only" in visible_html
+    assert "Gate D handoff packet: stdout metadata only" in visible_html
+    assert "Archive/reviewer contents displayed: no" in visible_html
+    assert "Private paths displayed: no" in visible_html
+    assert "Artifact opening performed: no" in visible_html
+    assert "Generated artifacts committed: no" in visible_html
     assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html

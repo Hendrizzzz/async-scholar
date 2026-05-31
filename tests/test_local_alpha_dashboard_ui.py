@@ -76,6 +76,19 @@ LOCAL_ALPHA_DEMO_RUNBOOK_LABELS = [
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
 ]
+LOCAL_ALPHA_ARTIFACT_SUMMARY_LABELS = [
+    "Local alpha artifact summary",
+    "Fixture artifacts: events.jsonl, alerts.log, reviewer.md",
+    "Static dashboard artifact: local HTML export",
+    "Gate D evidence bundle: stdout metadata only",
+    "Gate D handoff packet: stdout metadata only",
+    "Archive/reviewer contents displayed: no",
+    "Private paths displayed: no",
+    "Artifact opening performed: no",
+    "Generated artifacts committed: no",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+]
 
 
 def test_local_alpha_dashboard_module_import_is_safe() -> None:
@@ -341,6 +354,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         assert backend_evidence_label in rendered
     for runbook_label in LOCAL_ALPHA_DEMO_RUNBOOK_LABELS:
         assert runbook_label in rendered
+    for artifact_summary_label in LOCAL_ALPHA_ARTIFACT_SUMMARY_LABELS:
+        assert artifact_summary_label in rendered
     assert "Attendance prompt - 12s - 88% confidence" in rendered
     assert "Urgent alert" in rendered
     assert "Status: Pending" in rendered
@@ -577,6 +592,19 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert {child.kind for child in runbook.children} == {"label"}
     assert all(child.on_click is None for child in runbook.children)
     assert ui.texts.index("Local alpha demo runbook") < ui.texts.index(
+        "Local alpha artifact summary"
+    )
+    artifact_summary = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__artifact-summary",
+    )
+    assert artifact_summary is not None
+    assert [child.text for child in artifact_summary.children] == (
+        LOCAL_ALPHA_ARTIFACT_SUMMARY_LABELS
+    )
+    assert {child.kind for child in artifact_summary.children} == {"label"}
+    assert all(child.on_click is None for child in artifact_summary.children)
+    assert ui.texts.index("Local alpha artifact summary") < ui.texts.index(
         "Attendance prompt - 12s - 88% confidence"
     )
 
@@ -932,7 +960,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Manual inspection required: yes") == 1
     assert second_render.count("Product judgment recorded: no") == 1
     assert second_render.count("AI can record product judgment: no") == 1
-    assert second_render.count("product_judgment_evidence remains blocking") == 3
+    assert second_render.count("product_judgment_evidence remains blocking") == 4
     assert second_render.count("Local demo launch") == 1
     assert second_render.count("Launch command:") == 1
     assert second_render.count("Private data read: no") == 1
@@ -990,6 +1018,28 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
         second_render.count("Commands are copied manually; the page executes none") == 1
     )
     assert second_render.count("Artifacts are not opened by the page") == 1
+    artifact_summary = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__artifact-summary",
+    )
+    assert artifact_summary is not None
+    assert [child.text for child in artifact_summary.children] == (
+        LOCAL_ALPHA_ARTIFACT_SUMMARY_LABELS
+    )
+    assert {child.kind for child in artifact_summary.children} == {"label"}
+    assert all(child.on_click is None for child in artifact_summary.children)
+    assert second_render.count("Local alpha artifact summary") == 1
+    assert (
+        second_render.count("Fixture artifacts: events.jsonl, alerts.log, reviewer.md")
+        == 1
+    )
+    assert second_render.count("Static dashboard artifact: local HTML export") == 1
+    assert second_render.count("Gate D evidence bundle: stdout metadata only") == 1
+    assert second_render.count("Gate D handoff packet: stdout metadata only") == 1
+    assert second_render.count("Archive/reviewer contents displayed: no") == 1
+    assert second_render.count("Private paths displayed: no") == 2
+    assert second_render.count("Artifact opening performed: no") == 1
+    assert second_render.count("Generated artifacts committed: no") == 1
     assert second_render.count("Demo source status") == 1
     assert second_render.count("Session source: injected fixture metadata") == 1
     assert second_render.count("Event source: injected fixture metadata") == 1
@@ -1296,6 +1346,17 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     assert [child.text for child in runbook.children] == LOCAL_ALPHA_DEMO_RUNBOOK_LABELS
     assert {child.kind for child in runbook.children} == {"label"}
     assert all(child.on_click is None for child in runbook.children)
+
+    artifact_summary = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__artifact-summary",
+    )
+    assert artifact_summary is not None
+    assert [child.text for child in artifact_summary.children] == (
+        LOCAL_ALPHA_ARTIFACT_SUMMARY_LABELS
+    )
+    assert {child.kind for child in artifact_summary.children} == {"label"}
+    assert all(child.on_click is None for child in artifact_summary.children)
 
     source_status = _find_element_by_class(
         ui,

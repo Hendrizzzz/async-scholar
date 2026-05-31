@@ -34,6 +34,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Demo verification status",
     "Backend evidence trail",
     "Local alpha demo runbook",
+    "Local alpha artifact summary",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -194,6 +195,18 @@ _STATIC_DEMO_RUNBOOK_LINES = (
     "Commands are copied manually; the page executes none",
     "Artifacts are not opened by the page",
     "Private data required: no",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_ARTIFACT_SUMMARY_LINES = (
+    "Fixture artifacts: events.jsonl, alerts.log, reviewer.md",
+    "Static dashboard artifact: local HTML export",
+    "Gate D evidence bundle: stdout metadata only",
+    "Gate D handoff packet: stdout metadata only",
+    "Archive/reviewer contents displayed: no",
+    "Private paths displayed: no",
+    "Artifact opening performed: no",
+    "Generated artifacts committed: no",
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
 )
@@ -530,6 +543,9 @@ def _build_static_demo_sections(
         _safe_static_demo_backend_evidence_trail_lines()
     )
     grouped["Local alpha demo runbook"] = list(_safe_static_demo_runbook_lines())
+    grouped["Local alpha artifact summary"] = list(
+        _safe_static_demo_artifact_summary_lines()
+    )
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
     grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
@@ -849,6 +865,28 @@ def _safe_static_demo_runbook_lines() -> tuple[str, ...]:
 
 def _build_static_demo_runbook_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_RUNBOOK_LINES
+
+
+def _safe_static_demo_artifact_summary_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_artifact_summary_lines()
+    except Exception:
+        return _STATIC_DEMO_ARTIFACT_SUMMARY_LINES
+    if lines != _STATIC_DEMO_ARTIFACT_SUMMARY_LINES:
+        return _STATIC_DEMO_ARTIFACT_SUMMARY_LINES
+    if any(_static_demo_artifact_summary_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_ARTIFACT_SUMMARY_LINES
+    return lines
+
+
+def _build_static_demo_artifact_summary_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_ARTIFACT_SUMMARY_LINES
+
+
+def _static_demo_artifact_summary_text_is_unsafe(value: object) -> bool:
+    if value == "Fixture artifacts: events.jsonl, alerts.log, reviewer.md":
+        return False
+    return _static_demo_text_is_unsafe(value)
 
 
 def _safe_static_demo_summary_status_strip_lines() -> tuple[str, ...]:
