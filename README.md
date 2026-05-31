@@ -63,12 +63,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_fixt
 
 The wrapper runs the fixture demo, writes a local static dashboard export, and
 builds the local Gate D evidence bundle and handoff packet metadata. It accepts
-optional `-OutputRoot <local-output-root>` and `-DashboardOutput
-<local-html-output>` paths. It remains local fixture-only: it does not start a
-server, open a browser, use private meeting data, deliver live alerts, perform
-real deletion, record product judgment, replace product judgment evidence, or
-pass Gate D / Product Promise Alpha. It does not replace product judgment
-evidence and does not pass Gate D / Product Promise Alpha;
+optional `-OutputRoot <local-output-root>`, `-DashboardOutput
+<local-html-output>`, and `-SummaryOutput <local-summary-json>` paths. The
+optional summary export writes a sanitized JSON summary with fixed local
+fixture-only metadata; it does not include raw command output, private paths, or
+raw Gate D JSON. It remains local fixture-only: it does not start a server, open
+a browser, use private meeting data, deliver live alerts, perform real deletion,
+record product judgment, satisfy `product_judgment_evidence`, replace product
+judgment evidence, or pass Gate D / Product Promise Alpha. The summary export
+does not satisfy `product_judgment_evidence`, does not replace product judgment
+evidence, and does not pass Gate D / Product Promise Alpha;
 `product_judgment_evidence` remains blocking.
 
 Preview a scheduled start decision without starting a scheduler:

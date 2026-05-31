@@ -14,12 +14,13 @@ function Show-LocalAlphaFixtureDemoHelp {
 AsyncScholar local alpha fixture demo
 
 Usage:
-  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_fixture_demo.ps1 [-OutputRoot <path>] [-DashboardOutput <path>]
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_fixture_demo.ps1 [-OutputRoot <path>] [-DashboardOutput <path>] [-SummaryOutput <path>]
 
 Options:
   -Help             Show this help text without invoking uv.
   -OutputRoot       Optional local fixture artifact output root. Defaults to a new folder under TEMP.
   -DashboardOutput  Optional local static dashboard HTML path. Defaults to a new file under TEMP.
+  -SummaryOutput    Optional sanitized local JSON summary path. No summary is written by default.
 
 This is a one-command wrapper around:
   uv run python -m async_scholar fixture-demo tests\fixtures\transcripts\attendance_roll_call.jsonl --output-root <local-output-root>
@@ -132,6 +133,32 @@ function Test-SafeDashboardOutput {
     return $true
 }
 
+function Test-SafeSummaryOutput {
+    param([string]$PathText)
+
+    if (-not (Test-SafeLocalPathText -PathText $PathText)) {
+        return $false
+    }
+
+    try {
+        $Parent = Split-Path -Path $PathText -Parent
+        if ([string]::IsNullOrWhiteSpace($Parent)) {
+            $Parent = "."
+        }
+        if (-not (Test-Path -LiteralPath $Parent -PathType Container)) {
+            return $false
+        }
+        if (Test-Path -LiteralPath $PathText) {
+            return $false
+        }
+    }
+    catch {
+        return $false
+    }
+
+    return $true
+}
+
 function Invoke-AsyncScholarCommand {
     param([string[]]$CliArgs)
 
@@ -148,12 +175,48 @@ function Invoke-AsyncScholarCommand {
     }
 }
 
+function Write-SanitizedSummaryOutput {
+    param([string]$PathText)
+
+    $SummaryJson = '{"browser_server_launched":"no","fixture_artifacts_generated":"yes","gate_d_evidence_bundle_status":"blocked","gate_d_handoff_packet_status":"manual_judgment_required","live_delivery_performed":"no","private_paths_included":"no","product_judgment_evidence_status":"blocking","product_judgment_recorded":"no","product_promise_alpha_status":"not_passed","raw_command_output_included":"no","static_dashboard_generated":"yes","summary_kind":"local_alpha_fixture_demo_sanitized_summary"}'
+    $FileStream = $null
+    $Writer = $null
+
+    try {
+        $FileStream = [System.IO.File]::Open(
+            $PathText,
+            [System.IO.FileMode]::CreateNew,
+            [System.IO.FileAccess]::Write,
+            [System.IO.FileShare]::None
+        )
+        $Writer = [System.IO.StreamWriter]::new(
+            $FileStream,
+            [System.Text.UTF8Encoding]::new($false)
+        )
+        $FileStream = $null
+        $Writer.Write($SummaryJson)
+    }
+    catch {
+        Write-FixedErrorAndExit
+    }
+    finally {
+        if ($null -ne $Writer) {
+            $Writer.Dispose()
+        }
+        if ($null -ne $FileStream) {
+            $FileStream.Dispose()
+        }
+    }
+}
+
 $RawArgs = @($args)
 $Suffix = [guid]::NewGuid().ToString("N")
 $OutputRoot = New-DefaultOutputRoot -Suffix $Suffix
 $DashboardOutput = New-DefaultDashboardOutput -Suffix $Suffix
+$SummaryOutput = $null
 $SeenOutputRoot = $false
 $SeenDashboardOutput = $false
+$SeenSummaryOutput = $false
 
 if ($RawArgs.Count -eq 1 -and $RawArgs[0] -eq "-Help") {
     Show-LocalAlphaFixtureDemoHelp
@@ -181,6 +244,15 @@ while ($Index -lt $RawArgs.Count) {
             $Index += 2
             continue
         }
+        "-SummaryOutput" {
+            if ($SeenSummaryOutput -or ($Index + 1) -ge $RawArgs.Count) {
+                Write-FixedErrorAndExit
+            }
+            $SummaryOutput = $RawArgs[$Index + 1]
+            $SeenSummaryOutput = $true
+            $Index += 2
+            continue
+        }
         default {
             Write-FixedErrorAndExit
         }
@@ -191,6 +263,9 @@ if (-not (Test-SafeOutputRoot -PathText $OutputRoot)) {
     Write-FixedErrorAndExit
 }
 if (-not (Test-SafeDashboardOutput -PathText $DashboardOutput)) {
+    Write-FixedErrorAndExit
+}
+if ($null -ne $SummaryOutput -and -not (Test-SafeSummaryOutput -PathText $SummaryOutput)) {
     Write-FixedErrorAndExit
 }
 
@@ -227,6 +302,10 @@ Invoke-AsyncScholarCommand -CliArgs @(
     "async_scholar",
     "gate-d-handoff-packet-local"
 )
+
+if ($null -ne $SummaryOutput) {
+    Write-SanitizedSummaryOutput -PathText $SummaryOutput
+}
 
 [Console]::Out.WriteLine("fixture demo artifacts generated")
 [Console]::Out.WriteLine("static dashboard generated")

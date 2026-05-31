@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import textwrap
@@ -19,6 +20,7 @@ def test_script_help_does_not_invoke_uv(tmp_path: Path) -> None:
     assert "AsyncScholar local alpha fixture demo" in result.stdout
     assert "-OutputRoot" in result.stdout
     assert "-DashboardOutput" in result.stdout
+    assert "-SummaryOutput" in result.stdout
     assert "product_judgment_evidence" in result.stdout
     assert "does not pass Gate D" in result.stdout
     assert not marker.exists()
@@ -79,6 +81,67 @@ def test_script_delegates_explicit_local_outputs(tmp_path: Path) -> None:
         "run python -m async_scholar local-alpha-dashboard-static-demo "
         f"--output {dashboard_output}"
     )
+
+
+def test_script_writes_sanitized_summary_output_after_success(
+    tmp_path: Path,
+) -> None:
+    marker = tmp_path / "uv-called.txt"
+    output_root = tmp_path / "secret-token-auth-profile-output"
+    dashboard_output = tmp_path / "secret-token-auth-profile-dashboard.html"
+    summary_output = tmp_path / "secret-token-auth-profile-summary.json"
+
+    result = _run_script(
+        "-OutputRoot",
+        str(output_root),
+        "-DashboardOutput",
+        str(dashboard_output),
+        "-SummaryOutput",
+        str(summary_output),
+        env=_fake_uv_env(tmp_path, marker),
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    _assert_success_summary(result.stdout)
+    assert str(summary_output) not in result.stdout
+    assert summary_output.exists()
+    assert json.loads(summary_output.read_text(encoding="utf-8")) == {
+        "browser_server_launched": "no",
+        "fixture_artifacts_generated": "yes",
+        "gate_d_evidence_bundle_status": "blocked",
+        "gate_d_handoff_packet_status": "manual_judgment_required",
+        "live_delivery_performed": "no",
+        "private_paths_included": "no",
+        "product_judgment_evidence_status": "blocking",
+        "product_judgment_recorded": "no",
+        "product_promise_alpha_status": "not_passed",
+        "raw_command_output_included": "no",
+        "static_dashboard_generated": "yes",
+        "summary_kind": "local_alpha_fixture_demo_sanitized_summary",
+    }
+    summary_text = summary_output.read_text(encoding="utf-8").casefold()
+    for forbidden in (
+        "raw fixture stdout",
+        "attendance_roll_call",
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "cookie",
+        "meet.google",
+        "traceback",
+        "ready_for_gate_review",
+        "missing_evidence",
+        "blocking_evidence",
+        "gate_d_pass_claimed",
+        "product_promise_alpha_pass_claimed",
+        str(output_root).casefold(),
+        str(dashboard_output).casefold(),
+        str(summary_output).casefold(),
+        str(tmp_path).casefold(),
+    ):
+        assert forbidden not in summary_text
 
 
 def test_script_rejects_existing_dashboard_output_without_invoking_uv(
@@ -149,9 +212,21 @@ def test_script_rejects_unsafe_paths_and_arguments_without_invoking_uv(
         ("-DashboardOutput", "http:dashboard.html"),
         ("-DashboardOutput", "//server/share/dashboard.html"),
         ("-DashboardOutput", str(tmp_path / ".." / "dashboard.html")),
+        ("-SummaryOutput", ""),
+        ("-SummaryOutput", "https://example.invalid/summary.json"),
+        ("-SummaryOutput", "file:summary.json"),
+        ("-SummaryOutput", "http:summary.json"),
+        ("-SummaryOutput", "mailto:student@example.invalid"),
+        ("-SummaryOutput", "\\\\server\\share\\summary.json"),
+        ("-SummaryOutput", "//server/share/summary.json"),
+        ("-SummaryOutput", str(tmp_path / ".." / "summary.json")),
+        ("-SummaryOutput", f"summary{chr(7)}.json"),
+        ("-SummaryOutput", "-summary.json"),
         ("-Unknown", "C:\\Users\\student\\secret-output"),
         ("-OutputRoot",),
         ("-DashboardOutput",),
+        ("-SummaryOutput",),
+        ("-SummaryOutput", str(tmp_path / "summary-a.json"), "-SummaryOutput"),
     )
 
     for index, args in enumerate(cases):
@@ -160,6 +235,68 @@ def test_script_rejects_unsafe_paths_and_arguments_without_invoking_uv(
 
         _assert_fixed_failure(result)
         assert not marker.exists()
+
+
+def test_script_rejects_invalid_summary_output_without_invoking_uv(
+    tmp_path: Path,
+) -> None:
+    existing_file = tmp_path / "summary-file.json"
+    existing_file.write_text("existing", encoding="utf-8")
+    existing_directory = tmp_path / "summary-directory.json"
+    existing_directory.mkdir()
+    missing_parent = tmp_path / "missing" / "summary.json"
+
+    cases = (
+        existing_file,
+        existing_directory,
+        missing_parent,
+    )
+
+    for index, summary_output in enumerate(cases):
+        marker = tmp_path / f"uv-called-summary-{index}.txt"
+        result = _run_script(
+            "-SummaryOutput",
+            str(summary_output),
+            env=_fake_uv_env(tmp_path, marker),
+        )
+
+        _assert_fixed_failure(result)
+        assert not marker.exists()
+
+    assert existing_file.read_text(encoding="utf-8") == "existing"
+    assert existing_directory.is_dir()
+    assert not missing_parent.exists()
+
+
+def test_script_failure_does_not_create_summary_output(tmp_path: Path) -> None:
+    summary_output = tmp_path / "summary.json"
+
+    result = _run_script(
+        "-SummaryOutput",
+        str(summary_output),
+        env=_fake_failing_uv_env(
+            tmp_path,
+            stdout_text='raw fixture stdout {"ready_for_gate_review":true}',
+            stderr_text=(
+                "Traceback C:\\Users\\student\\secret-cookie-profile "
+                "https://meet.google.com/private"
+            ),
+        ),
+    )
+
+    _assert_fixed_failure(result)
+    assert not summary_output.exists()
+    combined = f"{result.stdout}\n{result.stderr}".casefold()
+    for forbidden in (
+        "raw fixture stdout",
+        "ready_for_gate_review",
+        "traceback",
+        "secret",
+        "cookie",
+        "profile",
+        "meet.google",
+    ):
+        assert forbidden not in combined
 
 
 def test_script_sanitizes_failing_uv_output(tmp_path: Path) -> None:
@@ -253,15 +390,20 @@ def test_script_source_preserves_fixture_only_scope() -> None:
     assert "local-alpha-dashboard-static-demo" in source
     assert "gate-d-local-evidence-bundle" in source
     assert "gate-d-handoff-packet-local" in source
+    assert "summaryoutput" in source
+    assert "createnew" in source
 
 
 def test_readme_documents_local_alpha_fixture_demo_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
     assert "scripts\\run_local_alpha_fixture_demo.ps1" in readme
+    assert "-SummaryOutput <local-summary-json>" in readme
+    assert "sanitized JSON summary" in readme
     assert "fixture-demo" in readme
     assert "local-alpha-dashboard-static-demo" in readme
     assert "product_judgment_evidence" in readme
+    assert "does not satisfy `product_judgment_evidence`" in readme
     assert "does not replace product judgment evidence" in readme
     assert "does not pass Gate D / Product Promise Alpha" in readme
     assert "local fixture-only" in readme
