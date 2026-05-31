@@ -100,6 +100,16 @@ _DEMO_REVIEW_CHECKLIST_LABELS = (
     "Action execution allowed: no",
     "Product Promise Alpha not passed",
 )
+_HUMAN_JUDGMENT_NEXT_STEP_LABELS = (
+    "Human judgment next step",
+    "Manual inspection required: yes",
+    "Product judgment recorded: no",
+    "AI can complete product judgment: no",
+    "AI can record product judgment: no",
+    "product_judgment_evidence remains blocking",
+    "Action execution allowed: no",
+    "Product Promise Alpha not passed",
+)
 _CONFIRMATION_QUEUE_LABELS = (
     "Confirmation queue",
     "User confirmation required",
@@ -174,6 +184,7 @@ class LocalAlphaDashboardView:
         self._evidence_digest_container: Any | None = None
         self._manual_review_status_container: Any | None = None
         self._demo_review_checklist_container: Any | None = None
+        self._human_judgment_next_step_container: Any | None = None
         self._session_container: Any | None = None
         self._demo_source_status_container: Any | None = None
         self._local_demo_launch_container: Any | None = None
@@ -221,6 +232,9 @@ class LocalAlphaDashboardView:
             self._demo_review_checklist_container = self._ui.column().classes(
                 "async-scholar-local-alpha-dashboard__review-checklist gap-1"
             )
+            self._human_judgment_next_step_container = self._ui.column().classes(
+                "async-scholar-local-alpha-dashboard__human-judgment-next-step gap-1"
+            )
             self._session_container = self._ui.column().classes(
                 "async-scholar-local-alpha-dashboard__session gap-2"
             )
@@ -237,6 +251,7 @@ class LocalAlphaDashboardView:
             self._render_evidence_digest_panel()
             self._render_manual_review_status_panel()
             self._render_demo_review_checklist_panel()
+            self._render_human_judgment_next_step_panel()
             self._render_session_status()
             self._render_summary_status_strip()
             self._render_demo_source_status_panel()
@@ -275,6 +290,7 @@ class LocalAlphaDashboardView:
         self._render_evidence_digest_panel()
         self._render_manual_review_status_panel()
         self._render_demo_review_checklist_panel()
+        self._render_human_judgment_next_step_panel()
         self._render_session_status()
         self._render_summary_status_strip()
         self._render_demo_source_status_panel()
@@ -352,6 +368,16 @@ class LocalAlphaDashboardView:
             container.clear()
         with container:
             for label in _DEMO_REVIEW_CHECKLIST_LABELS:
+                self._ui.label(label).classes("text-sm")
+
+    def _render_human_judgment_next_step_panel(self) -> None:
+        container = self._human_judgment_next_step_container
+        if container is None:
+            return
+        if hasattr(container, "clear"):
+            container.clear()
+        with container:
+            for label in _HUMAN_JUDGMENT_NEXT_STEP_LABELS:
                 self._ui.label(label).classes("text-sm")
 
     def _render_summary_status_strip(self) -> None:

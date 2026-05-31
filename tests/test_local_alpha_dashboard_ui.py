@@ -272,6 +272,11 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Archive/reviewer metadata visible: yes" in rendered
     assert "Gate D blocker visible: product_judgment_evidence" in rendered
     assert "Human product judgment required: yes" in rendered
+    assert "Human judgment next step" in rendered
+    assert "Manual inspection required: yes" in rendered
+    assert "Product judgment recorded: no" in rendered
+    assert "AI can record product judgment: no" in rendered
+    assert "product_judgment_evidence remains blocking" in rendered
     assert "Session status" in rendered
     assert "Completed" in rendered
     assert "Fixture demo" in rendered
@@ -422,6 +427,28 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         "Demo review checklist"
     )
     assert ui.texts.index("Demo review checklist") < ui.texts.index("Session status")
+
+    human_judgment_next_step = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__human-judgment-next-step",
+    )
+    assert human_judgment_next_step is not None
+    assert [child.text for child in human_judgment_next_step.children] == [
+        "Human judgment next step",
+        "Manual inspection required: yes",
+        "Product judgment recorded: no",
+        "AI can complete product judgment: no",
+        "AI can record product judgment: no",
+        "product_judgment_evidence remains blocking",
+        "Action execution allowed: no",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in human_judgment_next_step.children} == {"label"}
+    assert all(child.on_click is None for child in human_judgment_next_step.children)
+    assert ui.texts.index("Demo review checklist") < ui.texts.index(
+        "Human judgment next step"
+    )
+    assert ui.texts.index("Human judgment next step") < ui.texts.index("Session status")
 
     source_status = _find_element_by_class(
         ui,
@@ -799,11 +826,11 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Review packet: local metadata only") == 1
     assert second_render.count("Human product judgment: required") == 1
     assert second_render.count("Final product judgment recorded: no") == 1
-    assert second_render.count("AI can complete product judgment: no") == 1
+    assert second_render.count("AI can complete product judgment: no") == 2
     assert second_render.count("Gate D blocker: product_judgment_evidence") == 1
     assert second_render.count("Private data needed for review: no") == 1
     assert second_render.count("Live services needed for review: no") == 1
-    assert second_render.count("Action execution allowed: no") == 2
+    assert second_render.count("Action execution allowed: no") == 3
     review_checklist = _find_element_by_class(
         ui,
         "async-scholar-local-alpha-dashboard__review-checklist",
@@ -829,6 +856,28 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Archive/reviewer metadata visible: yes") == 1
     assert second_render.count("Gate D blocker visible: product_judgment_evidence") == 1
     assert second_render.count("Human product judgment required: yes") == 1
+    human_judgment_next_step = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__human-judgment-next-step",
+    )
+    assert human_judgment_next_step is not None
+    assert [child.text for child in human_judgment_next_step.children] == [
+        "Human judgment next step",
+        "Manual inspection required: yes",
+        "Product judgment recorded: no",
+        "AI can complete product judgment: no",
+        "AI can record product judgment: no",
+        "product_judgment_evidence remains blocking",
+        "Action execution allowed: no",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in human_judgment_next_step.children} == {"label"}
+    assert all(child.on_click is None for child in human_judgment_next_step.children)
+    assert second_render.count("Human judgment next step") == 1
+    assert second_render.count("Manual inspection required: yes") == 1
+    assert second_render.count("Product judgment recorded: no") == 1
+    assert second_render.count("AI can record product judgment: no") == 1
+    assert second_render.count("product_judgment_evidence remains blocking") == 1
     assert second_render.count("Local demo launch") == 1
     assert second_render.count("Launch command:") == 1
     assert second_render.count("Private data read: no") == 1
@@ -1062,6 +1111,24 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     ]
     assert {child.kind for child in review_checklist.children} == {"label"}
     assert all(child.on_click is None for child in review_checklist.children)
+
+    human_judgment_next_step = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__human-judgment-next-step",
+    )
+    assert human_judgment_next_step is not None
+    assert [child.text for child in human_judgment_next_step.children] == [
+        "Human judgment next step",
+        "Manual inspection required: yes",
+        "Product judgment recorded: no",
+        "AI can complete product judgment: no",
+        "AI can record product judgment: no",
+        "product_judgment_evidence remains blocking",
+        "Action execution allowed: no",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in human_judgment_next_step.children} == {"label"}
+    assert all(child.on_click is None for child in human_judgment_next_step.children)
 
     launch = _find_element_by_class(
         ui,
