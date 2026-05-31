@@ -153,6 +153,18 @@ LOCAL_ALPHA_GATE_D_SAFETY_STATUS_INSPECTION_LABELS = [
     )
     for label in LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS
 ]
+LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS = [
+    "Local alpha demo readiness checklist",
+    "Fixture/local demo available: yes",
+    "Static dashboard export available: yes",
+    "Session status visible: yes",
+    "Detected event summary visible: yes",
+    "Alert preview requires confirmation: yes",
+    "Archive/reviewer summary visible: yes",
+    "Gate D safety status visible: yes",
+    "Product judgment required: yes",
+    "Product Promise Alpha not passed",
+]
 
 
 def test_local_alpha_dashboard_module_import_is_safe() -> None:
@@ -426,6 +438,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         assert fixture_summary_export_label in rendered
     for gate_d_safety_status_label in LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS:
         assert gate_d_safety_status_label in rendered
+    for readiness_checklist_label in LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS:
+        assert readiness_checklist_label in rendered
     assert "Attendance prompt - 12s - 88% confidence" in rendered
     assert "Urgent alert" in rendered
     assert "Status: Pending" in rendered
@@ -716,6 +730,20 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert {child.kind for child in gate_d_safety_status.children} == {"label"}
     assert all(child.on_click is None for child in gate_d_safety_status.children)
     assert ui.texts.index("Gate D safety status") < ui.texts.index(
+        "Local alpha demo readiness checklist"
+    )
+
+    readiness_checklist = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__readiness-checklist",
+    )
+    assert readiness_checklist is not None
+    assert [child.text for child in readiness_checklist.children] == (
+        LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS
+    )
+    assert {child.kind for child in readiness_checklist.children} == {"label"}
+    assert all(child.on_click is None for child in readiness_checklist.children)
+    assert ui.texts.index("Local alpha demo readiness checklist") < ui.texts.index(
         "Attendance prompt - 12s - 88% confidence"
     )
 
@@ -904,6 +932,9 @@ def test_dashboard_inspection_summary_is_metadata_only_and_no_server() -> None:
         gate_d_safety_status_label
     ) in LOCAL_ALPHA_GATE_D_SAFETY_STATUS_INSPECTION_LABELS[1:]:
         assert gate_d_safety_status_label in summary
+    assert "Local alpha demo readiness checklist" in summary
+    for readiness_checklist_label in LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS[1:]:
+        assert readiness_checklist_label in summary
     assert "Product Promise Alpha passed" not in summary
     assert "Status: Delivered" not in summary
     for private_value in PRIVATE_RENDER_VALUES:
@@ -1057,9 +1088,9 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert {child.kind for child in review_checklist.children} == {"label"}
     assert all(child.on_click is None for child in review_checklist.children)
     assert second_render.count("Demo review checklist") == 1
-    assert second_render.count("Session status visible: yes") == 1
-    assert second_render.count("Detected event summary visible: yes") == 1
-    assert second_render.count("Alert preview requires confirmation: yes") == 1
+    assert second_render.count("Session status visible: yes") == 2
+    assert second_render.count("Detected event summary visible: yes") == 2
+    assert second_render.count("Alert preview requires confirmation: yes") == 2
     assert second_render.count("Archive/reviewer metadata visible: yes") == 1
     assert second_render.count("Gate D blocker visible: product_judgment_evidence") == 1
     assert second_render.count("Human product judgment required: yes") == 1
@@ -1233,7 +1264,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     )
     assert {child.kind for child in gate_d_safety_status.children} == {"label"}
     assert all(child.on_click is None for child in gate_d_safety_status.children)
-    assert second_render.count("Gate D safety status") == 1
+    assert second_render.count("Gate D safety status") == 2
     assert second_render.count("Gate D status: blocked") == 1
     assert second_render.count("Manual product judgment required: yes") == 2
     assert second_render.count("Real online monitoring approved: no") == 1
@@ -1241,6 +1272,22 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Loopback/system audio access: no") == 1
     assert second_render.count("Academic answers: no") == 1
     assert second_render.count("Product Promise Alpha: not passed") == 1
+    readiness_checklist = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__readiness-checklist",
+    )
+    assert readiness_checklist is not None
+    assert [child.text for child in readiness_checklist.children] == (
+        LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS
+    )
+    assert {child.kind for child in readiness_checklist.children} == {"label"}
+    assert all(child.on_click is None for child in readiness_checklist.children)
+    assert second_render.count("Local alpha demo readiness checklist") == 1
+    assert second_render.count("Fixture/local demo available: yes") == 1
+    assert second_render.count("Static dashboard export available: yes") == 1
+    assert second_render.count("Archive/reviewer summary visible: yes") == 1
+    assert second_render.count("Gate D safety status visible: yes") == 1
+    assert second_render.count("Product judgment required: yes") == 1
     assert second_render.count("Demo source status") == 1
     assert second_render.count("Session source: injected fixture metadata") == 1
     assert second_render.count("Event source: injected fixture metadata") == 1
@@ -1591,6 +1638,17 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     )
     assert {child.kind for child in gate_d_safety_status.children} == {"label"}
     assert all(child.on_click is None for child in gate_d_safety_status.children)
+
+    readiness_checklist = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__readiness-checklist",
+    )
+    assert readiness_checklist is not None
+    assert [child.text for child in readiness_checklist.children] == (
+        LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS
+    )
+    assert {child.kind for child in readiness_checklist.children} == {"label"}
+    assert all(child.on_click is None for child in readiness_checklist.children)
 
     source_status = _find_element_by_class(
         ui,

@@ -93,6 +93,17 @@ STATIC_DEMO_GATE_D_SAFETY_STATUS_LINES = (
     "Academic answers: no",
     "Product Promise Alpha: not passed",
 )
+STATIC_DEMO_READINESS_CHECKLIST_LINES = (
+    "Fixture/local demo available: yes",
+    "Static dashboard export available: yes",
+    "Session status visible: yes",
+    "Detected event summary visible: yes",
+    "Alert preview requires confirmation: yes",
+    "Archive/reviewer summary visible: yes",
+    "Gate D safety status visible: yes",
+    "Product judgment required: yes",
+    "Product Promise Alpha not passed",
+)
 
 
 def test_dashboard_demo_module_import_is_safe() -> None:
@@ -386,6 +397,9 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     visible_first = _visible_text(first)
     for gate_d_safety_status_line in STATIC_DEMO_GATE_D_SAFETY_STATUS_LINES:
         assert gate_d_safety_status_line in visible_first
+    assert "Local alpha demo readiness checklist" in first
+    for readiness_line in STATIC_DEMO_READINESS_CHECKLIST_LINES:
+        assert readiness_line in visible_first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -421,7 +435,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 23
+    assert html.count("<section") == 24
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -493,6 +507,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "One-command fixture demo handoff",
         "Fixture demo summary export",
         "Gate D safety status",
+        "Local alpha demo readiness checklist",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -515,6 +530,9 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "<h2>Gate D safety status</h2>"
     )
     assert html.index("<h2>Gate D safety status</h2>") < html.index(
+        "<h2>Local alpha demo readiness checklist</h2>"
+    )
+    assert html.index("<h2>Local alpha demo readiness checklist</h2>") < html.index(
         "<h2>Demo timeline</h2>"
     )
 
@@ -655,6 +673,66 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         is None
     )
     _assert_no_event_handler_attributes(gate_d_safety_status_section)
+
+    readiness_section = _section_text(html, "Local alpha demo readiness checklist")
+    readiness_visible = _visible_text(readiness_section)
+    assert "Metadata unavailable." not in readiness_section
+    for expected in STATIC_DEMO_READINESS_CHECKLIST_LINES:
+        assert expected in readiness_visible
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "raw command output",
+        "fixture/local demo available: no",
+        "static dashboard export available: no",
+        "session status visible: no",
+        "detected event summary visible: no",
+        "alert preview requires confirmation: no",
+        "archive/reviewer summary visible: no",
+        "gate d safety status visible: no",
+        "product judgment required: no",
+        "gate d passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in readiness_section.casefold()
+    assert re.search(r"[a-z]:\\", readiness_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(readiness_section)
 
     manual_review_section = _section_text(html, "Manual review status")
     manual_review_visible = _visible_text(manual_review_section)
@@ -4078,6 +4156,168 @@ def test_static_demo_gate_d_safety_status_helper_preserves_static_scope() -> Non
         "autonomous participation: yes",
         "academic answers: yes",
         "product promise alpha: passed",
+        "product_judgment_evidence_status: satisfactory",
+    ):
+        assert forbidden not in source
+
+
+@pytest.mark.parametrize(
+    "unsafe_readiness_checklist",
+    [
+        (
+            "Fixture/local demo available: no",
+            "Static dashboard export available: no",
+            "Session status visible: no",
+            "Detected event summary visible: no",
+            "Alert preview requires confirmation: no",
+            "Archive/reviewer summary visible: no",
+            "Gate D safety status visible: no",
+            "Product judgment required: no",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Traceback C:\\Users\\student\\.env token",
+            "https://meet.example.edu/class-room?token=private",
+            "cookie-value",
+            "auth-state",
+            "browser profile",
+            "Good morning, everyone. I am going to take attendance",
+            r"C:\private\lecture.wav",
+            r"C:\private\lecture.mp4",
+            "raw command output included: yes",
+            "product_judgment_evidence_status: satisfactory",
+            "product judgment evidence satisfied",
+        ),
+        (),
+    ],
+)
+def test_static_demo_readiness_checklist_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_readiness_checklist: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_readiness_checklist() -> tuple[str, ...]:
+        return unsafe_readiness_checklist
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_readiness_checklist_lines",
+        fake_readiness_checklist,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    readiness_section = _section_text(html, "Local alpha demo readiness checklist")
+    readiness_visible = _visible_text(readiness_section)
+    for expected in STATIC_DEMO_READINESS_CHECKLIST_LINES:
+        assert expected in readiness_visible
+    assert "Metadata unavailable." not in readiness_section
+    lowered = readiness_section.casefold()
+    for forbidden in (
+        "<script",
+        "<a ",
+        "<button",
+        "<form",
+        "<input",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "c:\\",
+        "https:",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "good morning",
+        "traceback",
+        ".wav",
+        ".mp4",
+        "raw command output included: yes",
+        "fixture/local demo available: no",
+        "static dashboard export available: no",
+        "session status visible: no",
+        "detected event summary visible: no",
+        "alert preview requires confirmation: no",
+        "archive/reviewer summary visible: no",
+        "gate d safety status visible: no",
+        "product judgment required: no",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert re.search(r"[a-z]:\\", readiness_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(readiness_section)
+
+
+def test_static_demo_readiness_checklist_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_readiness_checklist() -> tuple[str, ...]:
+        raise RuntimeError("Traceback C:\\Users\\student\\.env token")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_readiness_checklist_lines",
+        fake_readiness_checklist,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    readiness_section = _section_text(html, "Local alpha demo readiness checklist")
+    readiness_visible = _visible_text(readiness_section)
+    for expected in STATIC_DEMO_READINESS_CHECKLIST_LINES:
+        assert expected in readiness_visible
+    assert "Traceback" not in readiness_section
+    assert ".env" not in readiness_section
+    assert "token" not in readiness_section.casefold()
+
+
+def test_static_demo_readiness_checklist_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_readiness_checklist_lines)
+        + inspect.getsource(demo._build_static_demo_readiness_checklist_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete/export execution: yes",
+        "fixture/local demo available: no",
+        "static dashboard export available: no",
+        "session status visible: no",
+        "detected event summary visible: no",
+        "alert preview requires confirmation: no",
+        "archive/reviewer summary visible: no",
+        "gate d safety status visible: no",
+        "product judgment required: no",
+        "product promise alpha passed",
         "product_judgment_evidence_status: satisfactory",
     ):
         assert forbidden not in source
