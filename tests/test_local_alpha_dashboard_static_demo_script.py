@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import textwrap
+from html import unescape
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -245,6 +246,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Local alpha demo runbook",
         "Local alpha artifact summary",
         "One-command fixture demo handoff",
+        "Fixture demo summary export",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -255,7 +257,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 21
+    assert html.count("<section") == 22
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -341,6 +343,20 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Raw command output displayed: no" in visible_html
     assert "User paths displayed: no" in visible_html
     assert "Browser/server launched by page: no" in visible_html
+    assert (
+        "Summary export: scripts\\run_local_alpha_fixture_demo.ps1 "
+        "-SummaryOutput <local-summary-json>" in visible_html
+    )
+    assert "Summary kind: local_alpha_fixture_demo_sanitized_summary" in visible_html
+    assert "Fixture artifacts generated: yes" in visible_html
+    assert "Static dashboard generated: yes" in visible_html
+    assert "Raw command output included: no" in visible_html
+    assert "Private paths included: no" in visible_html
+    assert "Browser/server launched: no" in visible_html
+    assert "Live delivery performed: no" in visible_html
+    assert "Product judgment recorded: no" in visible_html
+    assert "Gate D evidence bundle: blocked" in visible_html
+    assert "Gate D handoff packet: manual judgment required" in visible_html
     assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html
@@ -449,7 +465,7 @@ def _output_path_from_stdout(stdout: str) -> Path:
 
 
 def _visible_html_text(html: str) -> str:
-    return re.sub(r"<[^>]+>", "", html)
+    return unescape(re.sub(r"<[^>]+>", "", html))
 
 
 def _summary_status_strip_html(html: str) -> str:

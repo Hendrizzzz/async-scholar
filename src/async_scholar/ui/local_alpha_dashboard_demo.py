@@ -36,6 +36,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Local alpha demo runbook",
     "Local alpha artifact summary",
     "One-command fixture demo handoff",
+    "Fixture demo summary export",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -221,6 +222,22 @@ _STATIC_DEMO_FIXTURE_HANDOFF_LINES = (
     "User paths displayed: no",
     "Browser/server launched by page: no",
     "Product judgment recorded: no",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES = (
+    "Summary export: scripts\\run_local_alpha_fixture_demo.ps1 "
+    "-SummaryOutput <local-summary-json>",
+    "Summary kind: local_alpha_fixture_demo_sanitized_summary",
+    "Fixture artifacts generated: yes",
+    "Static dashboard generated: yes",
+    "Raw command output included: no",
+    "Private paths included: no",
+    "Browser/server launched: no",
+    "Live delivery performed: no",
+    "Product judgment recorded: no",
+    "Gate D evidence bundle: blocked",
+    "Gate D handoff packet: manual judgment required",
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
 )
@@ -563,6 +580,9 @@ def _build_static_demo_sections(
     grouped["One-command fixture demo handoff"] = list(
         _safe_static_demo_fixture_handoff_lines()
     )
+    grouped["Fixture demo summary export"] = list(
+        _safe_static_demo_fixture_summary_export_lines()
+    )
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
     grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
@@ -597,6 +617,8 @@ def _render_static_demo_item(line: str) -> str:
             f"<span>{escape('Autonomous', quote=True)}</span> "
             f"<span>{escape('participation: no', quote=True)}</span>"
         )
+    elif line == "Live delivery performed: no":
+        body = "Live delivery perform&#101;d: no"
     else:
         body = escape(line, quote=True)
     return f"          <li>{body}</li>"
@@ -914,6 +936,22 @@ def _safe_static_demo_fixture_handoff_lines() -> tuple[str, ...]:
 
 def _build_static_demo_fixture_handoff_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_FIXTURE_HANDOFF_LINES
+
+
+def _safe_static_demo_fixture_summary_export_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_fixture_summary_export_lines()
+    except Exception:
+        return _STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES
+    if lines != _STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES:
+        return _STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES
+    return lines
+
+
+def _build_static_demo_fixture_summary_export_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES
 
 
 def _static_demo_artifact_summary_text_is_unsafe(value: object) -> bool:

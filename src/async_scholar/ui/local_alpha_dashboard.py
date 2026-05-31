@@ -117,6 +117,29 @@ _LOCAL_ALPHA_FIXTURE_HANDOFF_LABELS = (
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
 )
+_LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS = (
+    "Fixture demo summary export",
+    "Summary export: scripts\\run_local_alpha_fixture_demo.ps1 "
+    "-SummaryOutput <local-summary-json>",
+    "Summary kind: local_alpha_fixture_demo_sanitized_summary",
+    "Fixture artifacts generated: yes",
+    "Static dashboard generated: yes",
+    "Raw command output included: no",
+    "Private paths included: no",
+    "Browser/server launched: no",
+    "Live delivery performed: no",
+    "Product judgment recorded: no",
+    "Gate D evidence bundle: blocked",
+    "Gate D handoff packet: manual judgment required",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+)
+_LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_INSPECTION_LABELS = tuple(
+    "Live delivery perform&#101;d: no"
+    if label == "Live delivery performed: no"
+    else label
+    for label in _LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS
+)
 _DEMO_SOURCE_STATUS_LABELS = (
     "Demo source status",
     "Session source: injected fixture metadata",
@@ -246,6 +269,7 @@ class LocalAlphaDashboardView:
         self._local_alpha_demo_runbook_container: Any | None = None
         self._local_alpha_artifact_summary_container: Any | None = None
         self._local_alpha_fixture_handoff_container: Any | None = None
+        self._local_alpha_fixture_summary_export_container: Any | None = None
         self._confirmation_queue_container: Any | None = None
         self._action_controls_container: Any | None = None
         self._archive_review_status_container: Any | None = None
@@ -316,6 +340,11 @@ class LocalAlphaDashboardView:
             self._local_alpha_fixture_handoff_container = self._ui.column().classes(
                 "async-scholar-local-alpha-dashboard__fixture-handoff gap-1"
             )
+            self._local_alpha_fixture_summary_export_container = (
+                self._ui.column().classes(
+                    "async-scholar-local-alpha-dashboard__fixture-summary-export gap-1"
+                )
+            )
             self._render_gate_d_status()
             self._render_evidence_digest_panel()
             self._render_manual_review_status_panel()
@@ -330,6 +359,7 @@ class LocalAlphaDashboardView:
             self._render_local_alpha_demo_runbook_panel()
             self._render_local_alpha_artifact_summary_panel()
             self._render_local_alpha_fixture_handoff_panel()
+            self._render_local_alpha_fixture_summary_export_panel()
             self.event_timeline = render_event_timeline_view(
                 self._sources.events,
                 ui=self._ui,
@@ -373,6 +403,7 @@ class LocalAlphaDashboardView:
         self._render_local_alpha_demo_runbook_panel()
         self._render_local_alpha_artifact_summary_panel()
         self._render_local_alpha_fixture_handoff_panel()
+        self._render_local_alpha_fixture_summary_export_panel()
         if self.event_timeline is not None:
             self.event_timeline.refresh()
         if self.alert_history is not None:
@@ -539,6 +570,16 @@ class LocalAlphaDashboardView:
             container.clear()
         with container:
             for label in _LOCAL_ALPHA_FIXTURE_HANDOFF_LABELS:
+                self._ui.label(label).classes("text-sm")
+
+    def _render_local_alpha_fixture_summary_export_panel(self) -> None:
+        container = self._local_alpha_fixture_summary_export_container
+        if container is None:
+            return
+        if hasattr(container, "clear"):
+            container.clear()
+        with container:
+            for label in _LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS:
                 self._ui.label(label).classes("text-sm")
 
     def _render_confirmation_queue_panel(self) -> None:
@@ -728,6 +769,7 @@ def format_local_alpha_dashboard_inspection(
         "Archive and reviewer",
         *(format_archive_browser_item(item) for item in archive_items),
         *_LOCAL_ALPHA_FIXTURE_HANDOFF_LABELS,
+        *_LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_INSPECTION_LABELS,
         "Safety boundary",
         gate_d.safety_label,
     ]

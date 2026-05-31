@@ -103,6 +103,29 @@ LOCAL_ALPHA_FIXTURE_HANDOFF_LABELS = [
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
 ]
+LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS = [
+    "Fixture demo summary export",
+    "Summary export: scripts\\run_local_alpha_fixture_demo.ps1 "
+    "-SummaryOutput <local-summary-json>",
+    "Summary kind: local_alpha_fixture_demo_sanitized_summary",
+    "Fixture artifacts generated: yes",
+    "Static dashboard generated: yes",
+    "Raw command output included: no",
+    "Private paths included: no",
+    "Browser/server launched: no",
+    "Live delivery performed: no",
+    "Product judgment recorded: no",
+    "Gate D evidence bundle: blocked",
+    "Gate D handoff packet: manual judgment required",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+]
+LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_INSPECTION_LABELS = [
+    "Live delivery perform&#101;d: no"
+    if label == "Live delivery performed: no"
+    else label
+    for label in LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS
+]
 
 
 def test_local_alpha_dashboard_module_import_is_safe() -> None:
@@ -372,6 +395,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         assert artifact_summary_label in rendered
     for fixture_handoff_label in LOCAL_ALPHA_FIXTURE_HANDOFF_LABELS:
         assert fixture_handoff_label in rendered
+    for fixture_summary_export_label in LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS:
+        assert fixture_summary_export_label in rendered
     assert "Attendance prompt - 12s - 88% confidence" in rendered
     assert "Urgent alert" in rendered
     assert "Status: Pending" in rendered
@@ -634,6 +659,20 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert {child.kind for child in fixture_handoff.children} == {"label"}
     assert all(child.on_click is None for child in fixture_handoff.children)
     assert ui.texts.index("One-command fixture demo handoff") < ui.texts.index(
+        "Fixture demo summary export"
+    )
+
+    fixture_summary_export = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__fixture-summary-export",
+    )
+    assert fixture_summary_export is not None
+    assert [child.text for child in fixture_summary_export.children] == (
+        LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS
+    )
+    assert {child.kind for child in fixture_summary_export.children} == {"label"}
+    assert all(child.on_click is None for child in fixture_summary_export.children)
+    assert ui.texts.index("Fixture demo summary export") < ui.texts.index(
         "Attendance prompt - 12s - 88% confidence"
     )
 
@@ -812,6 +851,11 @@ def test_dashboard_inspection_summary_is_metadata_only_and_no_server() -> None:
     assert "One-command fixture demo handoff" in summary
     for fixture_handoff_label in LOCAL_ALPHA_FIXTURE_HANDOFF_LABELS[1:]:
         assert fixture_handoff_label in summary
+    assert "Fixture demo summary export" in summary
+    for (
+        fixture_summary_export_label
+    ) in LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_INSPECTION_LABELS[1:]:
+        assert fixture_summary_export_label in summary
     assert "Product Promise Alpha passed" not in summary
     assert "Status: Delivered" not in summary
     for private_value in PRIVATE_RENDER_VALUES:
@@ -990,16 +1034,16 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert all(child.on_click is None for child in human_judgment_next_step.children)
     assert second_render.count("Human judgment next step") == 1
     assert second_render.count("Manual inspection required: yes") == 1
-    assert second_render.count("Product judgment recorded: no") == 2
+    assert second_render.count("Product judgment recorded: no") == 3
     assert second_render.count("AI can record product judgment: no") == 1
-    assert second_render.count("product_judgment_evidence remains blocking") == 5
+    assert second_render.count("product_judgment_evidence remains blocking") == 6
     assert second_render.count("Local demo launch") == 1
     assert second_render.count("Launch command:") == 1
     assert second_render.count("Private data read: no") == 1
     assert second_render.count("Demo verification status") == 1
     assert second_render.count("Dashboard surface: local injected UI") == 1
     assert second_render.count("Source mode: injected fixture metadata") == 1
-    assert second_render.count("Gate D evidence bundle: blocked") == 1
+    assert second_render.count("Gate D evidence bundle: blocked") == 2
     backend_evidence_trail = _find_element_by_class(
         ui,
         "async-scholar-local-alpha-dashboard__backend-evidence-trail",
@@ -1102,6 +1146,35 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Raw command output displayed: no") == 1
     assert second_render.count("User paths displayed: no") == 1
     assert second_render.count("Browser/server launched by page: no") == 1
+    fixture_summary_export = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__fixture-summary-export",
+    )
+    assert fixture_summary_export is not None
+    assert [child.text for child in fixture_summary_export.children] == (
+        LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS
+    )
+    assert {child.kind for child in fixture_summary_export.children} == {"label"}
+    assert all(child.on_click is None for child in fixture_summary_export.children)
+    assert second_render.count("Fixture demo summary export") == 1
+    assert (
+        second_render.count(
+            "Summary export: scripts\\run_local_alpha_fixture_demo.ps1 "
+            "-SummaryOutput <local-summary-json>"
+        )
+        == 1
+    )
+    assert (
+        second_render.count("Summary kind: local_alpha_fixture_demo_sanitized_summary")
+        == 1
+    )
+    assert second_render.count("Fixture artifacts generated: yes") == 1
+    assert second_render.count("Static dashboard generated: yes") == 1
+    assert second_render.count("Raw command output included: no") == 1
+    assert second_render.count("Private paths included: no") == 1
+    assert second_render.count("Browser/server launched: no") == 1
+    assert second_render.count("Live delivery performed: no") == 1
+    assert second_render.count("Gate D handoff packet: manual judgment required") == 1
     assert second_render.count("Demo source status") == 1
     assert second_render.count("Session source: injected fixture metadata") == 1
     assert second_render.count("Event source: injected fixture metadata") == 1
@@ -1419,6 +1492,28 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     )
     assert {child.kind for child in artifact_summary.children} == {"label"}
     assert all(child.on_click is None for child in artifact_summary.children)
+
+    fixture_handoff = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__fixture-handoff",
+    )
+    assert fixture_handoff is not None
+    assert [child.text for child in fixture_handoff.children] == (
+        LOCAL_ALPHA_FIXTURE_HANDOFF_LABELS
+    )
+    assert {child.kind for child in fixture_handoff.children} == {"label"}
+    assert all(child.on_click is None for child in fixture_handoff.children)
+
+    fixture_summary_export = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__fixture-summary-export",
+    )
+    assert fixture_summary_export is not None
+    assert [child.text for child in fixture_summary_export.children] == (
+        LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS
+    )
+    assert {child.kind for child in fixture_summary_export.children} == {"label"}
+    assert all(child.on_click is None for child in fixture_summary_export.children)
 
     source_status = _find_element_by_class(
         ui,

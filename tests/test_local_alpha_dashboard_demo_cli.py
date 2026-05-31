@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import types
+from html import unescape
 from pathlib import Path
 
 from async_scholar import __main__ as cli
@@ -183,6 +184,21 @@ def test_local_alpha_dashboard_inspection_prints_plain_text() -> None:
     assert "Local archive summary" in result.stdout
     assert "Reviewer available" in result.stdout
     assert "Reviewer artifact metadata only." in result.stdout
+    assert "Fixture demo summary export" in result.stdout
+    assert (
+        "Summary export: scripts\\run_local_alpha_fixture_demo.ps1 "
+        "-SummaryOutput <local-summary-json>" in result.stdout
+    )
+    assert "Summary kind: local_alpha_fixture_demo_sanitized_summary" in result.stdout
+    assert "Fixture artifacts generated: yes" in result.stdout
+    assert "Static dashboard generated: yes" in result.stdout
+    assert "Raw command output included: no" in result.stdout
+    assert "Private paths included: no" in result.stdout
+    assert "Browser/server launched: no" in result.stdout
+    assert "Live delivery perform&#101;d: no" in result.stdout
+    assert "Product judgment recorded: no" in result.stdout
+    assert "Gate D evidence bundle: blocked" in result.stdout
+    assert "Gate D handoff packet: manual judgment required" in result.stdout
     _assert_inspection_output_safe(result.stdout, result.stderr)
 
 
@@ -229,6 +245,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Local alpha demo runbook</h2>" in html
     assert "<h2>Local alpha artifact summary</h2>" in html
     assert "<h2>One-command fixture demo handoff</h2>" in html
+    assert "<h2>Fixture demo summary export</h2>" in html
     assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
@@ -332,6 +349,20 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Raw command output displayed: no" in visible_html
     assert "User paths displayed: no" in visible_html
     assert "Browser/server launched by page: no" in visible_html
+    assert (
+        "Summary export: scripts\\run_local_alpha_fixture_demo.ps1 "
+        "-SummaryOutput <local-summary-json>" in visible_html
+    )
+    assert "Summary kind: local_alpha_fixture_demo_sanitized_summary" in visible_html
+    assert "Fixture artifacts generated: yes" in visible_html
+    assert "Static dashboard generated: yes" in visible_html
+    assert "Raw command output included: no" in visible_html
+    assert "Private paths included: no" in visible_html
+    assert "Browser/server launched: no" in visible_html
+    assert "Live delivery performed: no" in visible_html
+    assert "Product judgment recorded: no" in visible_html
+    assert "Gate D evidence bundle: blocked" in visible_html
+    assert "Gate D handoff packet: manual judgment required" in visible_html
     assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html
@@ -1292,7 +1323,7 @@ def _assert_static_output_safe(stdout: str, stderr: str, html: str) -> None:
 
 
 def _visible_html_text(html: str) -> str:
-    return re.sub(r"<[^>]+>", "", html)
+    return unescape(re.sub(r"<[^>]+>", "", html))
 
 
 def _summary_status_strip_html(html: str) -> str:

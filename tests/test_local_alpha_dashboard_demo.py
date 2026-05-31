@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import textwrap
+from html import unescape
 
 import pytest
 
@@ -59,6 +60,22 @@ STATIC_DEMO_FIXTURE_HANDOFF_LINES = (
     "User paths displayed: no",
     "Browser/server launched by page: no",
     "Product judgment recorded: no",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+)
+STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES = (
+    "Summary export: scripts\\run_local_alpha_fixture_demo.ps1 "
+    "-SummaryOutput <local-summary-json>",
+    "Summary kind: local_alpha_fixture_demo_sanitized_summary",
+    "Fixture artifacts generated: yes",
+    "Static dashboard generated: yes",
+    "Raw command output included: no",
+    "Private paths included: no",
+    "Browser/server launched: no",
+    "Live delivery performed: no",
+    "Product judgment recorded: no",
+    "Gate D evidence bundle: blocked",
+    "Gate D handoff packet: manual judgment required",
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
 )
@@ -347,6 +364,10 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "One-command fixture demo handoff" in first
     for fixture_handoff_line in STATIC_DEMO_FIXTURE_HANDOFF_LINES:
         assert fixture_handoff_line in first
+    assert "Fixture demo summary export" in first
+    unescaped_first = unescape(first)
+    for summary_export_line in STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES:
+        assert summary_export_line in unescaped_first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -382,7 +403,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 21
+    assert html.count("<section") == 22
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -452,6 +473,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Local alpha demo runbook",
         "Local alpha artifact summary",
         "One-command fixture demo handoff",
+        "Fixture demo summary export",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -467,6 +489,12 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         assert marker in html
         positions.append(html.index(marker))
     assert positions == sorted(positions)
+    assert html.index("<h2>One-command fixture demo handoff</h2>") < html.index(
+        "<h2>Fixture demo summary export</h2>"
+    )
+    assert html.index("<h2>Fixture demo summary export</h2>") < html.index(
+        "<h2>Demo timeline</h2>"
+    )
 
     gate_section = _section_text(html, "Gate D safety")
     assert "Gate D not passed" in gate_section
@@ -484,6 +512,65 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Manual product judgment required: yes" in digest_section
     assert "Manual product judgment recorded: no" in digest_section
     assert "AI can complete product judgment: no" in digest_section
+
+    summary_export_section = _section_text(html, "Fixture demo summary export")
+    summary_export_visible = _visible_text(summary_export_section)
+    assert "Metadata unavailable." not in summary_export_section
+    for expected in STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES:
+        assert expected in summary_export_visible
+    assert "<button" not in summary_export_section.casefold()
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "summary json",
+        "raw command output included: yes",
+        "private paths included: yes",
+        "browser/server launched: yes",
+        "live delivery performed: yes",
+        "product judgment recorded: yes",
+        "gate d evidence bundle: passed",
+        "gate d handoff packet: completed",
+        "gate d passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in summary_export_section.casefold()
+    assert re.search(r"[a-z]:\\", summary_export_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(summary_export_section)
 
     manual_review_section = _section_text(html, "Manual review status")
     manual_review_visible = _visible_text(manual_review_section)
@@ -3479,7 +3566,7 @@ def test_static_demo_fixture_handoff_fails_closed_for_unsafe_values(
         "src=",
         "action=",
         "method=",
-        "private",
+        "private_summary",
         "c:\\",
         "https:",
         "meet.example",
@@ -3566,6 +3653,172 @@ def test_static_demo_fixture_handoff_helper_preserves_static_scope() -> None:
         "raw command output displayed: yes",
         "user paths displayed: yes",
         "browser/server launched by page: yes",
+        "product judgment recorded: yes",
+        "gate d passed",
+        "product_judgment_evidence_status: satisfactory",
+    ):
+        assert forbidden not in source
+
+
+@pytest.mark.parametrize(
+    "unsafe_summary_export",
+    [
+        (
+            "Summary export: C:\\Users\\student\\secret-token-auth-profile.json",
+            "Summary kind: private_summary",
+            "Fixture artifacts generated: yes",
+            "Static dashboard generated: yes",
+            "Raw command output included: yes",
+            "Private paths included: yes",
+            "Browser/server launched: yes",
+            "Live delivery performed: yes",
+            "Product judgment recorded: yes",
+            "Gate D evidence bundle: passed",
+            "Gate D handoff packet: completed",
+            "Gate D passed",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Traceback C:\\Users\\student\\.env token",
+            "https://meet.example.edu/class-room?token=private",
+            "cookie-value",
+            "auth-state",
+            "browser profile",
+            "Good morning, everyone. I am going to take attendance",
+            r"C:\private\lecture.wav",
+            r"C:\private\lecture.mp4",
+            "product_judgment_evidence_status: satisfactory",
+            "product judgment evidence satisfied",
+            "Product Promise Alpha passed",
+        ),
+        (),
+    ],
+)
+def test_static_demo_fixture_summary_export_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_summary_export: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_summary_export() -> tuple[str, ...]:
+        return unsafe_summary_export
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_fixture_summary_export_lines",
+        fake_summary_export,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    summary_export_section = _section_text(html, "Fixture demo summary export")
+    summary_export_visible = _visible_text(summary_export_section)
+    for expected in STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES:
+        assert expected in summary_export_visible
+    assert "Metadata unavailable." not in summary_export_section
+    lowered = summary_export_section.casefold()
+    for forbidden in (
+        "<script",
+        "<a ",
+        "<button",
+        "<form",
+        "<input",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "private_summary",
+        "c:\\",
+        "https:",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "good morning",
+        "traceback",
+        ".wav",
+        ".mp4",
+        "raw command output included: yes",
+        "private paths included: yes",
+        "browser/server launched: yes",
+        "live delivery performed: yes",
+        "product judgment recorded: yes",
+        "gate d evidence bundle: passed",
+        "gate d handoff packet: completed",
+        "gate d passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert re.search(r"[a-z]:\\", summary_export_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(summary_export_section)
+
+
+def test_static_demo_fixture_summary_export_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_summary_export() -> tuple[str, ...]:
+        raise RuntimeError("Traceback C:\\Users\\student\\.env token")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_fixture_summary_export_lines",
+        fake_summary_export,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    summary_export_section = _section_text(html, "Fixture demo summary export")
+    summary_export_visible = _visible_text(summary_export_section)
+    for expected in STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES:
+        assert expected in summary_export_visible
+    assert "Traceback" not in summary_export_section
+    assert ".env" not in summary_export_section
+    assert "token" not in summary_export_section.casefold()
+
+
+def test_static_demo_fixture_summary_export_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_fixture_summary_export_lines)
+        + inspect.getsource(demo._build_static_demo_fixture_summary_export_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete",
+        "open(",
+        "json.load",
+        "read_text",
+        "write_text",
+        "raw command output included: yes",
+        "private paths included: yes",
+        "browser/server launched: yes",
+        "live delivery performed: yes",
         "product judgment recorded: yes",
         "gate d passed",
         "product_judgment_evidence_status: satisfactory",
@@ -3706,7 +3959,7 @@ def _section_text(html: str, heading: str) -> str:
 
 
 def _visible_text(html: str) -> str:
-    return re.sub(r"<[^>]+>", "", html)
+    return unescape(re.sub(r"<[^>]+>", "", html))
 
 
 def _summary_status_strip_html(html: str) -> str:
