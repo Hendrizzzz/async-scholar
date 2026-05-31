@@ -275,6 +275,14 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Recording displayed: no" in first
     assert "Private paths displayed: no" in first
     assert "Delete/export execution: no" in first
+    assert "Demo review checklist" in first
+    assert "Session status visible: yes" in first
+    assert "Detected event summary visible: yes" in first
+    assert "Alert preview requires confirmation: yes" in first
+    assert "Archive/reviewer metadata visible: yes" in first
+    assert "Gate D blocker visible: product_judgment_evidence" in first
+    assert "Human product judgment required: yes" in first
+    assert "Action execution allowed: no" in first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -310,7 +318,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 15
+    assert html.count("<section") == 16
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -370,6 +378,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Gate D safety",
         "Evidence digest",
         "Manual review status",
+        "Demo review checklist",
         "Session status",
         "Demo source status",
         "Local demo launch",
@@ -477,6 +486,77 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "<h2>Manual review status</h2>"
     )
     assert html.index("<h2>Manual review status</h2>") < html.index(
+        "<h2>Demo review checklist</h2>"
+    )
+
+    checklist_section = _section_text(html, "Demo review checklist")
+    checklist_visible = _visible_text(checklist_section)
+    assert "Metadata unavailable." not in checklist_section
+    for expected in (
+        "Session status visible: yes",
+        "Detected event summary visible: yes",
+        "Alert preview requires confirmation: yes",
+        "Archive/reviewer metadata visible: yes",
+        "Gate D blocker visible: product_judgment_evidence",
+        "Human product judgment required: yes",
+        "Action execution allowed: no",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in checklist_visible
+    assert "<button" not in checklist_section.casefold()
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "recording",
+        "session status visible: no",
+        "detected event summary visible: no",
+        "alert preview requires confirmation: no",
+        "archive/reviewer metadata visible: no",
+        "gate d blocker visible: none",
+        "human product judgment required: no",
+        "action execution allowed: yes",
+        "gate d passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in checklist_section.casefold()
+    assert re.search(r"[a-z]:\\", checklist_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(checklist_section)
+    assert html.index("<h2>Demo review checklist</h2>") < html.index(
         "<h2>Session status</h2>"
     )
 
@@ -1644,6 +1724,143 @@ def test_static_demo_manual_review_status_fails_closed_for_helper_exception(
 
 
 @pytest.mark.parametrize(
+    "unsafe_checklist",
+    [
+        (
+            "Session status visible: no",
+            "Detected event summary visible: no",
+            "Alert preview requires confirmation: no",
+            "Archive/reviewer metadata visible: no",
+            "Gate D blocker visible: none",
+            "Human product judgment required: no",
+            "Action execution allowed: yes",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Session status visible: C:\\Users\\student\\secret-token-auth-profile",
+            "https://meet.example.edu/class-room?token=private",
+            "file:///tmp/private-checklist.jsonl",
+            "\\\\server\\share\\cookie-profile.json",
+            "Good morning, everyone. I am going to take attendance",
+            "transcript text: private class content",
+            "recording path: lecture.wav lecture.mp4 clip.png",
+            "product judgment evidence satisfied",
+        ),
+        ("Session status visible: yes",),
+        (),
+    ],
+)
+def test_static_demo_review_checklist_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_checklist: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_checklist() -> tuple[str, ...]:
+        return unsafe_checklist
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_review_checklist_lines",
+        fake_checklist,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    checklist_section = _section_text(html, "Demo review checklist")
+    checklist_visible = _visible_text(checklist_section)
+    for expected in (
+        "Session status visible: yes",
+        "Detected event summary visible: yes",
+        "Alert preview requires confirmation: yes",
+        "Archive/reviewer metadata visible: yes",
+        "Gate D blocker visible: product_judgment_evidence",
+        "Human product judgment required: yes",
+        "Action execution allowed: no",
+        "Product Promise Alpha not passed",
+    ):
+        assert expected in checklist_visible
+
+    lowered = checklist_section.casefold()
+    for forbidden in (
+        "<script",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "secret",
+        "token",
+        "auth",
+        "profile",
+        "cookie",
+        "meet.example",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript text",
+        "recording path",
+        "session status visible: no",
+        "detected event summary visible: no",
+        "alert preview requires confirmation: no",
+        "archive/reviewer metadata visible: no",
+        "gate d blocker visible: none",
+        "human product judgment required: no",
+        "action execution allowed: yes",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert "<button" not in lowered
+    _assert_no_event_handler_attributes(checklist_section)
+
+
+def test_static_demo_review_checklist_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_checklist() -> tuple[str, ...]:
+        raise RuntimeError("C:\\Users\\student\\.env token traceback")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_review_checklist_lines",
+        fake_checklist,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    checklist_section = _section_text(html, "Demo review checklist")
+    checklist_visible = _visible_text(checklist_section)
+    assert "Session status visible: yes" in checklist_visible
+    assert "Detected event summary visible: yes" in checklist_visible
+    assert "Alert preview requires confirmation: yes" in checklist_visible
+    assert "Archive/reviewer metadata visible: yes" in checklist_visible
+    assert "Gate D blocker visible: product_judgment_evidence" in checklist_visible
+    assert "Human product judgment required: yes" in checklist_visible
+    assert "Action execution allowed: no" in checklist_visible
+    assert "Product Promise Alpha not passed" in checklist_visible
+    assert "traceback" not in checklist_section.casefold()
+    assert ".env" not in checklist_section.casefold()
+    assert "token" not in checklist_section.casefold()
+
+
+@pytest.mark.parametrize(
     "unsafe_launch",
     [
         (
@@ -2008,6 +2225,47 @@ def test_static_demo_archive_review_status_helper_preserves_static_scope() -> No
         "desktop_notifier",
         "scheduler",
         "delete/export execution: yes",
+    ):
+        assert forbidden not in source
+
+
+def test_static_demo_review_checklist_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_review_checklist_lines)
+        + inspect.getsource(demo._build_static_demo_review_checklist_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete",
+        "session status visible: no",
+        "detected event summary visible: no",
+        "alert preview requires confirmation: no",
+        "archive/reviewer metadata visible: no",
+        "gate d blocker visible: none",
+        "human product judgment required: no",
+        "action execution allowed: yes",
     ):
         assert forbidden not in source
 

@@ -219,6 +219,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Gate D safety</h2>" in html
     assert "<h2>Evidence digest</h2>" in html
     assert "<h2>Manual review status</h2>" in html
+    assert "<h2>Demo review checklist</h2>" in html
     assert "<h2>Session status</h2>" in html
     assert "<h2>Demo source status</h2>" in html
     assert "<h2>Local demo launch</h2>" in html
@@ -246,6 +247,12 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Private data needed for review: no" in html
     assert "Live services needed for review: no" in html
     assert "Action execution allowed: no" in html
+    assert "Session status visible: yes" in html
+    assert "Detected event summary visible: yes" in html
+    assert "Alert preview requires confirmation: yes" in html
+    assert "Archive/reviewer metadata visible: yes" in html
+    assert "Gate D blocker visible: product_judgment_evidence" in html
+    assert "Human product judgment required: yes" in html
     assert "Run status: Completed" in html
     assert "Session source: fixed fixture metadata" in html
     assert "Event source: fixed fixture metadata" in html

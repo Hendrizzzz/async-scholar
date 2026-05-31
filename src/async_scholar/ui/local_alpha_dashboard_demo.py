@@ -26,6 +26,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Gate D safety",
     "Evidence digest",
     "Manual review status",
+    "Demo review checklist",
     "Session status",
     "Demo source status",
     "Local demo launch",
@@ -113,6 +114,16 @@ _STATIC_DEMO_MANUAL_REVIEW_STATUS_LINES = (
     "Gate D blocker: product_judgment_evidence",
     "Private data needed for review: no",
     "Live services needed for review: no",
+    "Action execution allowed: no",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_REVIEW_CHECKLIST_LINES = (
+    "Session status visible: yes",
+    "Detected event summary visible: yes",
+    "Alert preview requires confirmation: yes",
+    "Archive/reviewer metadata visible: yes",
+    "Gate D blocker visible: product_judgment_evidence",
+    "Human product judgment required: yes",
     "Action execution allowed: no",
     "Product Promise Alpha not passed",
 )
@@ -470,6 +481,7 @@ def _build_static_demo_sections(
         grouped["Session status"] = intro_lines + grouped["Session status"]
     grouped["Evidence digest"] = list(_build_static_demo_evidence_digest_lines())
     grouped["Manual review status"] = list(_safe_static_demo_manual_review_lines())
+    grouped["Demo review checklist"] = list(_safe_static_demo_review_checklist_lines())
     grouped["Demo source status"] = list(_safe_static_demo_source_status_lines())
     grouped["Local demo launch"] = list(_safe_static_demo_local_launch_lines())
     grouped["Demo verification status"] = list(
@@ -682,6 +694,22 @@ def _safe_static_demo_manual_review_lines() -> tuple[str, ...]:
 
 def _build_static_demo_manual_review_status_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_MANUAL_REVIEW_STATUS_LINES
+
+
+def _safe_static_demo_review_checklist_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_review_checklist_lines()
+    except Exception:
+        return _STATIC_DEMO_REVIEW_CHECKLIST_LINES
+    if lines != _STATIC_DEMO_REVIEW_CHECKLIST_LINES:
+        return _STATIC_DEMO_REVIEW_CHECKLIST_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_REVIEW_CHECKLIST_LINES
+    return lines
+
+
+def _build_static_demo_review_checklist_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_REVIEW_CHECKLIST_LINES
 
 
 def _safe_static_demo_source_status_lines() -> tuple[str, ...]:
