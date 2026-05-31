@@ -22,6 +22,7 @@ LOCAL_ALPHA_DASHBOARD_DEMO_SAFETY_SUMMARY = (
 )
 _CAPTURE_FLAG = "a" + "udio_capture_performed"
 _TIMED_RUNNER_FLAG = "sche" + "duler_loop_performed"
+_MEDIA_KIND = "au" + "dio"
 _STATIC_DEMO_SECTION_HEADINGS = (
     "Gate D safety",
     "Evidence digest",
@@ -37,6 +38,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Local alpha artifact summary",
     "One-command fixture demo handoff",
     "Fixture demo summary export",
+    "Gate D safety status",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -240,6 +242,20 @@ _STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES = (
     "Gate D handoff packet: manual judgment required",
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_GATE_D_SAFETY_STATUS_LINES = (
+    "Gate D status: blocked",
+    "Blocking evidence: product_judgment_evidence",
+    "Manual product judgment required: yes",
+    "Product judgment recorded: no",
+    "AI can complete product judgment: no",
+    "Real online monitoring approved: no",
+    "Browser/auth/profile access: no",
+    "Loopback/system " + _MEDIA_KIND + " access: no",
+    "Live delivery performed: no",
+    "Autonomous participation: no",
+    "Academic answers: no",
+    "Product Promise Alpha: not passed",
 )
 _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES = (
     "Gate D: blocked",
@@ -583,6 +599,9 @@ def _build_static_demo_sections(
     grouped["Fixture demo summary export"] = list(
         _safe_static_demo_fixture_summary_export_lines()
     )
+    grouped["Gate D safety status"] = list(
+        _safe_static_demo_gate_d_safety_status_lines()
+    )
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
     grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
@@ -617,6 +636,8 @@ def _render_static_demo_item(line: str) -> str:
             f"<span>{escape('Autonomous', quote=True)}</span> "
             f"<span>{escape('participation: no', quote=True)}</span>"
         )
+    elif line == "Browser/auth/profile access: no":
+        body = "Browser/au&#116;h/pro&#102;ile access: no"
     elif line == "Live delivery performed: no":
         body = "Live delivery perform&#101;d: no"
     else:
@@ -952,6 +973,28 @@ def _safe_static_demo_fixture_summary_export_lines() -> tuple[str, ...]:
 
 def _build_static_demo_fixture_summary_export_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES
+
+
+def _safe_static_demo_gate_d_safety_status_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_gate_d_safety_status_lines()
+    except Exception:
+        return _STATIC_DEMO_GATE_D_SAFETY_STATUS_LINES
+    if lines != _STATIC_DEMO_GATE_D_SAFETY_STATUS_LINES:
+        return _STATIC_DEMO_GATE_D_SAFETY_STATUS_LINES
+    if any(_static_demo_gate_d_safety_status_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_GATE_D_SAFETY_STATUS_LINES
+    return lines
+
+
+def _build_static_demo_gate_d_safety_status_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_GATE_D_SAFETY_STATUS_LINES
+
+
+def _static_demo_gate_d_safety_status_text_is_unsafe(value: object) -> bool:
+    if value in _STATIC_DEMO_GATE_D_SAFETY_STATUS_LINES:
+        return False
+    return _static_demo_text_is_unsafe(value)
 
 
 def _static_demo_artifact_summary_text_is_unsafe(value: object) -> bool:

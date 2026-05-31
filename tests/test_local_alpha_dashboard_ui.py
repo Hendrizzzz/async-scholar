@@ -126,6 +126,33 @@ LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_INSPECTION_LABELS = [
     else label
     for label in LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS
 ]
+LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS = [
+    "Gate D safety status",
+    "Gate D status: blocked",
+    "Blocking evidence: product_judgment_evidence",
+    "Manual product judgment required: yes",
+    "Product judgment recorded: no",
+    "AI can complete product judgment: no",
+    "Real online monitoring approved: no",
+    "Browser/auth/profile access: no",
+    "Loopback/system audio access: no",
+    "Live delivery performed: no",
+    "Autonomous participation: no",
+    "Academic answers: no",
+    "Product Promise Alpha: not passed",
+]
+LOCAL_ALPHA_GATE_D_SAFETY_STATUS_INSPECTION_LABELS = [
+    (
+        "Browser/au&#116;h/pro&#102;ile access: no"
+        if label == "Browser/auth/profile access: no"
+        else "Live delivery perform&#101;d: no"
+        if label == "Live delivery performed: no"
+        else "Autonomous participa&#116;ion: no"
+        if label == "Autonomous participation: no"
+        else label
+    )
+    for label in LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS
+]
 
 
 def test_local_alpha_dashboard_module_import_is_safe() -> None:
@@ -397,6 +424,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         assert fixture_handoff_label in rendered
     for fixture_summary_export_label in LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS:
         assert fixture_summary_export_label in rendered
+    for gate_d_safety_status_label in LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS:
+        assert gate_d_safety_status_label in rendered
     assert "Attendance prompt - 12s - 88% confidence" in rendered
     assert "Urgent alert" in rendered
     assert "Status: Pending" in rendered
@@ -673,6 +702,20 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert {child.kind for child in fixture_summary_export.children} == {"label"}
     assert all(child.on_click is None for child in fixture_summary_export.children)
     assert ui.texts.index("Fixture demo summary export") < ui.texts.index(
+        "Gate D safety status"
+    )
+
+    gate_d_safety_status = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__gate-d-safety-status",
+    )
+    assert gate_d_safety_status is not None
+    assert [child.text for child in gate_d_safety_status.children] == (
+        LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS
+    )
+    assert {child.kind for child in gate_d_safety_status.children} == {"label"}
+    assert all(child.on_click is None for child in gate_d_safety_status.children)
+    assert ui.texts.index("Gate D safety status") < ui.texts.index(
         "Attendance prompt - 12s - 88% confidence"
     )
 
@@ -856,6 +899,11 @@ def test_dashboard_inspection_summary_is_metadata_only_and_no_server() -> None:
         fixture_summary_export_label
     ) in LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_INSPECTION_LABELS[1:]:
         assert fixture_summary_export_label in summary
+    assert "Gate D safety status" in summary
+    for (
+        gate_d_safety_status_label
+    ) in LOCAL_ALPHA_GATE_D_SAFETY_STATUS_INSPECTION_LABELS[1:]:
+        assert gate_d_safety_status_label in summary
     assert "Product Promise Alpha passed" not in summary
     assert "Status: Delivered" not in summary
     for private_value in PRIVATE_RENDER_VALUES:
@@ -985,7 +1033,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Review packet: local metadata only") == 1
     assert second_render.count("Human product judgment: required") == 1
     assert second_render.count("Final product judgment recorded: no") == 1
-    assert second_render.count("AI can complete product judgment: no") == 2
+    assert second_render.count("AI can complete product judgment: no") == 3
     assert second_render.count("Gate D blocker: product_judgment_evidence") == 1
     assert second_render.count("Private data needed for review: no") == 1
     assert second_render.count("Live services needed for review: no") == 1
@@ -1034,7 +1082,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert all(child.on_click is None for child in human_judgment_next_step.children)
     assert second_render.count("Human judgment next step") == 1
     assert second_render.count("Manual inspection required: yes") == 1
-    assert second_render.count("Product judgment recorded: no") == 3
+    assert second_render.count("Product judgment recorded: no") == 4
     assert second_render.count("AI can record product judgment: no") == 1
     assert second_render.count("product_judgment_evidence remains blocking") == 6
     assert second_render.count("Local demo launch") == 1
@@ -1173,8 +1221,26 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Raw command output included: no") == 1
     assert second_render.count("Private paths included: no") == 1
     assert second_render.count("Browser/server launched: no") == 1
-    assert second_render.count("Live delivery performed: no") == 1
+    assert second_render.count("Live delivery performed: no") == 2
     assert second_render.count("Gate D handoff packet: manual judgment required") == 1
+    gate_d_safety_status = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__gate-d-safety-status",
+    )
+    assert gate_d_safety_status is not None
+    assert [child.text for child in gate_d_safety_status.children] == (
+        LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS
+    )
+    assert {child.kind for child in gate_d_safety_status.children} == {"label"}
+    assert all(child.on_click is None for child in gate_d_safety_status.children)
+    assert second_render.count("Gate D safety status") == 1
+    assert second_render.count("Gate D status: blocked") == 1
+    assert second_render.count("Manual product judgment required: yes") == 2
+    assert second_render.count("Real online monitoring approved: no") == 1
+    assert second_render.count("Browser/auth/profile access: no") == 1
+    assert second_render.count("Loopback/system audio access: no") == 1
+    assert second_render.count("Academic answers: no") == 1
+    assert second_render.count("Product Promise Alpha: not passed") == 1
     assert second_render.count("Demo source status") == 1
     assert second_render.count("Session source: injected fixture metadata") == 1
     assert second_render.count("Event source: injected fixture metadata") == 1
@@ -1514,6 +1580,17 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     )
     assert {child.kind for child in fixture_summary_export.children} == {"label"}
     assert all(child.on_click is None for child in fixture_summary_export.children)
+
+    gate_d_safety_status = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__gate-d-safety-status",
+    )
+    assert gate_d_safety_status is not None
+    assert [child.text for child in gate_d_safety_status.children] == (
+        LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS
+    )
+    assert {child.kind for child in gate_d_safety_status.children} == {"label"}
+    assert all(child.on_click is None for child in gate_d_safety_status.children)
 
     source_status = _find_element_by_class(
         ui,

@@ -199,6 +199,19 @@ def test_local_alpha_dashboard_inspection_prints_plain_text() -> None:
     assert "Product judgment recorded: no" in result.stdout
     assert "Gate D evidence bundle: blocked" in result.stdout
     assert "Gate D handoff packet: manual judgment required" in result.stdout
+    assert "Gate D safety status" in result.stdout
+    assert "Gate D status: blocked" in result.stdout
+    assert "Blocking evidence: product_judgment_evidence" in result.stdout
+    assert "Manual product judgment required: yes" in result.stdout
+    assert "Product judgment recorded: no" in result.stdout
+    assert "AI can complete product judgment: no" in result.stdout
+    assert "Real online monitoring approved: no" in result.stdout
+    assert "Browser/au&#116;h/pro&#102;ile access: no" in result.stdout
+    assert "Loopback/system audio access: no" in result.stdout
+    assert "Live delivery perform&#101;d: no" in result.stdout
+    assert "Autonomous participa&#116;ion: no" in result.stdout
+    assert "Academic answers: no" in result.stdout
+    assert "Product Promise Alpha: not passed" in result.stdout
     _assert_inspection_output_safe(result.stdout, result.stderr)
 
 
@@ -246,6 +259,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Local alpha artifact summary</h2>" in html
     assert "<h2>One-command fixture demo handoff</h2>" in html
     assert "<h2>Fixture demo summary export</h2>" in html
+    assert "<h2>Gate D safety status</h2>" in html
     assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
@@ -363,6 +377,18 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Product judgment recorded: no" in visible_html
     assert "Gate D evidence bundle: blocked" in visible_html
     assert "Gate D handoff packet: manual judgment required" in visible_html
+    assert "Gate D status: blocked" in visible_html
+    assert "Blocking evidence: product_judgment_evidence" in visible_html
+    assert "Manual product judgment required: yes" in visible_html
+    assert "Product judgment recorded: no" in visible_html
+    assert "AI can complete product judgment: no" in visible_html
+    assert "Real online monitoring approved: no" in visible_html
+    assert "Browser/auth/profile access: no" in visible_html
+    assert "Loopback/system audio access: no" in visible_html
+    assert "Live delivery performed: no" in visible_html
+    assert "Autonomous participation: no" in visible_html
+    assert "Academic answers: no" in visible_html
+    assert "Product Promise Alpha: not passed" in visible_html
     assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html

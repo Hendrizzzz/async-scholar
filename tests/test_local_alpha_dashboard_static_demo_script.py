@@ -247,6 +247,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Local alpha artifact summary",
         "One-command fixture demo handoff",
         "Fixture demo summary export",
+        "Gate D safety status",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -257,7 +258,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 22
+    assert html.count("<section") == 23
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -357,6 +358,18 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Product judgment recorded: no" in visible_html
     assert "Gate D evidence bundle: blocked" in visible_html
     assert "Gate D handoff packet: manual judgment required" in visible_html
+    assert "Gate D status: blocked" in visible_html
+    assert "Blocking evidence: product_judgment_evidence" in visible_html
+    assert "Manual product judgment required: yes" in visible_html
+    assert "Product judgment recorded: no" in visible_html
+    assert "AI can complete product judgment: no" in visible_html
+    assert "Real online monitoring approved: no" in visible_html
+    assert "Browser/auth/profile access: no" in visible_html
+    assert "Loopback/system audio access: no" in visible_html
+    assert "Live delivery performed: no" in visible_html
+    assert "Autonomous participation: no" in visible_html
+    assert "Academic answers: no" in visible_html
+    assert "Product Promise Alpha: not passed" in visible_html
     assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html
