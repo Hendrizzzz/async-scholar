@@ -55,6 +55,22 @@ data/sessions/fixture_attendance_roll_call/alerts.log
 data/sessions/fixture_attendance_roll_call/reviewer.md
 ```
 
+Run the local alpha fixture-only demo wrapper:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_fixture_demo.ps1
+```
+
+The wrapper runs the fixture demo, writes a local static dashboard export, and
+builds the local Gate D evidence bundle and handoff packet metadata. It accepts
+optional `-OutputRoot <local-output-root>` and `-DashboardOutput
+<local-html-output>` paths. It remains local fixture-only: it does not start a
+server, open a browser, use private meeting data, deliver live alerts, perform
+real deletion, record product judgment, replace product judgment evidence, or
+pass Gate D / Product Promise Alpha. It does not replace product judgment
+evidence and does not pass Gate D / Product Promise Alpha;
+`product_judgment_evidence` remains blocking.
+
 Preview a scheduled start decision without starting a scheduler:
 
 ```powershell

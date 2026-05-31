@@ -1,0 +1,237 @@
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$ScriptError = "local alpha fixture demo script could not be built"
+$FixturePath = "tests\fixtures\transcripts\attendance_roll_call.jsonl"
+
+function Write-FixedErrorAndExit {
+    [Console]::Error.WriteLine($ScriptError)
+    exit 1
+}
+
+function Show-LocalAlphaFixtureDemoHelp {
+    @"
+AsyncScholar local alpha fixture demo
+
+Usage:
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_fixture_demo.ps1 [-OutputRoot <path>] [-DashboardOutput <path>]
+
+Options:
+  -Help             Show this help text without invoking uv.
+  -OutputRoot       Optional local fixture artifact output root. Defaults to a new folder under TEMP.
+  -DashboardOutput  Optional local static dashboard HTML path. Defaults to a new file under TEMP.
+
+This is a one-command wrapper around:
+  uv run python -m async_scholar fixture-demo tests\fixtures\transcripts\attendance_roll_call.jsonl --output-root <local-output-root>
+  uv run python -m async_scholar local-alpha-dashboard-static-demo --output <local-html-output>
+  uv run python -m async_scholar gate-d-local-evidence-bundle
+  uv run python -m async_scholar gate-d-handoff-packet-local
+
+Gate D remains blocked on product_judgment_evidence. This script does not pass Gate D
+or Product Promise Alpha, start a server, open a browser, access external meetings,
+access private data, capture media, deliver live alerts, run schedulers, delete or
+export files, participate autonomously, record product judgment, or answer academic
+questions.
+"@
+}
+
+function New-DefaultOutputRoot {
+    param([string]$Suffix)
+
+    $TempRoot = [System.IO.Path]::GetTempPath()
+    Join-Path -Path $TempRoot -ChildPath "async-scholar-local-alpha-fixture-demo-$Suffix"
+}
+
+function New-DefaultDashboardOutput {
+    param([string]$Suffix)
+
+    $TempRoot = [System.IO.Path]::GetTempPath()
+    Join-Path -Path $TempRoot -ChildPath "async-scholar-local-alpha-fixture-demo-dashboard-$Suffix.html"
+}
+
+function Test-SafeLocalPathText {
+    param([string]$PathText)
+
+    if ([string]::IsNullOrWhiteSpace($PathText)) {
+        return $false
+    }
+    if ($PathText.StartsWith("-")) {
+        return $false
+    }
+    if ($PathText -match "://") {
+        return $false
+    }
+    if (($PathText -match '^[A-Za-z][A-Za-z0-9+.-]*:') -and ($PathText -notmatch '^[A-Za-z]:[\\/]')) {
+        return $false
+    }
+    if ($PathText.StartsWith("\\") -or $PathText.StartsWith("//")) {
+        return $false
+    }
+    $PathSegments = $PathText -split '[\\/]'
+    if ($PathSegments -contains "..") {
+        return $false
+    }
+    foreach ($Character in $PathText.ToCharArray()) {
+        if ([int][char]$Character -lt 32) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
+function Test-SafeOutputRoot {
+    param([string]$PathText)
+
+    if (-not (Test-SafeLocalPathText -PathText $PathText)) {
+        return $false
+    }
+
+    try {
+        $Parent = Split-Path -Path $PathText -Parent
+        if ([string]::IsNullOrWhiteSpace($Parent)) {
+            $Parent = "."
+        }
+        if (-not (Test-Path -LiteralPath $Parent -PathType Container)) {
+            return $false
+        }
+        if (Test-Path -LiteralPath $PathText -PathType Leaf) {
+            return $false
+        }
+    }
+    catch {
+        return $false
+    }
+
+    return $true
+}
+
+function Test-SafeDashboardOutput {
+    param([string]$PathText)
+
+    if (-not (Test-SafeLocalPathText -PathText $PathText)) {
+        return $false
+    }
+
+    try {
+        $Parent = Split-Path -Path $PathText -Parent
+        if ([string]::IsNullOrWhiteSpace($Parent)) {
+            $Parent = "."
+        }
+        if (-not (Test-Path -LiteralPath $Parent -PathType Container)) {
+            return $false
+        }
+        if (Test-Path -LiteralPath $PathText) {
+            return $false
+        }
+    }
+    catch {
+        return $false
+    }
+
+    return $true
+}
+
+function Invoke-AsyncScholarCommand {
+    param([string[]]$CliArgs)
+
+    try {
+        $CommandOutput = & uv @CliArgs 2>&1
+        $CommandExitCode = $LASTEXITCODE
+    }
+    catch {
+        Write-FixedErrorAndExit
+    }
+
+    if ($CommandExitCode -ne 0) {
+        Write-FixedErrorAndExit
+    }
+}
+
+$RawArgs = @($args)
+$Suffix = [guid]::NewGuid().ToString("N")
+$OutputRoot = New-DefaultOutputRoot -Suffix $Suffix
+$DashboardOutput = New-DefaultDashboardOutput -Suffix $Suffix
+$SeenOutputRoot = $false
+$SeenDashboardOutput = $false
+
+if ($RawArgs.Count -eq 1 -and $RawArgs[0] -eq "-Help") {
+    Show-LocalAlphaFixtureDemoHelp
+    exit 0
+}
+
+$Index = 0
+while ($Index -lt $RawArgs.Count) {
+    switch ($RawArgs[$Index]) {
+        "-OutputRoot" {
+            if ($SeenOutputRoot -or ($Index + 1) -ge $RawArgs.Count) {
+                Write-FixedErrorAndExit
+            }
+            $OutputRoot = $RawArgs[$Index + 1]
+            $SeenOutputRoot = $true
+            $Index += 2
+            continue
+        }
+        "-DashboardOutput" {
+            if ($SeenDashboardOutput -or ($Index + 1) -ge $RawArgs.Count) {
+                Write-FixedErrorAndExit
+            }
+            $DashboardOutput = $RawArgs[$Index + 1]
+            $SeenDashboardOutput = $true
+            $Index += 2
+            continue
+        }
+        default {
+            Write-FixedErrorAndExit
+        }
+    }
+}
+
+if (-not (Test-SafeOutputRoot -PathText $OutputRoot)) {
+    Write-FixedErrorAndExit
+}
+if (-not (Test-SafeDashboardOutput -PathText $DashboardOutput)) {
+    Write-FixedErrorAndExit
+}
+
+Invoke-AsyncScholarCommand -CliArgs @(
+    "run",
+    "python",
+    "-m",
+    "async_scholar",
+    "fixture-demo",
+    $FixturePath,
+    "--output-root",
+    $OutputRoot
+)
+Invoke-AsyncScholarCommand -CliArgs @(
+    "run",
+    "python",
+    "-m",
+    "async_scholar",
+    "local-alpha-dashboard-static-demo",
+    "--output",
+    $DashboardOutput
+)
+Invoke-AsyncScholarCommand -CliArgs @(
+    "run",
+    "python",
+    "-m",
+    "async_scholar",
+    "gate-d-local-evidence-bundle"
+)
+Invoke-AsyncScholarCommand -CliArgs @(
+    "run",
+    "python",
+    "-m",
+    "async_scholar",
+    "gate-d-handoff-packet-local"
+)
+
+[Console]::Out.WriteLine("fixture demo artifacts generated")
+[Console]::Out.WriteLine("static dashboard generated")
+[Console]::Out.WriteLine("Gate D evidence bundle remains blocked")
+[Console]::Out.WriteLine("Gate D handoff packet still requires manual judgment")
+[Console]::Out.WriteLine("product_judgment_evidence remains blocking")
+[Console]::Out.WriteLine("Product Promise Alpha not passed")
+exit 0
