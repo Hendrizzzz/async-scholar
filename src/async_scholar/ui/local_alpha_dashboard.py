@@ -218,6 +218,20 @@ _LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_INSPECTION_LABELS = tuple(
     else label
     for label in _LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS
 )
+_LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS = (
+    "Local alpha demo review snapshot",
+    "Review scope: local alpha demo only",
+    "Input mode: fixed fixture metadata",
+    "Session status: visible",
+    "Detected event summary: visible",
+    "Alert confirmation: required",
+    "Archive/reviewer summary: visible",
+    "Live services: not used",
+    "Private content: not displayed",
+    "Gate D: blocked on product_judgment_evidence",
+    "Product judgment: human-only",
+    "Product Promise Alpha not passed",
+)
 _DEMO_SOURCE_STATUS_LABELS = (
     "Demo source status",
     "Session source: injected fixture metadata",
@@ -352,6 +366,7 @@ class LocalAlphaDashboardView:
         self._local_alpha_readiness_checklist_container: Any | None = None
         self._local_alpha_human_judgment_handoff_container: Any | None = None
         self._local_alpha_product_loop_summary_container: Any | None = None
+        self._local_alpha_review_snapshot_container: Any | None = None
         self._confirmation_queue_container: Any | None = None
         self._action_controls_container: Any | None = None
         self._archive_review_status_container: Any | None = None
@@ -445,6 +460,9 @@ class LocalAlphaDashboardView:
                     "async-scholar-local-alpha-dashboard__product-loop-summary gap-1"
                 )
             )
+            self._local_alpha_review_snapshot_container = self._ui.column().classes(
+                "async-scholar-local-alpha-dashboard__review-snapshot gap-1"
+            )
             self._render_gate_d_status()
             self._render_evidence_digest_panel()
             self._render_manual_review_status_panel()
@@ -464,6 +482,7 @@ class LocalAlphaDashboardView:
             self._render_local_alpha_readiness_checklist_panel()
             self._render_local_alpha_human_judgment_handoff_panel()
             self._render_local_alpha_product_loop_summary_panel()
+            self._render_local_alpha_review_snapshot_panel()
             self.event_timeline = render_event_timeline_view(
                 self._sources.events,
                 ui=self._ui,
@@ -512,6 +531,7 @@ class LocalAlphaDashboardView:
         self._render_local_alpha_readiness_checklist_panel()
         self._render_local_alpha_human_judgment_handoff_panel()
         self._render_local_alpha_product_loop_summary_panel()
+        self._render_local_alpha_review_snapshot_panel()
         if self.event_timeline is not None:
             self.event_timeline.refresh()
         if self.alert_history is not None:
@@ -730,6 +750,16 @@ class LocalAlphaDashboardView:
             for label in _LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS:
                 self._ui.label(label).classes("text-sm")
 
+    def _render_local_alpha_review_snapshot_panel(self) -> None:
+        container = self._local_alpha_review_snapshot_container
+        if container is None:
+            return
+        if hasattr(container, "clear"):
+            container.clear()
+        with container:
+            for label in _LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS:
+                self._ui.label(label).classes("text-sm")
+
     def _render_confirmation_queue_panel(self) -> None:
         container = self._confirmation_queue_container
         if container is None:
@@ -922,6 +952,7 @@ def format_local_alpha_dashboard_inspection(
         *_LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS,
         *_LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_INSPECTION_LABELS,
         *_LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_INSPECTION_LABELS,
+        *_LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS,
         "Safety boundary",
         gate_d.safety_label,
     ]

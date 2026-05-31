@@ -203,6 +203,20 @@ LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_INSPECTION_LABELS = [
     else label
     for label in LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS
 ]
+LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS = [
+    "Local alpha demo review snapshot",
+    "Review scope: local alpha demo only",
+    "Input mode: fixed fixture metadata",
+    "Session status: visible",
+    "Detected event summary: visible",
+    "Alert confirmation: required",
+    "Archive/reviewer summary: visible",
+    "Live services: not used",
+    "Private content: not displayed",
+    "Gate D: blocked on product_judgment_evidence",
+    "Product judgment: human-only",
+    "Product Promise Alpha not passed",
+]
 
 
 def test_local_alpha_dashboard_module_import_is_safe() -> None:
@@ -482,6 +496,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         assert handoff_label in rendered
     for product_loop_label in LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS:
         assert product_loop_label in rendered
+    for review_snapshot_label in LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS:
+        assert review_snapshot_label in rendered
     assert "Attendance prompt - 12s - 88% confidence" in rendered
     assert "Urgent alert" in rendered
     assert "Status: Pending" in rendered
@@ -814,6 +830,20 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert {child.kind for child in product_loop_summary.children} == {"label"}
     assert all(child.on_click is None for child in product_loop_summary.children)
     assert ui.texts.index("Local alpha product loop summary") < ui.texts.index(
+        "Local alpha demo review snapshot"
+    )
+
+    review_snapshot = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__review-snapshot",
+    )
+    assert review_snapshot is not None
+    assert [child.text for child in review_snapshot.children] == (
+        LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS
+    )
+    assert {child.kind for child in review_snapshot.children} == {"label"}
+    assert all(child.on_click is None for child in review_snapshot.children)
+    assert ui.texts.index("Local alpha demo review snapshot") < ui.texts.index(
         "Attendance prompt - 12s - 88% confidence"
     )
 
@@ -1011,6 +1041,9 @@ def test_dashboard_inspection_summary_is_metadata_only_and_no_server() -> None:
     assert "Local alpha product loop summary" in summary
     for product_loop_label in LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_INSPECTION_LABELS[1:]:
         assert product_loop_label in summary
+    assert "Local alpha demo review snapshot" in summary
+    for review_snapshot_label in LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS[1:]:
+        assert review_snapshot_label in summary
     assert "Product Promise Alpha passed" not in summary
     assert "Live delivery performed" not in summary
     assert "Status: Delivered" not in summary
@@ -1406,6 +1439,18 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
         second_render.count("Gate D bundle: blocked on product_judgment_evidence") == 1
     )
     assert second_render.count("Private content displayed: no") == 1
+    review_snapshot = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__review-snapshot",
+    )
+    assert review_snapshot is not None
+    assert [child.text for child in review_snapshot.children] == (
+        LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS
+    )
+    assert {child.kind for child in review_snapshot.children} == {"label"}
+    assert all(child.on_click is None for child in review_snapshot.children)
+    for review_snapshot_label in LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS[:-1]:
+        assert second_render.count(review_snapshot_label) == 1
     assert second_render.count("Demo source status") == 1
     assert second_render.count("Session source: injected fixture metadata") == 1
     assert second_render.count("Event source: injected fixture metadata") == 1

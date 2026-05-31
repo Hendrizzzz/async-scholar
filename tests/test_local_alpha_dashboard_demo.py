@@ -128,6 +128,19 @@ STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES = (
     "Live delivery performed: no",
     "Product Promise Alpha not passed",
 )
+STATIC_DEMO_REVIEW_SNAPSHOT_LINES = (
+    "Review scope: local alpha demo only",
+    "Input mode: fixed fixture metadata",
+    "Session status: visible",
+    "Detected event summary: visible",
+    "Alert confirmation: required",
+    "Archive/reviewer summary: visible",
+    "Live services: not used",
+    "Private content: not displayed",
+    "Gate D: blocked on product_judgment_evidence",
+    "Product judgment: human-only",
+    "Product Promise Alpha not passed",
+)
 
 
 def test_dashboard_demo_module_import_is_safe() -> None:
@@ -436,6 +449,9 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     for product_loop_line in STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES:
         assert product_loop_line in visible_first
     assert "Live delivery perform&#101;d: no" in first
+    assert "Local alpha demo review snapshot" in first
+    for review_snapshot_line in STATIC_DEMO_REVIEW_SNAPSHOT_LINES:
+        assert review_snapshot_line in visible_first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -471,7 +487,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 26
+    assert html.count("<section") == 27
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -546,6 +562,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Local alpha demo readiness checklist",
         "Human judgment handoff",
         "Local alpha product loop summary",
+        "Local alpha demo review snapshot",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -577,6 +594,9 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "<h2>Local alpha product loop summary</h2>"
     )
     assert html.index("<h2>Local alpha product loop summary</h2>") < html.index(
+        "<h2>Local alpha demo review snapshot</h2>"
+    )
+    assert html.index("<h2>Local alpha demo review snapshot</h2>") < html.index(
         "<h2>Demo timeline</h2>"
     )
 
@@ -4807,6 +4827,171 @@ def test_static_demo_product_loop_summary_helper_preserves_static_scope() -> Non
         "product judgment: passed",
         "private content displayed: yes",
         "live delivery performed: yes",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+    ):
+        assert forbidden not in source
+
+
+@pytest.mark.parametrize(
+    "unsafe_review_snapshot_lines",
+    [
+        (
+            "Review scope: real online monitoring",
+            "Input mode: private transcript",
+            "Session status: hidden",
+            "Detected event summary: missing",
+            "Alert confirmation: optional",
+            "Archive/reviewer summary: transcript contents",
+            "Live services: used",
+            "Private content: displayed",
+            "Gate D: passed",
+            "Product judgment: passed",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Traceback C:\\Users\\student\\.env token",
+            "https://meet.example.edu/class-room?token=private",
+            "cookie-value",
+            "auth-state",
+            "browser profile",
+            "Good morning, everyone. I am going to take attendance",
+            r"C:\private\lecture.wav",
+            r"C:\private\lecture.mp4",
+            "raw command output included: yes",
+            "product_judgment_evidence_status: satisfactory",
+            "product judgment evidence satisfied",
+        ),
+        (),
+    ],
+)
+def test_static_demo_review_snapshot_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_review_snapshot_lines: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_review_snapshot_lines() -> tuple[str, ...]:
+        return unsafe_review_snapshot_lines
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_review_snapshot_lines",
+        fake_review_snapshot_lines,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    review_snapshot_section = _section_text(html, "Local alpha demo review snapshot")
+    review_snapshot_visible = _visible_text(review_snapshot_section)
+    for expected in STATIC_DEMO_REVIEW_SNAPSHOT_LINES:
+        assert expected in review_snapshot_visible
+    assert "Metadata unavailable." not in review_snapshot_section
+    lowered = review_snapshot_section.casefold()
+    for forbidden in (
+        "<script",
+        "<a ",
+        "<button",
+        "<form",
+        "<input",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "c:\\",
+        "https:",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "good morning",
+        "traceback",
+        ".wav",
+        ".mp4",
+        "raw command output included: yes",
+        "review scope: real online monitoring",
+        "input mode: private transcript",
+        "session status: hidden",
+        "detected event summary: missing",
+        "alert confirmation: optional",
+        "archive/reviewer summary: transcript contents",
+        "live services: used",
+        "private content: displayed",
+        "gate d: passed",
+        "product judgment: passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert re.search(r"[a-z]:\\", review_snapshot_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(review_snapshot_section)
+
+
+def test_static_demo_review_snapshot_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_review_snapshot_lines() -> tuple[str, ...]:
+        raise RuntimeError("Traceback C:\\Users\\student\\.env token")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_review_snapshot_lines",
+        fake_review_snapshot_lines,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    review_snapshot_section = _section_text(html, "Local alpha demo review snapshot")
+    review_snapshot_visible = _visible_text(review_snapshot_section)
+    for expected in STATIC_DEMO_REVIEW_SNAPSHOT_LINES:
+        assert expected in review_snapshot_visible
+    assert "Traceback" not in review_snapshot_section
+    assert ".env" not in review_snapshot_section
+    assert "token" not in review_snapshot_section.casefold()
+
+
+def test_static_demo_review_snapshot_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_review_snapshot_lines)
+        + inspect.getsource(demo._build_static_demo_review_snapshot_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "review scope: real online monitoring",
+        "input mode: private transcript",
+        "alert confirmation: optional",
+        "archive/reviewer summary: transcript contents",
+        "live services: used",
+        "private content: displayed",
+        "gate d: passed",
+        "product judgment: passed",
         "product promise alpha passed",
         "product_judgment_evidence_status: satisfactory",
     ):
