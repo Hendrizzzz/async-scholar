@@ -116,6 +116,7 @@ def test_script_writes_sanitized_summary_output_after_success(
         "product_judgment_evidence_status": "blocking",
         "product_judgment_recorded": "no",
         "product_promise_alpha_status": "not_passed",
+        "product_review_cue_available": "yes",
         "raw_command_output_included": "no",
         "static_dashboard_generated": "yes",
         "summary_kind": "local_alpha_fixture_demo_sanitized_summary",
@@ -391,6 +392,8 @@ def test_script_source_preserves_fixture_only_scope() -> None:
     assert "gate-d-local-evidence-bundle" in source
     assert "gate-d-handoff-packet-local" in source
     assert "summaryoutput" in source
+    assert "product_review_cue_available" in source
+    assert "product review cue available for manual inspection" in source
     assert "createnew" in source
 
 
@@ -415,6 +418,7 @@ def _assert_success_summary(stdout: str) -> None:
     assert "Gate D evidence bundle remains blocked" in stdout
     assert "Gate D handoff packet still requires manual judgment" in stdout
     assert "product_judgment_evidence remains blocking" in stdout
+    assert "product review cue available for manual inspection" in stdout
     assert "Product Promise Alpha not passed" in stdout
     assert "Product Promise Alpha passed" not in stdout
     assert "Gate D passed" not in stdout

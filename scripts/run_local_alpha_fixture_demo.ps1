@@ -178,7 +178,7 @@ function Invoke-AsyncScholarCommand {
 function Write-SanitizedSummaryOutput {
     param([string]$PathText)
 
-    $SummaryJson = '{"browser_server_launched":"no","fixture_artifacts_generated":"yes","gate_d_evidence_bundle_status":"blocked","gate_d_handoff_packet_status":"manual_judgment_required","live_delivery_performed":"no","private_paths_included":"no","product_judgment_evidence_status":"blocking","product_judgment_recorded":"no","product_promise_alpha_status":"not_passed","raw_command_output_included":"no","static_dashboard_generated":"yes","summary_kind":"local_alpha_fixture_demo_sanitized_summary"}'
+    $SummaryJson = '{"browser_server_launched":"no","fixture_artifacts_generated":"yes","gate_d_evidence_bundle_status":"blocked","gate_d_handoff_packet_status":"manual_judgment_required","live_delivery_performed":"no","private_paths_included":"no","product_judgment_evidence_status":"blocking","product_judgment_recorded":"no","product_promise_alpha_status":"not_passed","product_review_cue_available":"yes","raw_command_output_included":"no","static_dashboard_generated":"yes","summary_kind":"local_alpha_fixture_demo_sanitized_summary"}'
     $FileStream = $null
     $Writer = $null
 
@@ -312,5 +312,6 @@ if ($null -ne $SummaryOutput) {
 [Console]::Out.WriteLine("Gate D evidence bundle remains blocked")
 [Console]::Out.WriteLine("Gate D handoff packet still requires manual judgment")
 [Console]::Out.WriteLine("product_judgment_evidence remains blocking")
+[Console]::Out.WriteLine("product review cue available for manual inspection")
 [Console]::Out.WriteLine("Product Promise Alpha not passed")
 exit 0
