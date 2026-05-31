@@ -44,6 +44,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Local alpha product loop summary",
     "Local alpha demo review snapshot",
     "Human decision boundary",
+    "Product review cue",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -317,6 +318,16 @@ _STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES = (
     "AI can complete product judgment: no",
     "AI can record product judgment: no",
     "Acceptable human choices: pass, fail, or defer",
+    "Gate D blocker: product_judgment_evidence",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES = (
+    "Review target: local Product Promise Alpha demo",
+    "What to judge: fixture-to-reviewer product loop clarity",
+    "Evidence basis: metadata-only local fixture demo",
+    "Human action: inspect, then choose pass, fail, or defer",
+    "AI action: display status only",
+    "Product judgment recorded: no",
     "Gate D blocker: product_judgment_evidence",
     "Product Promise Alpha not passed",
 )
@@ -680,6 +691,7 @@ def _build_static_demo_sections(
     grouped["Human decision boundary"] = list(
         _safe_static_demo_human_decision_boundary_lines()
     )
+    grouped["Product review cue"] = list(_safe_static_demo_product_review_cue_lines())
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
     grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
@@ -1155,6 +1167,22 @@ def _safe_static_demo_human_decision_boundary_lines() -> tuple[str, ...]:
 
 def _build_static_demo_human_decision_boundary_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES
+
+
+def _safe_static_demo_product_review_cue_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_product_review_cue_lines()
+    except Exception:
+        return _STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES
+    if lines != _STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES:
+        return _STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES
+    return lines
+
+
+def _build_static_demo_product_review_cue_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES
 
 
 def _static_demo_artifact_summary_text_is_unsafe(value: object) -> bool:

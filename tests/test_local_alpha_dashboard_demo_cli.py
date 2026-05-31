@@ -259,6 +259,12 @@ def test_local_alpha_dashboard_inspection_prints_plain_text() -> None:
     assert "AI can record product judgment: no" in result.stdout
     assert "Acceptable human choices: pass, fail, or defer" in result.stdout
     assert "Gate D blocker: product_judgment_evidence" in result.stdout
+    assert "Product review cue" in result.stdout
+    assert "Review target: local Product Promise Alpha demo" in result.stdout
+    assert "What to judge: fixture-to-reviewer product loop clarity" in result.stdout
+    assert "Evidence basis: metadata-only local fixture demo" in result.stdout
+    assert "Human action: inspect, then choose pass, fail, or defer" in result.stdout
+    assert "AI action: display status only" in result.stdout
     _assert_inspection_output_safe(result.stdout, result.stderr)
 
 
@@ -312,6 +318,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Local alpha product loop summary</h2>" in html
     assert "<h2>Local alpha demo review snapshot</h2>" in html
     assert "<h2>Human decision boundary</h2>" in html
+    assert "<h2>Product review cue</h2>" in html
     assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
@@ -480,6 +487,12 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "AI can record product judgment: no" in visible_html
     assert "Acceptable human choices: pass, fail, or defer" in visible_html
     assert "Gate D blocker: product_judgment_evidence" in visible_html
+    assert "Product review cue" in visible_html
+    assert "Review target: local Product Promise Alpha demo" in visible_html
+    assert "What to judge: fixture-to-reviewer product loop clarity" in visible_html
+    assert "Evidence basis: metadata-only local fixture demo" in visible_html
+    assert "Human action: inspect, then choose pass, fail, or defer" in visible_html
+    assert "AI action: display status only" in visible_html
     assert "Alert preview: pending user confirmation" in visible_html
     assert "Archive/reviewer: metadata summary only" in visible_html
     assert "Gate D bundle: blocked on product_judgment_evidence" in visible_html

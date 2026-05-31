@@ -228,6 +228,17 @@ LOCAL_ALPHA_HUMAN_DECISION_BOUNDARY_LABELS = [
     "Gate D blocker: product_judgment_evidence",
     "Product Promise Alpha not passed",
 ]
+LOCAL_ALPHA_PRODUCT_REVIEW_CUE_LABELS = [
+    "Product review cue",
+    "Review target: local Product Promise Alpha demo",
+    "What to judge: fixture-to-reviewer product loop clarity",
+    "Evidence basis: metadata-only local fixture demo",
+    "Human action: inspect, then choose pass, fail, or defer",
+    "AI action: display status only",
+    "Product judgment recorded: no",
+    "Gate D blocker: product_judgment_evidence",
+    "Product Promise Alpha not passed",
+]
 
 
 def test_local_alpha_dashboard_module_import_is_safe() -> None:
@@ -871,6 +882,20 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert {child.kind for child in decision_boundary.children} == {"label"}
     assert all(child.on_click is None for child in decision_boundary.children)
     assert ui.texts.index("Human decision boundary") < ui.texts.index(
+        "Product review cue"
+    )
+
+    product_review_cue = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__product-review-cue",
+    )
+    assert product_review_cue is not None
+    assert [child.text for child in product_review_cue.children] == (
+        LOCAL_ALPHA_PRODUCT_REVIEW_CUE_LABELS
+    )
+    assert {child.kind for child in product_review_cue.children} == {"label"}
+    assert all(child.on_click is None for child in product_review_cue.children)
+    assert ui.texts.index("Product review cue") < ui.texts.index(
         "Attendance prompt - 12s - 88% confidence"
     )
 
@@ -1074,6 +1099,9 @@ def test_dashboard_inspection_summary_is_metadata_only_and_no_server() -> None:
     assert "Human decision boundary" in summary
     for decision_boundary_label in LOCAL_ALPHA_HUMAN_DECISION_BOUNDARY_LABELS[1:]:
         assert decision_boundary_label in summary
+    assert "Product review cue" in summary
+    for product_review_cue_label in LOCAL_ALPHA_PRODUCT_REVIEW_CUE_LABELS[1:]:
+        assert product_review_cue_label in summary
     assert "Product Promise Alpha passed" not in summary
     assert "Live delivery performed" not in summary
     assert "Status: Delivered" not in summary
@@ -1205,7 +1233,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Human product judgment: required") == 1
     assert second_render.count("Final product judgment recorded: no") == 1
     assert second_render.count("AI can complete product judgment: no") == 4
-    assert second_render.count("Gate D blocker: product_judgment_evidence") == 2
+    assert second_render.count("Gate D blocker: product_judgment_evidence") == 3
     assert second_render.count("Private data needed for review: no") == 1
     assert second_render.count("Live services needed for review: no") == 1
     assert second_render.count("Action execution allowed: no") == 3
@@ -1253,7 +1281,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert all(child.on_click is None for child in human_judgment_next_step.children)
     assert second_render.count("Human judgment next step") == 1
     assert second_render.count("Manual inspection required: yes") == 1
-    assert second_render.count("Product judgment recorded: no") == 4
+    assert second_render.count("Product judgment recorded: no") == 5
     assert second_render.count("AI can record product judgment: no") == 2
     assert second_render.count("product_judgment_evidence remains blocking") == 6
     assert second_render.count("Local demo launch") == 1
@@ -1499,6 +1527,25 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
         "Acceptable human choices: pass, fail, or defer",
     ):
         assert second_render.count(decision_boundary_label) == 1
+    product_review_cue = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__product-review-cue",
+    )
+    assert product_review_cue is not None
+    assert [child.text for child in product_review_cue.children] == (
+        LOCAL_ALPHA_PRODUCT_REVIEW_CUE_LABELS
+    )
+    assert {child.kind for child in product_review_cue.children} == {"label"}
+    assert all(child.on_click is None for child in product_review_cue.children)
+    for product_review_cue_label in (
+        "Product review cue",
+        "Review target: local Product Promise Alpha demo",
+        "What to judge: fixture-to-reviewer product loop clarity",
+        "Evidence basis: metadata-only local fixture demo",
+        "Human action: inspect, then choose pass, fail, or defer",
+        "AI action: display status only",
+    ):
+        assert second_render.count(product_review_cue_label) == 1
     assert second_render.count("Demo source status") == 1
     assert second_render.count("Session source: injected fixture metadata") == 1
     assert second_render.count("Event source: injected fixture metadata") == 1

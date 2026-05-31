@@ -253,6 +253,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Local alpha product loop summary",
         "Local alpha demo review snapshot",
         "Human decision boundary",
+        "Product review cue",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -263,7 +264,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 28
+    assert html.count("<section") == 29
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -414,6 +415,12 @@ def _assert_static_html_safe(html: str) -> None:
     assert "AI can record product judgment: no" in visible_html
     assert "Acceptable human choices: pass, fail, or defer" in visible_html
     assert "Gate D blocker: product_judgment_evidence" in visible_html
+    assert "Product review cue" in visible_html
+    assert "Review target: local Product Promise Alpha demo" in visible_html
+    assert "What to judge: fixture-to-reviewer product loop clarity" in visible_html
+    assert "Evidence basis: metadata-only local fixture demo" in visible_html
+    assert "Human action: inspect, then choose pass, fail, or defer" in visible_html
+    assert "AI action: display status only" in visible_html
     assert "Alert preview: pending user confirmation" in visible_html
     assert "Archive/reviewer: metadata summary only" in visible_html
     assert "Gate D bundle: blocked on product_judgment_evidence" in visible_html

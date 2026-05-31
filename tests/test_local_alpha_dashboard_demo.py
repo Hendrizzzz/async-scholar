@@ -151,6 +151,16 @@ STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES = (
     "Gate D blocker: product_judgment_evidence",
     "Product Promise Alpha not passed",
 )
+STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES = (
+    "Review target: local Product Promise Alpha demo",
+    "What to judge: fixture-to-reviewer product loop clarity",
+    "Evidence basis: metadata-only local fixture demo",
+    "Human action: inspect, then choose pass, fail, or defer",
+    "AI action: display status only",
+    "Product judgment recorded: no",
+    "Gate D blocker: product_judgment_evidence",
+    "Product Promise Alpha not passed",
+)
 
 
 def test_dashboard_demo_module_import_is_safe() -> None:
@@ -465,6 +475,9 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Human decision boundary" in first
     for decision_boundary_line in STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES:
         assert decision_boundary_line in visible_first
+    assert "Product review cue" in first
+    for product_review_cue_line in STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES:
+        assert product_review_cue_line in visible_first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -500,7 +513,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 28
+    assert html.count("<section") == 29
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -577,6 +590,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Local alpha product loop summary",
         "Local alpha demo review snapshot",
         "Human decision boundary",
+        "Product review cue",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -614,6 +628,9 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "<h2>Human decision boundary</h2>"
     )
     assert html.index("<h2>Human decision boundary</h2>") < html.index(
+        "<h2>Product review cue</h2>"
+    )
+    assert html.index("<h2>Product review cue</h2>") < html.index(
         "<h2>Demo timeline</h2>"
     )
 
@@ -5124,6 +5141,123 @@ def test_static_demo_human_decision_boundary_helper_preserves_static_scope() -> 
         "demo evidence scope: real online monitoring",
         "ai can complete product judgment: yes",
         "ai can record product judgment: yes",
+        "gate d blocker: none",
+        "gate d: passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+    ):
+        assert forbidden not in source
+
+
+def test_static_demo_product_review_cue_section_is_fixed_and_safe() -> None:
+    demo = _demo_module()
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    cue_section = _section_text(html, "Product review cue")
+    cue_visible = _visible_text(cue_section)
+    for expected in STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES:
+        assert expected in cue_visible
+    assert "Metadata unavailable." not in cue_section
+    lowered = cue_section.casefold()
+    for forbidden in (
+        "<script",
+        "<a ",
+        "<button",
+        "<form",
+        "<input",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "c:\\",
+        "https:",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "good morning",
+        "traceback",
+        ".wav",
+        ".mp4",
+        "raw command output included: yes",
+        "review target: real online monitoring",
+        "what to judge: private meeting behavior",
+        "evidence basis: private transcript",
+        "ai action: record judgment",
+        "product judgment recorded: yes",
+        "gate d blocker: none",
+        "gate d: passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert re.search(r"[a-z]:\\", cue_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(cue_section)
+
+
+def test_static_demo_product_review_cue_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_product_review_cue_lines() -> tuple[str, ...]:
+        raise RuntimeError("Traceback C:\\Users\\student\\.env token")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_product_review_cue_lines",
+        fake_product_review_cue_lines,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    cue_section = _section_text(html, "Product review cue")
+    cue_visible = _visible_text(cue_section)
+    for expected in STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES:
+        assert expected in cue_visible
+    assert "Traceback" not in cue_section
+    assert ".env" not in cue_section
+    assert "token" not in cue_section.casefold()
+
+
+def test_static_demo_product_review_cue_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_product_review_cue_lines)
+        + inspect.getsource(demo._build_static_demo_product_review_cue_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "review target: real online monitoring",
+        "what to judge: private meeting behavior",
+        "evidence basis: private transcript",
+        "ai action: record judgment",
+        "product judgment recorded: yes",
         "gate d blocker: none",
         "gate d: passed",
         "product promise alpha passed",
