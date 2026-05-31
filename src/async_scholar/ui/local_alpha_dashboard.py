@@ -64,6 +64,19 @@ _DEMO_VERIFICATION_STATUS_LABELS = (
     "Manual product judgment required: yes",
     "Product Promise Alpha not passed",
 )
+_DEMO_SOURCE_STATUS_LABELS = (
+    "Demo source status",
+    "Session source: injected fixture metadata",
+    "Event source: injected fixture metadata",
+    "Alert source: injected fixture metadata",
+    "Archive source: injected fixture metadata",
+    "Gate D source: injected local handoff metadata",
+    "Transcript source: not displayed",
+    "Recording source: not displayed",
+    "Private source data read: no",
+    "Source refresh required: no",
+    "Product Promise Alpha not passed",
+)
 _CONFIRMATION_QUEUE_LABELS = (
     "Confirmation queue",
     "User confirmation required",
@@ -137,6 +150,7 @@ class LocalAlphaDashboardView:
         self._summary_status_container: Any | None = None
         self._evidence_digest_container: Any | None = None
         self._session_container: Any | None = None
+        self._demo_source_status_container: Any | None = None
         self._local_demo_launch_container: Any | None = None
         self._demo_verification_status_container: Any | None = None
         self._confirmation_queue_container: Any | None = None
@@ -179,6 +193,9 @@ class LocalAlphaDashboardView:
             self._session_container = self._ui.column().classes(
                 "async-scholar-local-alpha-dashboard__session gap-2"
             )
+            self._demo_source_status_container = self._ui.column().classes(
+                "async-scholar-local-alpha-dashboard__source-status gap-1"
+            )
             self._local_demo_launch_container = self._ui.column().classes(
                 "async-scholar-local-alpha-dashboard__launch gap-1"
             )
@@ -189,6 +206,7 @@ class LocalAlphaDashboardView:
             self._render_evidence_digest_panel()
             self._render_session_status()
             self._render_summary_status_strip()
+            self._render_demo_source_status_panel()
             self._render_local_demo_launch_panel()
             self._render_demo_verification_status_panel()
             self.event_timeline = render_event_timeline_view(
@@ -224,6 +242,7 @@ class LocalAlphaDashboardView:
         self._render_evidence_digest_panel()
         self._render_session_status()
         self._render_summary_status_strip()
+        self._render_demo_source_status_panel()
         self._render_local_demo_launch_panel()
         self._render_demo_verification_status_panel()
         if self.event_timeline is not None:
@@ -302,6 +321,16 @@ class LocalAlphaDashboardView:
             container.clear()
         with container:
             for label in _LOCAL_DEMO_LAUNCH_LABELS:
+                self._ui.label(label).classes("text-sm")
+
+    def _render_demo_source_status_panel(self) -> None:
+        container = self._demo_source_status_container
+        if container is None:
+            return
+        if hasattr(container, "clear"):
+            container.clear()
+        with container:
+            for label in _DEMO_SOURCE_STATUS_LABELS:
                 self._ui.label(label).classes("text-sm")
 
     def _render_demo_verification_status_panel(self) -> None:

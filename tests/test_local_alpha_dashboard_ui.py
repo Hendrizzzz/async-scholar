@@ -259,6 +259,16 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Session status" in rendered
     assert "Completed" in rendered
     assert "Fixture demo" in rendered
+    assert "Demo source status" in rendered
+    assert "Session source: injected fixture metadata" in rendered
+    assert "Event source: injected fixture metadata" in rendered
+    assert "Alert source: injected fixture metadata" in rendered
+    assert "Archive source: injected fixture metadata" in rendered
+    assert "Gate D source: injected local handoff metadata" in rendered
+    assert "Transcript source: not displayed" in rendered
+    assert "Recording source: not displayed" in rendered
+    assert "Private source data read: no" in rendered
+    assert "Source refresh required: no" in rendered
     assert "Local demo launch" in rendered
     assert "Demo mode: local fixture/static only" in rendered
     assert (
@@ -351,6 +361,29 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     ]
     assert {child.kind for child in evidence_digest.children} == {"label"}
     assert all(child.on_click is None for child in evidence_digest.children)
+
+    source_status = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__source-status",
+    )
+    assert source_status is not None
+    assert [child.text for child in source_status.children] == [
+        "Demo source status",
+        "Session source: injected fixture metadata",
+        "Event source: injected fixture metadata",
+        "Alert source: injected fixture metadata",
+        "Archive source: injected fixture metadata",
+        "Gate D source: injected local handoff metadata",
+        "Transcript source: not displayed",
+        "Recording source: not displayed",
+        "Private source data read: no",
+        "Source refresh required: no",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in source_status.children} == {"label"}
+    assert all(child.on_click is None for child in source_status.children)
+    assert ui.texts.index("Session status") < ui.texts.index("Demo source status")
+    assert ui.texts.index("Demo source status") < ui.texts.index("Local demo launch")
 
     launch = _find_element_by_class(
         ui,
@@ -708,6 +741,16 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Dashboard surface: local injected UI") == 1
     assert second_render.count("Source mode: injected fixture metadata") == 1
     assert second_render.count("Gate D evidence bundle: blocked") == 1
+    assert second_render.count("Demo source status") == 1
+    assert second_render.count("Session source: injected fixture metadata") == 1
+    assert second_render.count("Event source: injected fixture metadata") == 1
+    assert second_render.count("Alert source: injected fixture metadata") == 1
+    assert second_render.count("Archive source: injected fixture metadata") == 1
+    assert second_render.count("Gate D source: injected local handoff metadata") == 1
+    assert second_render.count("Transcript source: not displayed") == 1
+    assert second_render.count("Recording source: not displayed") == 1
+    assert second_render.count("Private source data read: no") == 1
+    assert second_render.count("Source refresh required: no") == 1
     assert second_render.count("Confirmation queue") == 1
     assert second_render.count("Alert status: pending") == 1
     assert second_render.count("Participation action sent: no") == 2
@@ -947,6 +990,27 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     ]
     assert {child.kind for child in verification.children} == {"label"}
     assert all(child.on_click is None for child in verification.children)
+
+    source_status = _find_element_by_class(
+        ui,
+        "async-scholar-local-alpha-dashboard__source-status",
+    )
+    assert source_status is not None
+    assert [child.text for child in source_status.children] == [
+        "Demo source status",
+        "Session source: injected fixture metadata",
+        "Event source: injected fixture metadata",
+        "Alert source: injected fixture metadata",
+        "Archive source: injected fixture metadata",
+        "Gate D source: injected local handoff metadata",
+        "Transcript source: not displayed",
+        "Recording source: not displayed",
+        "Private source data read: no",
+        "Source refresh required: no",
+        "Product Promise Alpha not passed",
+    ]
+    assert {child.kind for child in source_status.children} == {"label"}
+    assert all(child.on_click is None for child in source_status.children)
 
     confirmation_queue = _find_element_by_class(
         ui,
