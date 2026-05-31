@@ -49,6 +49,19 @@ STATIC_DEMO_ARTIFACT_SUMMARY_LINES = (
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
 )
+STATIC_DEMO_FIXTURE_HANDOFF_LINES = (
+    "Wrapper: scripts\\run_local_alpha_fixture_demo.ps1",
+    "Fixture evidence: existing fixture-demo command",
+    "Dashboard export: local-alpha-dashboard-static-demo --output local-html-file",
+    "Gate D bundle check: gate-d-local-evidence-bundle",
+    "Gate D handoff packet check: gate-d-handoff-packet-local",
+    "Raw command output displayed: no",
+    "User paths displayed: no",
+    "Browser/server launched by page: no",
+    "Product judgment recorded: no",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+)
 
 
 def test_dashboard_demo_module_import_is_safe() -> None:
@@ -331,6 +344,9 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Local alpha artifact summary" in first
     for artifact_summary_line in STATIC_DEMO_ARTIFACT_SUMMARY_LINES:
         assert artifact_summary_line in first
+    assert "One-command fixture demo handoff" in first
+    for fixture_handoff_line in STATIC_DEMO_FIXTURE_HANDOFF_LINES:
+        assert fixture_handoff_line in first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -366,7 +382,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 20
+    assert html.count("<section") == 21
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -435,6 +451,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Backend evidence trail",
         "Local alpha demo runbook",
         "Local alpha artifact summary",
+        "One-command fixture demo handoff",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -1075,6 +1092,70 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert re.search(r"[a-z]:\\", artifact_summary_section, flags=re.IGNORECASE) is None
     _assert_no_event_handler_attributes(artifact_summary_section)
     assert html.index("<h2>Local alpha artifact summary</h2>") < html.index(
+        "<h2>One-command fixture demo handoff</h2>"
+    )
+
+    fixture_handoff_section = _section_text(html, "One-command fixture demo handoff")
+    fixture_handoff_visible = _visible_text(fixture_handoff_section)
+    assert "Metadata unavailable." not in fixture_handoff_section
+    for expected in STATIC_DEMO_FIXTURE_HANDOFF_LINES:
+        assert expected in fixture_handoff_visible
+    assert "<button" not in fixture_handoff_section.casefold()
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "c:/",
+        "\\\\",
+        "/tmp/",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "private.jsonl",
+        "session.jsonl",
+        "private-alerts.log",
+        "private-reviewer.md",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "recording",
+        "raw command output displayed: yes",
+        "user paths displayed: yes",
+        "browser/server launched by page: yes",
+        "product judgment recorded: yes",
+        "product_judgment_evidence_status: satisfactory",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in fixture_handoff_section.casefold()
+    assert re.search(r"[a-z]:\\", fixture_handoff_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(fixture_handoff_section)
+    assert html.index("<h2>One-command fixture demo handoff</h2>") < html.index(
         "<h2>Demo timeline</h2>"
     )
 
@@ -3327,6 +3408,165 @@ def test_static_demo_artifact_summary_helper_preserves_static_scope() -> None:
         "private paths displayed: yes",
         "artifact opening performed: yes",
         "generated artifacts committed: yes",
+        "gate d passed",
+        "product_judgment_evidence_status: satisfactory",
+    ):
+        assert forbidden not in source
+
+
+@pytest.mark.parametrize(
+    "unsafe_fixture_handoff",
+    [
+        (
+            "Wrapper: C:\\Users\\student\\secret-token-auth-profile.ps1",
+            "Fixture evidence: private transcript command",
+            "Dashboard export: https://meet.example.edu/class-room",
+            "Gate D bundle check: gate-d-local-evidence-bundle",
+            "Gate D handoff packet check: gate-d-handoff-packet-local",
+            "Raw command output displayed: yes",
+            "User paths displayed: yes",
+            "Browser/server launched by page: yes",
+            "Product judgment recorded: yes",
+            "Gate D passed",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Traceback C:\\Users\\student\\.env token",
+            "https://meet.example.edu/class-room?token=private",
+            "cookie-value",
+            "auth-state",
+            "browser profile",
+            "Good morning, everyone. I am going to take attendance",
+            r"C:\private\lecture.wav",
+            r"C:\private\lecture.mp4",
+            "product_judgment_evidence_status: satisfactory",
+            "product judgment evidence satisfied",
+            "Product Promise Alpha passed",
+        ),
+        (),
+    ],
+)
+def test_static_demo_fixture_handoff_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_fixture_handoff: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_fixture_handoff() -> tuple[str, ...]:
+        return unsafe_fixture_handoff
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_fixture_handoff_lines",
+        fake_fixture_handoff,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    fixture_handoff_section = _section_text(html, "One-command fixture demo handoff")
+    fixture_handoff_visible = _visible_text(fixture_handoff_section)
+    for expected in STATIC_DEMO_FIXTURE_HANDOFF_LINES:
+        assert expected in fixture_handoff_visible
+    assert "Metadata unavailable." not in fixture_handoff_section
+    lowered = fixture_handoff_section.casefold()
+    for forbidden in (
+        "<script",
+        "<a ",
+        "<button",
+        "<form",
+        "<input",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "private",
+        "c:\\",
+        "https:",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "good morning",
+        "traceback",
+        ".wav",
+        ".mp4",
+        "raw command output displayed: yes",
+        "user paths displayed: yes",
+        "browser/server launched by page: yes",
+        "product judgment recorded: yes",
+        "gate d passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert re.search(r"[a-z]:\\", fixture_handoff_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(fixture_handoff_section)
+
+
+def test_static_demo_fixture_handoff_fails_closed_for_helper_exception(
+    monkeypatch,
+) -> None:
+    demo = _demo_module()
+
+    def fake_fixture_handoff() -> tuple[str, ...]:
+        raise RuntimeError("Traceback C:\\Users\\student\\.env token")
+
+    monkeypatch.setattr(
+        demo,
+        "_build_static_demo_fixture_handoff_lines",
+        fake_fixture_handoff,
+    )
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    fixture_handoff_section = _section_text(html, "One-command fixture demo handoff")
+    fixture_handoff_visible = _visible_text(fixture_handoff_section)
+    for expected in STATIC_DEMO_FIXTURE_HANDOFF_LINES:
+        assert expected in fixture_handoff_visible
+    assert "Traceback" not in fixture_handoff_section
+    assert ".env" not in fixture_handoff_section
+    assert "token" not in fixture_handoff_section.casefold()
+
+
+def test_static_demo_fixture_handoff_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_fixture_handoff_lines)
+        + inspect.getsource(demo._build_static_demo_fixture_handoff_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete",
+        "open(",
+        "read_text",
+        "write_text",
+        "raw command output displayed: yes",
+        "user paths displayed: yes",
+        "browser/server launched by page: yes",
+        "product judgment recorded: yes",
         "gate d passed",
         "product_judgment_evidence_status: satisfactory",
     ):

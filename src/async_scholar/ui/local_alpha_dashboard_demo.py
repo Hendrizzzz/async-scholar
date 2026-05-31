@@ -35,6 +35,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Backend evidence trail",
     "Local alpha demo runbook",
     "Local alpha artifact summary",
+    "One-command fixture demo handoff",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -207,6 +208,19 @@ _STATIC_DEMO_ARTIFACT_SUMMARY_LINES = (
     "Private paths displayed: no",
     "Artifact opening performed: no",
     "Generated artifacts committed: no",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_FIXTURE_HANDOFF_LINES = (
+    "Wrapper: scripts\\run_local_alpha_fixture_demo.ps1",
+    "Fixture evidence: existing fixture-demo command",
+    "Dashboard export: local-alpha-dashboard-static-demo --output local-html-file",
+    "Gate D bundle check: gate-d-local-evidence-bundle",
+    "Gate D handoff packet check: gate-d-handoff-packet-local",
+    "Raw command output displayed: no",
+    "User paths displayed: no",
+    "Browser/server launched by page: no",
+    "Product judgment recorded: no",
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
 )
@@ -546,6 +560,9 @@ def _build_static_demo_sections(
     grouped["Local alpha artifact summary"] = list(
         _safe_static_demo_artifact_summary_lines()
     )
+    grouped["One-command fixture demo handoff"] = list(
+        _safe_static_demo_fixture_handoff_lines()
+    )
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
     grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
@@ -881,6 +898,22 @@ def _safe_static_demo_artifact_summary_lines() -> tuple[str, ...]:
 
 def _build_static_demo_artifact_summary_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_ARTIFACT_SUMMARY_LINES
+
+
+def _safe_static_demo_fixture_handoff_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_fixture_handoff_lines()
+    except Exception:
+        return _STATIC_DEMO_FIXTURE_HANDOFF_LINES
+    if lines != _STATIC_DEMO_FIXTURE_HANDOFF_LINES:
+        return _STATIC_DEMO_FIXTURE_HANDOFF_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_FIXTURE_HANDOFF_LINES
+    return lines
+
+
+def _build_static_demo_fixture_handoff_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_FIXTURE_HANDOFF_LINES
 
 
 def _static_demo_artifact_summary_text_is_unsafe(value: object) -> bool:

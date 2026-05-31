@@ -244,6 +244,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Backend evidence trail",
         "Local alpha demo runbook",
         "Local alpha artifact summary",
+        "One-command fixture demo handoff",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -254,7 +255,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 20
+    assert html.count("<section") == 21
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -329,6 +330,17 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Private paths displayed: no" in visible_html
     assert "Artifact opening performed: no" in visible_html
     assert "Generated artifacts committed: no" in visible_html
+    assert "Wrapper: scripts\\run_local_alpha_fixture_demo.ps1" in visible_html
+    assert "Fixture evidence: existing fixture-demo command" in visible_html
+    assert (
+        "Dashboard export: local-alpha-dashboard-static-demo --output "
+        "local-html-file" in visible_html
+    )
+    assert "Gate D bundle check: gate-d-local-evidence-bundle" in visible_html
+    assert "Gate D handoff packet check: gate-d-handoff-packet-local" in visible_html
+    assert "Raw command output displayed: no" in visible_html
+    assert "User paths displayed: no" in visible_html
+    assert "Browser/server launched by page: no" in visible_html
     assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html

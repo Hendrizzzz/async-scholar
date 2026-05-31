@@ -228,6 +228,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Backend evidence trail</h2>" in html
     assert "<h2>Local alpha demo runbook</h2>" in html
     assert "<h2>Local alpha artifact summary</h2>" in html
+    assert "<h2>One-command fixture demo handoff</h2>" in html
     assert "<h2>Demo timeline</h2>" in html
     assert "<h2>Detected events</h2>" in html
     assert "<h2>Alert preview</h2>" in html
@@ -320,6 +321,17 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Private paths displayed: no" in visible_html
     assert "Artifact opening performed: no" in visible_html
     assert "Generated artifacts committed: no" in visible_html
+    assert "Wrapper: scripts\\run_local_alpha_fixture_demo.ps1" in visible_html
+    assert "Fixture evidence: existing fixture-demo command" in visible_html
+    assert (
+        "Dashboard export: local-alpha-dashboard-static-demo --output "
+        "local-html-file" in visible_html
+    )
+    assert "Gate D bundle check: gate-d-local-evidence-bundle" in visible_html
+    assert "Gate D handoff packet check: gate-d-handoff-packet-local" in visible_html
+    assert "Raw command output displayed: no" in visible_html
+    assert "User paths displayed: no" in visible_html
+    assert "Browser/server launched by page: no" in visible_html
     assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html
