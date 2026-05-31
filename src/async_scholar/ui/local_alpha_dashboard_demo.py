@@ -33,6 +33,7 @@ _STATIC_DEMO_SECTION_HEADINGS = (
     "Local demo launch",
     "Demo verification status",
     "Backend evidence trail",
+    "Local alpha demo runbook",
     "Demo timeline",
     "Detected events",
     "Alert preview",
@@ -180,6 +181,18 @@ _STATIC_DEMO_BACKEND_EVIDENCE_TRAIL_LINES = (
     "Gate D handoff packet: gate-d-handoff-packet-local",
     "Artifact access performed: no",
     "Command execution performed by page: no",
+    "Private data required: no",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+)
+_STATIC_DEMO_RUNBOOK_LINES = (
+    "1. Run fixture/local demo evidence",
+    "2. Inspect dashboard safety status",
+    "3. Export static local alpha dashboard",
+    "4. Review Gate D evidence bundle",
+    "5. Review Gate D handoff packet",
+    "Commands are copied manually; the page executes none",
+    "Artifacts are not opened by the page",
     "Private data required: no",
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
@@ -516,6 +529,7 @@ def _build_static_demo_sections(
     grouped["Backend evidence trail"] = list(
         _safe_static_demo_backend_evidence_trail_lines()
     )
+    grouped["Local alpha demo runbook"] = list(_safe_static_demo_runbook_lines())
     grouped["Demo timeline"] = list(_safe_static_demo_timeline_lines())
     grouped["Confirmation queue"] = list(_safe_static_demo_confirmation_queue_lines())
     grouped["Action controls"] = list(_safe_static_demo_action_control_lines())
@@ -819,6 +833,22 @@ def _safe_static_demo_backend_evidence_trail_lines() -> tuple[str, ...]:
 
 def _build_static_demo_backend_evidence_trail_lines() -> tuple[str, ...]:
     return _STATIC_DEMO_BACKEND_EVIDENCE_TRAIL_LINES
+
+
+def _safe_static_demo_runbook_lines() -> tuple[str, ...]:
+    try:
+        lines = _build_static_demo_runbook_lines()
+    except Exception:
+        return _STATIC_DEMO_RUNBOOK_LINES
+    if lines != _STATIC_DEMO_RUNBOOK_LINES:
+        return _STATIC_DEMO_RUNBOOK_LINES
+    if any(_static_demo_text_is_unsafe(line) for line in lines):
+        return _STATIC_DEMO_RUNBOOK_LINES
+    return lines
+
+
+def _build_static_demo_runbook_lines() -> tuple[str, ...]:
+    return _STATIC_DEMO_RUNBOOK_LINES
 
 
 def _safe_static_demo_summary_status_strip_lines() -> tuple[str, ...]:

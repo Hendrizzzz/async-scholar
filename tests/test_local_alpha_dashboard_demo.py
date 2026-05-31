@@ -25,6 +25,18 @@ PRIVATE_VALUES = (
     r"C:\models\private-model.bin",
     r"C:\generated\clip.png",
 )
+STATIC_DEMO_RUNBOOK_LINES = (
+    "1. Run fixture/local demo evidence",
+    "2. Inspect dashboard safety status",
+    "3. Export static local alpha dashboard",
+    "4. Review Gate D evidence bundle",
+    "5. Review Gate D handoff packet",
+    "Commands are copied manually; the page executes none",
+    "Artifacts are not opened by the page",
+    "Private data required: no",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+)
 
 
 def test_dashboard_demo_module_import_is_safe() -> None:
@@ -301,6 +313,9 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Artifact access performed: no" in first
     assert "Command execution performed by page: no" in first
     assert "Private data required: no" in first
+    assert "Local alpha demo runbook" in first
+    for runbook_line in STATIC_DEMO_RUNBOOK_LINES:
+        assert runbook_line in first
     assert "Local archive summary" in first
     assert "Reviewer available" in first
     assert "Reviewer artifact metadata only." in first
@@ -336,7 +351,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
-    assert html.count("<section") == 18
+    assert html.count("<section") == 19
     strip_text = _summary_status_strip_text(html)
     assert "Gate D: blocked" in strip_text
     assert "Product judgment: deferred" in strip_text
@@ -403,6 +418,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Local demo launch",
         "Demo verification status",
         "Backend evidence trail",
+        "Local alpha demo runbook",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -918,6 +934,64 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert re.search(r"[a-z]:\\", backend_evidence_section, flags=re.IGNORECASE) is None
     _assert_no_event_handler_attributes(backend_evidence_section)
     assert html.index("<h2>Backend evidence trail</h2>") < html.index(
+        "<h2>Local alpha demo runbook</h2>"
+    )
+
+    runbook_section = _section_text(html, "Local alpha demo runbook")
+    runbook_visible = _visible_text(runbook_section)
+    assert "Metadata unavailable." not in runbook_section
+    for expected in STATIC_DEMO_RUNBOOK_LINES:
+        assert expected in runbook_visible
+    assert "<button" not in runbook_section.casefold()
+    for forbidden in (
+        "<script",
+        "<link",
+        "<img",
+        "<iframe",
+        "<embed",
+        "<object",
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "formaction=",
+        "name=",
+        "value=",
+        "http:",
+        "https:",
+        "file:",
+        "c:\\",
+        "\\\\",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        ".jsonl",
+        ".wav",
+        ".mp4",
+        ".png",
+        "good morning",
+        "transcript",
+        "recording",
+        "page executes commands",
+        "artifacts are opened by the page",
+        "private data required: yes",
+        "product_judgment_evidence_status: satisfactory",
+        "gate d passed",
+        "product promise alpha passed",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in runbook_section.casefold()
+    assert re.search(r"[a-z]:\\", runbook_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(runbook_section)
+    assert html.index("<h2>Local alpha demo runbook</h2>") < html.index(
         "<h2>Demo timeline</h2>"
     )
 
@@ -2859,6 +2933,149 @@ def test_static_demo_backend_evidence_trail_helper_preserves_static_scope() -> N
         "command execution performed by page: yes",
         "private data required: yes",
         "gate d evidence bundle: passed",
+        "product_judgment_evidence_status: satisfactory",
+    ):
+        assert forbidden not in source
+
+
+@pytest.mark.parametrize(
+    "unsafe_runbook",
+    [
+        (
+            "1. Run fixture/local demo evidence",
+            "2. Inspect dashboard safety status",
+            "3. Export static local alpha dashboard",
+            "4. Review Gate D evidence bundle",
+            "5. Review Gate D handoff packet",
+            "Commands are copied manually; the page executes commands",
+            "Artifacts are opened by the page",
+            "Private data required: yes",
+            "Gate D passed",
+            "Product Promise Alpha passed",
+        ),
+        (
+            "Traceback C:\\Users\\student\\.env token",
+            "https://meet.example.edu/class-room?token=private",
+            "cookie-value",
+            "auth-state",
+            "browser profile",
+            "Good morning, everyone. I am going to take attendance",
+            r"C:\private\lecture.wav",
+            r"C:\private\lecture.mp4",
+            "product_judgment_evidence_status: satisfactory",
+            "product judgment evidence satisfied",
+        ),
+        (),
+    ],
+)
+def test_static_demo_runbook_fails_closed_for_unsafe_values(
+    monkeypatch,
+    unsafe_runbook: tuple[str, ...],
+) -> None:
+    demo = _demo_module()
+
+    def fake_runbook() -> tuple[str, ...]:
+        return unsafe_runbook
+
+    monkeypatch.setattr(demo, "_build_static_demo_runbook_lines", fake_runbook)
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    runbook_section = _section_text(html, "Local alpha demo runbook")
+    runbook_visible = _visible_text(runbook_section)
+    for expected in STATIC_DEMO_RUNBOOK_LINES:
+        assert expected in runbook_visible
+    assert "Metadata unavailable." not in runbook_section
+    lowered = runbook_section.casefold()
+    for forbidden in (
+        "<script",
+        "<a ",
+        "<button",
+        "<form",
+        "<input",
+        "href=",
+        "src=",
+        "action=",
+        "method=",
+        "page executes commands",
+        "artifacts are opened by the page",
+        "private data required: yes",
+        "meet.example",
+        ".env",
+        "cookie",
+        "token",
+        "auth",
+        "profile",
+        "good morning",
+        "traceback",
+        ".wav",
+        ".mp4",
+        "gate d passed",
+        "product promise alpha passed",
+        "product_judgment_evidence_status: satisfactory",
+        "product judgment evidence satisfied",
+    ):
+        assert forbidden not in lowered
+    assert re.search(r"[a-z]:\\", runbook_section, flags=re.IGNORECASE) is None
+    _assert_no_event_handler_attributes(runbook_section)
+
+
+def test_static_demo_runbook_fails_closed_for_helper_exception(monkeypatch) -> None:
+    demo = _demo_module()
+
+    def fake_runbook() -> tuple[str, ...]:
+        raise RuntimeError("Traceback C:\\Users\\student\\.env token")
+
+    monkeypatch.setattr(demo, "_build_static_demo_runbook_lines", fake_runbook)
+
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+
+    runbook_section = _section_text(html, "Local alpha demo runbook")
+    runbook_visible = _visible_text(runbook_section)
+    for expected in STATIC_DEMO_RUNBOOK_LINES:
+        assert expected in runbook_visible
+    assert "Traceback" not in runbook_section
+    assert ".env" not in runbook_section
+    assert "token" not in runbook_section.casefold()
+
+
+def test_static_demo_runbook_helper_preserves_static_scope() -> None:
+    demo = _demo_module()
+    source = (
+        inspect.getsource(demo._safe_static_demo_runbook_lines)
+        + inspect.getsource(demo._build_static_demo_runbook_lines)
+    ).casefold()
+
+    for forbidden in (
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<a ",
+        "<button",
+        "href=",
+        "src=",
+        "onclick",
+        "onchange",
+        "onsubmit",
+        "formaction",
+        "ui.run",
+        "webbrowser",
+        "startfile",
+        "subprocess.run",
+        "run_local_alpha_dashboard_demo",
+        "dispatch_alert",
+        "telegram",
+        "desktop_notifier",
+        "scheduler",
+        "delete",
+        "open(",
+        "read_text",
+        "write_text",
+        "page executes commands",
+        "artifacts are opened by the page",
+        "private data required: yes",
+        "gate d passed",
         "product_judgment_evidence_status: satisfactory",
     ):
         assert forbidden not in source

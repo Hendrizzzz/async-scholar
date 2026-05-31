@@ -77,6 +77,19 @@ _BACKEND_EVIDENCE_TRAIL_LABELS = (
     "product_judgment_evidence remains blocking",
     "Product Promise Alpha not passed",
 )
+_LOCAL_ALPHA_DEMO_RUNBOOK_LABELS = (
+    "Local alpha demo runbook",
+    "1. Run fixture/local demo evidence",
+    "2. Inspect dashboard safety status",
+    "3. Export static local alpha dashboard",
+    "4. Review Gate D evidence bundle",
+    "5. Review Gate D handoff packet",
+    "Commands are copied manually; the page executes none",
+    "Artifacts are not opened by the page",
+    "Private data required: no",
+    "product_judgment_evidence remains blocking",
+    "Product Promise Alpha not passed",
+)
 _DEMO_SOURCE_STATUS_LABELS = (
     "Demo source status",
     "Session source: injected fixture metadata",
@@ -203,6 +216,7 @@ class LocalAlphaDashboardView:
         self._local_demo_launch_container: Any | None = None
         self._demo_verification_status_container: Any | None = None
         self._backend_evidence_trail_container: Any | None = None
+        self._local_alpha_demo_runbook_container: Any | None = None
         self._confirmation_queue_container: Any | None = None
         self._action_controls_container: Any | None = None
         self._archive_review_status_container: Any | None = None
@@ -264,6 +278,9 @@ class LocalAlphaDashboardView:
             self._backend_evidence_trail_container = self._ui.column().classes(
                 "async-scholar-local-alpha-dashboard__backend-evidence-trail gap-1"
             )
+            self._local_alpha_demo_runbook_container = self._ui.column().classes(
+                "async-scholar-local-alpha-dashboard__runbook gap-1"
+            )
             self._render_gate_d_status()
             self._render_evidence_digest_panel()
             self._render_manual_review_status_panel()
@@ -275,6 +292,7 @@ class LocalAlphaDashboardView:
             self._render_local_demo_launch_panel()
             self._render_demo_verification_status_panel()
             self._render_backend_evidence_trail_panel()
+            self._render_local_alpha_demo_runbook_panel()
             self.event_timeline = render_event_timeline_view(
                 self._sources.events,
                 ui=self._ui,
@@ -315,6 +333,7 @@ class LocalAlphaDashboardView:
         self._render_local_demo_launch_panel()
         self._render_demo_verification_status_panel()
         self._render_backend_evidence_trail_panel()
+        self._render_local_alpha_demo_runbook_panel()
         if self.event_timeline is not None:
             self.event_timeline.refresh()
         if self.alert_history is not None:
@@ -451,6 +470,16 @@ class LocalAlphaDashboardView:
             container.clear()
         with container:
             for label in _BACKEND_EVIDENCE_TRAIL_LABELS:
+                self._ui.label(label).classes("text-sm")
+
+    def _render_local_alpha_demo_runbook_panel(self) -> None:
+        container = self._local_alpha_demo_runbook_container
+        if container is None:
+            return
+        if hasattr(container, "clear"):
+            container.clear()
+        with container:
+            for label in _LOCAL_ALPHA_DEMO_RUNBOOK_LABELS:
                 self._ui.label(label).classes("text-sm")
 
     def _render_confirmation_queue_panel(self) -> None:

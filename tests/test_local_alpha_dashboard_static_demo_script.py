@@ -242,6 +242,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Local demo launch",
         "Demo verification status",
         "Backend evidence trail",
+        "Local alpha demo runbook",
         "Demo timeline",
         "Detected events",
         "Alert preview",
@@ -252,7 +253,7 @@ def _assert_static_html_safe(html: str) -> None:
         "Safety boundary",
     ):
         assert f"<h2>{heading}</h2>" in html
-    assert html.count("<section") == 18
+    assert html.count("<section") == 19
     assert "Server started: no" in html
     assert "Browser opened: no" in html
     assert "Gate D not passed" in html
@@ -312,6 +313,13 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Artifact access performed: no" in html
     assert "Command execution performed by page: no" in html
     assert "Private data required: no" in html
+    assert "1. Run fixture/local demo evidence" in visible_html
+    assert "2. Inspect dashboard safety status" in visible_html
+    assert "3. Export static local alpha dashboard" in visible_html
+    assert "4. Review Gate D evidence bundle" in visible_html
+    assert "5. Review Gate D handoff packet" in visible_html
+    assert "Commands are copied manually; the page executes none" in visible_html
+    assert "Artifacts are not opened by the page" in visible_html
     assert "product_judgment_evidence remains blocking" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html
