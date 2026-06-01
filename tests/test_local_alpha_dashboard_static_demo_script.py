@@ -20,8 +20,9 @@ def test_script_help_does_not_invoke_uv(tmp_path: Path) -> None:
     assert result.stderr == ""
     assert "AsyncScholar local alpha dashboard static demo" in result.stdout
     assert "-Output" in result.stdout
-    assert "product_judgment_evidence" in result.stdout
-    assert "does not pass Gate D" in result.stdout
+    assert "human-recorded narrow local pass" in result.stdout
+    assert "does not broaden that narrow pass" in result.stdout
+    assert "does not approve Gate E" in result.stdout
     assert not marker.exists()
 
 
@@ -201,6 +202,7 @@ def test_script_source_preserves_static_demo_scope() -> None:
         "token",
         "local-alpha-dashboard-demo --host",
         "local-alpha-dashboard-demo --dry-run",
+        "gate d remains blocked",
     ):
         assert forbidden not in source
 

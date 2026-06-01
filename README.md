@@ -210,7 +210,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_gate_d_human_wal
 ```
 
 This one-command human walkthrough explains what each local step proves and
-stops before the human pass/fail/defer judgment.
+stops before Gate E approval, merge, push-to-main, and public release.
 
 For a local human-facing alpha dashboard inspection surface, first dry-run the
 launcher:

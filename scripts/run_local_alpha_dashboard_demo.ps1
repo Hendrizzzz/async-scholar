@@ -32,10 +32,12 @@ Options:
 This is a local metadata-only alpha demo wrapper around:
   uv run python -m async_scholar local-alpha-dashboard-demo
 
-Gate D remains blocked on product_judgment_evidence. This script does not pass
-Gate D or Product Promise Alpha, open a browser, access external meetings,
-access private data, capture media, deliver live alerts, run schedulers,
-delete or export files, participate autonomously, or answer academic questions.
+Gate D / Product Promise Alpha has a human-recorded narrow local pass for the
+fixture-to-reviewer demo only. This script does not broaden that narrow pass,
+does not approve Gate E, public release, push, or merge, and does not open a
+browser, access external meetings, access private data, capture media, deliver
+live alerts, run schedulers, delete or export files, participate autonomously,
+or answer academic questions.
 "@
 }
 

@@ -45,19 +45,23 @@ def test_help_describes_one_command_human_walkthrough() -> None:
     assert "-WorkRoot <path>" in output
     assert "safe default temp work root" in output
     assert "product_judgment_evidence" in output
-    assert "does not claim Gate D" in output
-    assert "does not claim Product Promise Alpha" in output
+    assert "human-recorded narrow local pass" in output
+    assert "does not broaden the narrow Gate D pass" in output
+    assert "does not claim Gate E" in output
+    assert "does not claim public release" in output
 
 
 def test_script_source_stays_in_demo_clarity_boundary() -> None:
     source = SCRIPT.read_text(encoding="utf-8").lower()
 
     required_fragments = (
+        "local-alpha-dashboard-demo",
+        "narrow local pass",
+        "historical gate d bundle",
         "gate-d-local-evidence-bundle",
         "gate-d-handoff-packet-local",
         "run_scheduler_archive_workflow_smoke.ps1",
-        "manual product judgment is required",
-        "human pass/fail/defer judgment",
+        "human gate e approval",
     )
     for fragment in required_fragments:
         assert fragment in source
@@ -75,6 +79,8 @@ def test_script_source_stays_in_demo_clarity_boundary() -> None:
         "git push",
         "product promise alpha passed",
         "gate d passed",
+        "gate d remains blocked",
+        "choose pass/fail/defer",
         "product_judgment_evidence satisfied",
     )
     for fragment in forbidden_source_fragments:
@@ -91,16 +97,33 @@ def test_successful_walkthrough_prints_human_readout_with_default_work_root(
     output = combined_output(result)
 
     assert result.returncode == 0, output
-    assert "AsyncScholar Gate D Product Promise Alpha walkthrough" in output
+    assert "AsyncScholar Gate D narrow local pass walkthrough" in output
     assert "Step 1 - CLI availability" in output
     assert "What this proves: the local AsyncScholar CLI can be reached." in output
-    assert "Expected signal: product_judgment_evidence is blocking." in output
-    assert "Result: Gate D remains blocked on product_judgment_evidence." in output
-    assert "Result: manual product judgment is required and not recorded." in output
-    assert "Step 4 - Local scheduler/archive workflow smoke" in output
+    assert "Step 2 - Current narrow Gate D status" in output
+    assert (
+        "Result: narrow local Gate D / Product Promise Alpha pass is recorded "
+        "for the fixture-to-reviewer demo only." in output
+    )
+    assert "Step 3 - Historical Gate D evidence bundle" in output
+    assert (
+        "Result: historical Gate D bundle still reports "
+        "product_judgment_evidence as a pre-pass blocker." in output
+    )
+    assert "Step 4 - Historical handoff packet" in output
+    assert (
+        "Result: historical handoff packet remains a pre-pass manual review aid."
+        in output
+    )
+    assert "Step 5 - Local scheduler/archive workflow smoke" in output
     assert "Temporary artifact root:" in output
     assert str(tmp_path / "temp" / "async-scholar-gate-d-human-walkthrough") in output
-    assert "Next human step: inspect this readout and choose pass/fail/defer." in output
+    assert (
+        "Next human-only boundary: Gate E public-readiness approval, "
+        "merge, push-to-main, and public release." in output
+    )
+    assert "Gate D remains blocked" not in output
+    assert "choose pass/fail/defer" not in output
     assert "Gate D passed" not in output
     assert "Product Promise Alpha passed" not in output
     assert "product_judgment_evidence satisfied" not in output
@@ -129,10 +152,10 @@ def test_walkthrough_fails_when_gate_d_blocker_is_missing(tmp_path: Path) -> Non
 
     assert result.returncode != 0
     assert (
-        "Expected Gate D bundle blocker product_judgment_evidence was not present."
-        in output
+        "Expected historical Gate D bundle blocker "
+        "product_judgment_evidence was not present." in output
     )
-    assert "Step 4 - Local scheduler/archive workflow smoke" not in output
+    assert "Step 5 - Local scheduler/archive workflow smoke" not in output
 
 
 def test_runbook_and_readme_point_to_one_command_walkthrough() -> None:
@@ -142,12 +165,18 @@ def test_runbook_and_readme_point_to_one_command_walkthrough() -> None:
     assert "scripts\\run_gate_d_human_walkthrough.ps1" in runbook
     assert "Sample expected walkthrough readout" in runbook
     assert "Step 1 - CLI availability" in runbook
-    assert "Result: Gate D remains blocked on product_judgment_evidence." in runbook
     assert (
-        "Next human step: inspect this readout and choose pass/fail/defer." in runbook
+        "Result: narrow local Gate D / Product Promise Alpha pass is recorded "
+        "for the fixture-to-reviewer demo only." in runbook
+    )
+    assert (
+        "Next human-only boundary: Gate E public-readiness approval, "
+        "merge, push-to-main, and public release." in runbook
     )
     assert "scripts\\run_gate_d_human_walkthrough.ps1" in readme
     assert "one-command human walkthrough" in readme.lower()
+    assert "Gate E approval, merge, push-to-main, and public release" in readme
+    assert "stops before the human pass/fail/defer judgment" not in readme
     assert "Gate D passed" not in readme
     assert "Product Promise Alpha passed" not in readme
 
@@ -160,6 +189,20 @@ def _fake_success_env(
     fake_bin = tmp_path / "fake-bin"
     fake_bin.mkdir()
     fake_uv = fake_bin / "uv.cmd"
+    local_alpha_json = (
+        '{"dry_run":true,'
+        '"gate_d_status":"narrow_local_pass_recorded",'
+        '"product_judgment_evidence_status":"human_recorded_narrow_pass",'
+        '"manual_product_judgment_required":false,'
+        '"server_started":false,'
+        '"browser_opened":false,'
+        '"browser_automation_performed":false,'
+        '"private_data_read":false,'
+        '"audio_capture_performed":false,'
+        '"live_delivery_performed":false,'
+        '"deletion_or_export_performed":false,'
+        '"product_promise_alpha_pass_claimed":false}'
+    )
     bundle_json = (
         '{"blocking_evidence":["product_judgment_evidence"],'
         '"product_judgment_evidence_status":"blocking",'
@@ -178,6 +221,8 @@ def _fake_success_env(
         "\r\n".join(
             (
                 "@echo off",
+                'echo %* | findstr /C:"local-alpha-dashboard-demo --dry-run" '
+                ">nul && echo " + local_alpha_json + " && exit /b 0",
                 'echo %* | findstr /C:"gate-d-local-evidence-bundle" >nul && echo '
                 + bundle_json
                 + " && exit /b 0",

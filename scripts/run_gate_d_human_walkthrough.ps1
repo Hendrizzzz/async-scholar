@@ -21,15 +21,18 @@ Optional parameters:
 
 What this walkthrough does:
   - Checks the local AsyncScholar CLI can be reached.
-  - Reads the local Gate D metadata bundle.
-  - Reads the local Gate D handoff packet.
+  - Reads the current local alpha dry-run status.
+  - Reads historical Gate D bundle and handoff metadata for pre-pass
+    product_judgment_evidence context.
   - Runs the existing local scheduler/archive workflow smoke under the work root.
   - Prints a human-facing explanation of what each step proves.
 
 Safety boundary:
-  This walkthrough is local and metadata-only. It does not claim Gate D. It
-  does not claim Product Promise Alpha. It keeps product_judgment_evidence
-  blocking until a human gives a pass/fail/defer decision.
+  This walkthrough is local and metadata-only. Gate D / Product Promise Alpha
+  has a human-recorded narrow local pass for the fixture-to-reviewer demo only.
+  This walkthrough does not claim Gate E.
+  This walkthrough does not broaden the narrow Gate D pass, does not claim Gate
+  E, does not claim public release, and does not approve merge or push-to-main.
 "@
 }
 
@@ -89,6 +92,31 @@ function Invoke-AsyncScholarCli {
     return Invoke-CapturedCommand -Label ("async_scholar {0}" -f $CommandName) -Executable "uv" -Arguments $uvArgs
 }
 
+function Test-LocalAlphaNarrowPass {
+    param([object]$DryRun)
+
+    if ($DryRun.gate_d_status -ne "narrow_local_pass_recorded") {
+        Write-WalkthroughError "Expected local alpha dry run to record the narrow local Gate D pass."
+        exit 65
+    }
+    if ($DryRun.product_judgment_evidence_status -ne "human_recorded_narrow_pass") {
+        Write-WalkthroughError "Expected product_judgment_evidence_status to reflect the human-recorded narrow pass."
+        exit 65
+    }
+    if ($DryRun.server_started -ne $false) {
+        Write-WalkthroughError "Expected local alpha dry run to avoid starting a server."
+        exit 65
+    }
+    if ($DryRun.browser_opened -ne $false) {
+        Write-WalkthroughError "Expected local alpha dry run to avoid opening a browser."
+        exit 65
+    }
+    if ($DryRun.private_data_read -ne $false) {
+        Write-WalkthroughError "Expected local alpha dry run to avoid private data reads."
+        exit 65
+    }
+}
+
 function Convert-JsonObject {
     param(
         [string]$JsonText,
@@ -107,7 +135,7 @@ function Test-GateDBundleBlocker {
     param([object]$Bundle)
 
     if (-not ($Bundle.blocking_evidence -contains "product_judgment_evidence")) {
-        Write-WalkthroughError "Expected Gate D bundle blocker product_judgment_evidence was not present."
+        Write-WalkthroughError "Expected historical Gate D bundle blocker product_judgment_evidence was not present."
         exit 65
     }
     if ($Bundle.product_judgment_evidence_status -ne "blocking") {
@@ -156,11 +184,11 @@ $schedulerSmokeScript = Join-Path $PSScriptRoot "run_scheduler_archive_workflow_
 
 New-Item -ItemType Directory -Path $resolvedWorkRoot -Force | Out-Null
 
-Write-Output "AsyncScholar Gate D Product Promise Alpha walkthrough"
+Write-Output "AsyncScholar Gate D narrow local pass walkthrough"
 Write-Output "Walkthrough work root: $resolvedWorkRoot"
 Write-Output "Scheduler/archive smoke work root: $schedulerSmokeWorkRoot"
 Write-Output ""
-Write-Output "This is an AI-solvable clarity walkthrough. It stops before the human pass/fail/defer judgment."
+Write-Output "This is an AI-solvable clarity walkthrough. It stops before human Gate E approval, merge, push-to-main, or public release."
 Write-Output ""
 
 Write-Output "Step 1 - CLI availability"
@@ -170,25 +198,33 @@ Invoke-AsyncScholarCli "--help" | Out-Null
 Write-Output "Result: CLI help completed."
 Write-Output ""
 
-Write-Output "Step 2 - Gate D evidence bundle"
-Write-Output "What this proves: the local metadata bundle is readable and still blocks on unresolved human product judgment."
-Write-Output "Expected signal: product_judgment_evidence is blocking."
+Write-Output "Step 2 - Current narrow Gate D status"
+Write-Output "What this proves: the local alpha dry run records the narrow local pass without live behavior."
+$localAlphaJson = Invoke-AsyncScholarCli "local-alpha-dashboard-demo" @("--dry-run")
+$localAlpha = Convert-JsonObject -JsonText $localAlphaJson -Label "local alpha dashboard dry run"
+Test-LocalAlphaNarrowPass -DryRun $localAlpha
+Write-Output "Result: narrow local Gate D / Product Promise Alpha pass is recorded for the fixture-to-reviewer demo only."
+Write-Output ""
+
+Write-Output "Step 3 - Historical Gate D evidence bundle"
+Write-Output "What this proves: the older local metadata bundle remains readable as pre-pass context."
+Write-Output "Expected historical signal: product_judgment_evidence is blocking in the helper output."
 $bundleJson = Invoke-AsyncScholarCli "gate-d-local-evidence-bundle"
 $bundle = Convert-JsonObject -JsonText $bundleJson -Label "Gate D local evidence bundle"
 Test-GateDBundleBlocker -Bundle $bundle
-Write-Output "Result: Gate D remains blocked on product_judgment_evidence."
+Write-Output "Result: historical Gate D bundle still reports product_judgment_evidence as a pre-pass blocker."
 Write-Output ""
 
-Write-Output "Step 3 - Human handoff packet"
-Write-Output "What this proves: the handoff packet is ready for manual review but does not record the decision."
-Write-Output "Expected signal: manual product judgment is required and not recorded."
+Write-Output "Step 4 - Historical handoff packet"
+Write-Output "What this proves: the handoff packet remains available as a pre-pass manual review aid."
+Write-Output "Expected historical signal: manual product judgment is required in the helper output."
 $handoffJson = Invoke-AsyncScholarCli "gate-d-handoff-packet-local"
 $handoff = Convert-JsonObject -JsonText $handoffJson -Label "Gate D handoff packet"
 Test-HandoffPacketRequiresHumanJudgment -Handoff $handoff
-Write-Output "Result: manual product judgment is required and not recorded."
+Write-Output "Result: historical handoff packet remains a pre-pass manual review aid."
 Write-Output ""
 
-Write-Output "Step 4 - Local scheduler/archive workflow smoke"
+Write-Output "Step 5 - Local scheduler/archive workflow smoke"
 Write-Output "What this proves: the local scheduler/archive metadata walkthrough can run under an explicit temp root."
 Write-Output "Expected signal: the smoke finishes and reports local metadata artifact paths."
 Invoke-CapturedCommand `
@@ -208,4 +244,4 @@ Write-Output "Temporary artifact root: $schedulerSmokeWorkRoot"
 Write-Output ""
 
 Write-Output "Walkthrough complete."
-Write-Output "Next human step: inspect this readout and choose pass/fail/defer."
+Write-Output "Next human-only boundary: Gate E public-readiness approval, merge, push-to-main, and public release."

@@ -12,11 +12,11 @@ def test_runbook_names_human_only_gate_d_stop_point() -> None:
     text = RUNBOOK.read_text(encoding="utf-8")
 
     required_fragments = (
-        "Gate D / Product Promise Alpha remains blocked on `product_judgment_evidence`",
-        "human-only product judgment",
-        "fresh pass/fail/defer judgment",
-        "AI-solvable preparation stops here",
-        "Do not treat this runbook as product judgment evidence",
+        "Gate D / Product Promise Alpha has a human-recorded narrow local pass",
+        "Gate E public readiness remains blocked",
+        "human Gate E approval is deferred",
+        "AI-solvable public-readiness preparation stops before Gate E approval",
+        "Do not treat this runbook as Gate E approval",
     )
     for fragment in required_fragments:
         assert fragment in text
@@ -37,6 +37,7 @@ def test_runbook_references_only_allowed_demo_commands() -> None:
 
     allowed_command_fragments = (
         "uv run python -m async_scholar --help",
+        "uv run python -m async_scholar local-alpha-dashboard-demo --dry-run",
         "uv run python -m async_scholar gate-d-local-evidence-bundle",
         "uv run python -m async_scholar gate-d-handoff-packet-local",
         "scripts\\run_scheduler_archive_workflow_smoke.ps1",
@@ -87,11 +88,13 @@ def test_readme_points_to_runbook_without_claiming_gate_pass() -> None:
 
     assert "docs/public/gate-d-human-demo-inspection-runbook.md" in text
     assert "human demo inspection" in text.lower()
-    assert "blocked on `product_judgment_evidence`" in text
+    assert "historical context" in text
     unsafe_claims = (
         "Gate D passed",
         "Product Promise Alpha passed",
         "product_judgment_evidence satisfied",
+        "Gate E approved",
+        "public release approved",
     )
     for claim in unsafe_claims:
         assert claim not in text

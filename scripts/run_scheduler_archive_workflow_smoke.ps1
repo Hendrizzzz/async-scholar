@@ -29,9 +29,11 @@ Workflow scope:
 
 Safety boundary:
   This runner creates only local metadata artifacts under the explicit work root.
-  It does not claim Gate D readiness. It does not claim Product Promise Alpha
-  readiness. The handoff remains blocked until a human provides the deferred
-  product judgment.
+  Current status: human-recorded narrow Gate D / Product Promise Alpha pass.
+  Gate D / Product Promise Alpha has a human-recorded narrow local pass for the
+  fixture-to-reviewer demo only. This runner does not broaden that narrow pass,
+  does not approve Gate E, public release, push, or merge, and does not approve
+  live/private/browser/audio/scheduler behavior beyond this local smoke.
 
 Manual smoke shape:
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_scheduler_archive_workflow_smoke.ps1 -WorkRoot <explicit-local-work-root>
@@ -272,5 +274,7 @@ Write-Output "Scheduler/archive workflow smoke completed."
 Write-Output ("Schedule DB: {0}" -f $scheduleDbPath)
 Write-Output ("Runtime metadata: {0}" -f (Join-Path $sessionArchiveRoot "runtime.jsonl"))
 Write-Output ("Recovery report: {0}" -f $recoveryReportPath)
-Write-Output "Gate D handoff remains blocked on product_judgment_evidence; human judgment is required."
+Write-Output "Historical Gate D handoff metadata reviewed for pre-pass context."
+Write-Output "Narrow local Gate D / Product Promise Alpha pass remains recorded for the fixture-to-reviewer demo only."
+Write-Output "Gate E remains blocked on human approval; no public release, push, or merge is approved."
 exit 0

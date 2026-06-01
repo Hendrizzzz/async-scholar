@@ -21,8 +21,9 @@ def test_script_help_does_not_invoke_uv(tmp_path: Path) -> None:
     assert "-OutputRoot" in result.stdout
     assert "-DashboardOutput" in result.stdout
     assert "-SummaryOutput" in result.stdout
-    assert "product_judgment_evidence" in result.stdout
-    assert "does not pass Gate D" in result.stdout
+    assert "human-recorded narrow local pass" in result.stdout
+    assert "does not broaden that narrow pass" in result.stdout
+    assert "does not approve Gate E" in result.stdout
     assert not marker.exists()
 
 
@@ -109,13 +110,13 @@ def test_script_writes_sanitized_summary_output_after_success(
     assert json.loads(summary_output.read_text(encoding="utf-8")) == {
         "browser_server_launched": "no",
         "fixture_artifacts_generated": "yes",
-        "gate_d_evidence_bundle_status": "blocked",
-        "gate_d_handoff_packet_status": "manual_judgment_required",
+        "gate_d_evidence_bundle_status": "historical_pre_pass_blocked",
+        "gate_d_handoff_packet_status": "historical_manual_review_aid",
         "live_delivery_performed": "no",
         "private_paths_included": "no",
-        "product_judgment_evidence_status": "blocking",
-        "product_judgment_recorded": "no",
-        "product_promise_alpha_status": "not_passed",
+        "product_judgment_evidence_status": "human_recorded_narrow_pass",
+        "product_judgment_recorded": "yes",
+        "product_promise_alpha_status": "human_recorded_narrow_pass",
         "product_review_cue_available": "yes",
         "raw_command_output_included": "no",
         "static_dashboard_generated": "yes",
@@ -395,6 +396,8 @@ def test_script_source_preserves_fixture_only_scope() -> None:
     assert "product_review_cue_available" in source
     assert "product review cue available for manual inspection" in source
     assert "createnew" in source
+    assert "gate d remains blocked" not in source
+    assert "product promise alpha not passed" not in source
 
 
 def test_readme_documents_local_alpha_fixture_demo_boundaries() -> None:
@@ -415,11 +418,11 @@ def test_readme_documents_local_alpha_fixture_demo_boundaries() -> None:
 def _assert_success_summary(stdout: str) -> None:
     assert "fixture demo artifacts generated" in stdout
     assert "static dashboard generated" in stdout
-    assert "Gate D evidence bundle remains blocked" in stdout
-    assert "Gate D handoff packet still requires manual judgment" in stdout
-    assert "product_judgment_evidence remains blocking" in stdout
+    assert "Historical Gate D evidence bundle reviewed" in stdout
+    assert "Historical Gate D handoff packet reviewed" in stdout
+    assert "narrow local Gate D pass remains recorded" in stdout
     assert "product review cue available for manual inspection" in stdout
-    assert "Product Promise Alpha not passed" in stdout
+    assert "Product Promise Alpha not passed" not in stdout
     assert "Product Promise Alpha passed" not in stdout
     assert "Gate D passed" not in stdout
 

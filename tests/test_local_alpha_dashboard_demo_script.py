@@ -21,7 +21,9 @@ def test_script_help_does_not_invoke_uv(tmp_path: Path) -> None:
     assert "-DryRun" in result.stdout
     assert "-HostName" in result.stdout
     assert "-Port" in result.stdout
-    assert "product_judgment_evidence" in result.stdout
+    assert "human-recorded narrow local pass" in result.stdout
+    assert "does not broaden that narrow pass" in result.stdout
+    assert "does not approve Gate E" in result.stdout
     assert not marker.exists()
 
 
@@ -163,6 +165,7 @@ def test_script_source_preserves_local_demo_scope() -> None:
     assert "local-alpha-dashboard-demo" in source
     assert "127.0.0.1" in source
     assert "0.0.0.0" not in source
+    assert "gate d remains blocked" not in source
 
 
 def test_readme_documents_one_command_script_boundaries() -> None:

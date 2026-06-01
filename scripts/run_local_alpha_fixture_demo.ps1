@@ -28,11 +28,12 @@ This is a one-command wrapper around:
   uv run python -m async_scholar gate-d-local-evidence-bundle
   uv run python -m async_scholar gate-d-handoff-packet-local
 
-Gate D remains blocked on product_judgment_evidence. This script does not pass Gate D
-or Product Promise Alpha, start a server, open a browser, access external meetings,
-access private data, capture media, deliver live alerts, run schedulers, delete or
-export files, participate autonomously, record product judgment, or answer academic
-questions.
+Gate D / Product Promise Alpha has a human-recorded narrow local pass for the
+fixture-to-reviewer demo only. This script does not broaden that narrow pass,
+does not approve Gate E, public release, push, or merge, and does not start a
+server, open a browser, access external meetings, access private data, capture
+media, deliver live alerts, run schedulers, delete or export files,
+participate autonomously, record product judgment, or answer academic questions.
 "@
 }
 
@@ -178,7 +179,7 @@ function Invoke-AsyncScholarCommand {
 function Write-SanitizedSummaryOutput {
     param([string]$PathText)
 
-    $SummaryJson = '{"browser_server_launched":"no","fixture_artifacts_generated":"yes","gate_d_evidence_bundle_status":"blocked","gate_d_handoff_packet_status":"manual_judgment_required","live_delivery_performed":"no","private_paths_included":"no","product_judgment_evidence_status":"blocking","product_judgment_recorded":"no","product_promise_alpha_status":"not_passed","product_review_cue_available":"yes","raw_command_output_included":"no","static_dashboard_generated":"yes","summary_kind":"local_alpha_fixture_demo_sanitized_summary"}'
+    $SummaryJson = '{"browser_server_launched":"no","fixture_artifacts_generated":"yes","gate_d_evidence_bundle_status":"historical_pre_pass_blocked","gate_d_handoff_packet_status":"historical_manual_review_aid","live_delivery_performed":"no","private_paths_included":"no","product_judgment_evidence_status":"human_recorded_narrow_pass","product_judgment_recorded":"yes","product_promise_alpha_status":"human_recorded_narrow_pass","product_review_cue_available":"yes","raw_command_output_included":"no","static_dashboard_generated":"yes","summary_kind":"local_alpha_fixture_demo_sanitized_summary"}'
     $FileStream = $null
     $Writer = $null
 
@@ -309,9 +310,8 @@ if ($null -ne $SummaryOutput) {
 
 [Console]::Out.WriteLine("fixture demo artifacts generated")
 [Console]::Out.WriteLine("static dashboard generated")
-[Console]::Out.WriteLine("Gate D evidence bundle remains blocked")
-[Console]::Out.WriteLine("Gate D handoff packet still requires manual judgment")
-[Console]::Out.WriteLine("product_judgment_evidence remains blocking")
+[Console]::Out.WriteLine("Historical Gate D evidence bundle reviewed")
+[Console]::Out.WriteLine("Historical Gate D handoff packet reviewed")
+[Console]::Out.WriteLine("narrow local Gate D pass remains recorded")
 [Console]::Out.WriteLine("product review cue available for manual inspection")
-[Console]::Out.WriteLine("Product Promise Alpha not passed")
 exit 0

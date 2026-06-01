@@ -45,8 +45,9 @@ def test_help_describes_required_work_root_and_local_artifacts() -> None:
     assert "schedule.sqlite" in output
     assert "stored-session-window-recovery-report.md" in output
     assert "explicit work root" in output.lower()
-    assert "does not claim Gate D" in output
-    assert "does not claim Product Promise Alpha" in output
+    assert "human-recorded narrow Gate D / Product Promise Alpha pass" in output
+    assert "does not broaden that narrow pass" in output
+    assert "does not approve Gate E" in output
 
 
 def test_missing_work_root_fails_before_async_scholar_commands() -> None:
@@ -86,6 +87,7 @@ def test_script_source_stays_in_allowed_local_metadata_scope() -> None:
         "session-window-recovery-report-file-action-local",
         "product promise alpha passed",
         "gate d passed",
+        "gate d remains blocked",
         "product_judgment_evidence satisfied",
         "ready for product",
     )
@@ -141,7 +143,9 @@ def test_successful_run_writes_artifacts_only_under_temp_work_root(
     assert "course-schedule-save-local" in output
     assert "gate-d-local-evidence-bundle" in output
     assert "gate-d-handoff-packet-local" in output
-    assert "Gate D handoff remains blocked" in output
+    assert "Historical Gate D handoff metadata reviewed" in output
+    assert "Gate E remains blocked on human approval" in output
+    assert "Gate D handoff remains blocked" not in output
     assert "Product Promise Alpha passed" not in output
     assert "Gate D passed" not in output
     assert "product_judgment_evidence satisfied" not in output
