@@ -292,6 +292,90 @@ _GATE_D_SECURITY_REVIEW_EVIDENCE_FALSE_FLAGS = (
     "autonomous_participation_performed",
     "academic_answer_behavior_performed",
 )
+_GATE_E_PUBLIC_READINESS_CLI_ERROR = "gate e public readiness could not be built"
+_GATE_E_PUBLIC_READINESS_KEYS = (
+    "preflight_kind",
+    "mode",
+    "gate_d_scope_status",
+    "gate_e_status",
+    "decision",
+    "reason",
+    "ready_for_human_gate_e_review",
+    "human_gate_e_approval_required",
+    "human_gate_e_approval_status",
+    "public_docs_boundary_review_status",
+    "secret_and_private_data_review_status",
+    "generated_artifact_review_status",
+    "ignored_file_review_status",
+    "push_merge_release_plan_review_status",
+    "missing_review_items",
+    "missing_review_item_count",
+    "blocking_review_items",
+    "blocking_review_item_count",
+    "satisfactory_review_item_count",
+    "public_release_approved",
+    "push_approved",
+    "merge_approved",
+    "public_github_approval_claimed",
+    "publish_performed",
+    "push_performed",
+    "merge_performed",
+    "browser_or_server_launched",
+    "browser_automation_performed",
+    "play" + "wright_or_in_app_browser_performed",
+    "screenshot_trace_video_download_performed",
+    "auth_profile_accessed",
+    "cookie_accessed",
+    "private_data_read",
+    "audio_capture_performed",
+    "hardware_access_performed",
+    "loopback_capture_performed",
+    "live_delivery_performed",
+    "scheduler_background_execution_performed",
+    "deletion_or_export_performed",
+    "dependency_change_performed",
+    "autonomous_participation_performed",
+    "academic_answer_behavior_performed",
+    "product_promise_alpha_scope_broadened",
+)
+_GATE_E_PUBLIC_READINESS_FALSE_FLAGS = (
+    "public_release_approved",
+    "push_approved",
+    "merge_approved",
+    "public_github_approval_claimed",
+    "publish_performed",
+    "push_performed",
+    "merge_performed",
+    "browser_or_server_launched",
+    "browser_automation_performed",
+    "play" + "wright_or_in_app_browser_performed",
+    "screenshot_trace_video_download_performed",
+    "auth_profile_accessed",
+    "cookie_accessed",
+    "private_data_read",
+    "audio_capture_performed",
+    "hardware_access_performed",
+    "loopback_capture_performed",
+    "live_delivery_performed",
+    "scheduler_background_execution_performed",
+    "deletion_or_export_performed",
+    "dependency_change_performed",
+    "autonomous_participation_performed",
+    "academic_answer_behavior_performed",
+    "product_promise_alpha_scope_broadened",
+)
+_GATE_E_PUBLIC_READINESS_STATUS_KEYS = (
+    "public_docs_boundary_review_status",
+    "secret_and_private_data_review_status",
+    "generated_artifact_review_status",
+    "ignored_file_review_status",
+    "push_merge_release_plan_review_status",
+)
+_GATE_E_PUBLIC_READINESS_ALLOWED_REVIEW_STATUSES = {
+    "satisfactory",
+    "missing",
+    "blocking",
+}
 _GATE_D_MIC_DIAGNOSTICS_AFTER_REBOOT_EVIDENCE_CLI_ERROR = (
     "gate d mic diagnostics after reboot evidence could not be built"
 )
@@ -1468,6 +1552,21 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_run_monitoring_boundary_smoke_local_command
     )
 
+    gate_e_public_readiness = subparsers.add_parser(
+        "gate-e-public-readiness",
+        help="summarize report-only Gate E public-readiness metadata",
+        description=(
+            "Build a dry-run, report-only Gate E public-readiness preflight "
+            "without approving release, push, or merge."
+        ),
+    )
+    gate_e_public_readiness.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="build the report-only Gate E preflight",
+    )
+    gate_e_public_readiness.set_defaults(handler=_run_gate_e_public_readiness_command)
+
     gate_d_security_review_evidence = subparsers.add_parser(
         "gate-d-security-review-evidence-local",
         help="summarize local Gate D security-review evidence",
@@ -2148,6 +2247,11 @@ def main(argv: list[str] | None = None) -> int:
         return _run_monitoring_boundary_smoke_local_argv(argv[1:])
     if "monitoring-boundary-smoke-local" in argv:
         print(_MONITORING_BOUNDARY_SMOKE_CLI_ERROR, file=sys.stderr)
+        return 2
+    if argv[:1] == ["gate-e-public-readiness"]:
+        return _run_gate_e_public_readiness_argv(argv[1:])
+    if "gate-e-public-readiness" in argv:
+        print(_GATE_E_PUBLIC_READINESS_CLI_ERROR, file=sys.stderr)
         return 2
     if argv[:1] == ["gate-d-security-review-evidence-local"]:
         return _run_gate_d_security_review_evidence_local_argv(argv[1:])
@@ -4183,6 +4287,83 @@ def _gate_d_security_review_evidence_json(payload: object) -> str:
         for flag in _GATE_D_SECURITY_REVIEW_EVIDENCE_FALSE_FLAGS
     ):
         raise ValueError(_GATE_D_SECURITY_REVIEW_EVIDENCE_CLI_ERROR)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _run_gate_e_public_readiness_argv(argv: list[str]) -> int:
+    parser = _FixedMessageArgumentParser(
+        prog="async_scholar gate-e-public-readiness",
+        description=(
+            "Build a dry-run, report-only Gate E public-readiness preflight "
+            "without approving release, push, or merge."
+        ),
+        fixed_error_message=_GATE_E_PUBLIC_READINESS_CLI_ERROR,
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        required=True,
+        help="build the report-only Gate E preflight",
+    )
+    args = parser.parse_args(argv)
+    return _run_gate_e_public_readiness_command(args)
+
+
+def _run_gate_e_public_readiness_command(args: argparse.Namespace) -> int:
+    try:
+        from async_scholar.gate_e_public_readiness import (
+            build_gate_e_public_readiness_preflight,
+        )
+
+        payload = build_gate_e_public_readiness_preflight()
+        output = _gate_e_public_readiness_json(payload)
+    except (ImportError, KeyError, RuntimeError, TypeError, ValueError):
+        print(_GATE_E_PUBLIC_READINESS_CLI_ERROR, file=sys.stderr)
+        return 1
+
+    print(output)
+    return 0
+
+
+def _gate_e_public_readiness_json(payload: object) -> str:
+    if type(payload) is not dict or tuple(payload) != _GATE_E_PUBLIC_READINESS_KEYS:
+        raise ValueError(_GATE_E_PUBLIC_READINESS_CLI_ERROR)
+    if payload["preflight_kind"] != "gate_e_public_readiness":
+        raise ValueError(_GATE_E_PUBLIC_READINESS_CLI_ERROR)
+    if payload["mode"] != "dry_run_report_only":
+        raise ValueError(_GATE_E_PUBLIC_READINESS_CLI_ERROR)
+    if (
+        payload["gate_d_scope_status"]
+        != "narrow_local_fixture_to_reviewer_pass_recorded"
+        or payload["gate_e_status"] != "human_approval_required"
+        or payload["decision"] != "blocked"
+        or payload["human_gate_e_approval_required"] is not True
+        or payload["human_gate_e_approval_status"] != "missing"
+    ):
+        raise ValueError(_GATE_E_PUBLIC_READINESS_CLI_ERROR)
+    if payload["reason"] not in (
+        "human_gate_e_approval_required",
+        "required_gate_e_preflight_items_missing_or_blocking",
+    ):
+        raise ValueError(_GATE_E_PUBLIC_READINESS_CLI_ERROR)
+    if not isinstance(payload["ready_for_human_gate_e_review"], bool):
+        raise ValueError(_GATE_E_PUBLIC_READINESS_CLI_ERROR)
+    if any(
+        payload[key] not in _GATE_E_PUBLIC_READINESS_ALLOWED_REVIEW_STATUSES
+        for key in _GATE_E_PUBLIC_READINESS_STATUS_KEYS
+    ):
+        raise ValueError(_GATE_E_PUBLIC_READINESS_CLI_ERROR)
+    if (
+        not isinstance(payload["missing_review_items"], list)
+        or not isinstance(payload["blocking_review_items"], list)
+        or payload["missing_review_item_count"] != len(payload["missing_review_items"])
+        or payload["blocking_review_item_count"]
+        != len(payload["blocking_review_items"])
+        or not isinstance(payload["satisfactory_review_item_count"], int)
+    ):
+        raise ValueError(_GATE_E_PUBLIC_READINESS_CLI_ERROR)
+    if any(payload[flag] is not False for flag in _GATE_E_PUBLIC_READINESS_FALSE_FLAGS):
+        raise ValueError(_GATE_E_PUBLIC_READINESS_CLI_ERROR)
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
