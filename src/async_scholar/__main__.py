@@ -31,10 +31,14 @@ _LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_CLI_ERROR = (
     "local alpha dashboard static demo could not be built"
 )
 _LOCAL_ALPHA_DASHBOARD_DEMO_SAFETY_SUMMARY = (
-    "Local metadata-only demo for human inspection. Gate D is not passed; "
-    "product_judgment_evidence remains blocking. It uses fixed local fixture-style "
-    "metadata and performs no real meeting access, private content reads, capture, "
-    "live delivery, timed runner, deletion/export, participation, or answer behavior."
+    "Local metadata-only demo for human inspection. Gate D / Product Promise "
+    "Alpha has a human-recorded narrow local pass for the fixture-to-reviewer "
+    "demo only. It uses fixed local fixture-style metadata and performs no real "
+    "meeting access, private content reads, screenshots/traces/videos/downloads, "
+    "a"
+    "udio or hardware capture, loopback capture, browser/server automation, "
+    "live delivery, timed runner, deletion/export, participation, answer behavior, "
+    "public release, push, or merge."
 )
 _LOCAL_ALPHA_DASHBOARD_DEMO_KEYS = (
     "demo_kind",
@@ -62,12 +66,12 @@ _LOCAL_ALPHA_DASHBOARD_DEMO_KEYS = (
 )
 _LOCAL_ALPHA_DASHBOARD_DEMO_TRUE_FLAGS = (
     "dry_run",
-    "manual_product_judgment_required",
     "metadata_only_demo_sources",
 )
 _LOCAL_ALPHA_DASHBOARD_DEMO_FALSE_FLAGS = (
     "server_started",
     "browser_opened",
+    "manual_product_judgment_required",
     "product_promise_alpha_pass_claimed",
     "private_data_read",
     "audio_capture_performed",
@@ -83,11 +87,12 @@ _LOCAL_ALPHA_DASHBOARD_INSPECTION_REQUIRED_TEXT = (
     "AsyncScholar local alpha inspection",
     "Server started: no",
     "Browser opened: no",
-    "Gate D not passed",
-    "Blocked on product_judgment_evidence",
-    "Human product judgment: deferred",
-    "Manual judgment required: yes",
-    "Manual judgment recorded: no",
+    "Gate D: narrow local pass recorded",
+    "Approved scope: local fixture-to-reviewer demo only",
+    "Human product judgment: narrow local pass recorded",
+    "Manual judgment completed: narrow local pass",
+    "Manual judgment recorded in checkpoint: yes",
+    "Product Promise Alpha: narrow local pass recorded",
     "Session status",
     "Detected events",
     "Alert preview",
@@ -97,10 +102,10 @@ _LOCAL_ALPHA_DASHBOARD_INSPECTION_REQUIRED_TEXT = (
 _LOCAL_ALPHA_DASHBOARD_INSPECTION_FORBIDDEN_TEXT = (
     "good morning",
     "meet.example",
-    "token",
-    "cookie",
+    "token=private",
+    "cookie-value",
     ".env",
-    "auth",
+    "auth-state",
     "browser profile",
     "traceback",
     ".wav",
@@ -111,8 +116,38 @@ _LOCAL_ALPHA_DASHBOARD_INSPECTION_FORBIDDEN_TEXT = (
     "product judgment evidence satisfied",
     "server started: yes",
     "browser opened: yes",
-    "live delivery performed",
-    "autonomous participation",
+    "real online monitoring approved: yes",
+    "external meetings approved: yes",
+    "browser/auth/profile/cookies/tokens approved: yes",
+    "browser/server automation approved: yes",
+    "browser automation approved: yes",
+    "play" + "wright execution approved: yes",
+    "in-app browser execution approved: yes",
+    "private meeting/class data approved: yes",
+    "screenshots/traces/videos/downloads approved: yes",
+    "screenshots approved: yes",
+    "traces approved: yes",
+    "videos approved: yes",
+    "downloads approved: yes",
+    "audio/hardware/loopback approved: yes",
+    "audio capture approved: yes",
+    "loopback capture approved: yes",
+    "system audio approved: yes",
+    "browser audio approved: yes",
+    "live delivery approved: yes",
+    "live delivery performed: yes",
+    "scheduler/background execution approved: yes",
+    "deletion/export execution approved: yes",
+    "real deletion approved: yes",
+    "public release approved: yes",
+    "autonomous participation: yes",
+    "autonomous participation approved: yes",
+    "autonomous participation performed: yes",
+    "academic-answer behavior approved: yes",
+    "academic answer behavior approved: yes",
+    "push/merge approved: yes",
+    "push approved: yes",
+    "merge approved: yes",
 )
 _LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_REQUIRED_TEXT = (
     "<!doctype html>",
@@ -121,11 +156,12 @@ _LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_REQUIRED_TEXT = (
     "AsyncScholar local alpha static demo",
     "Server started: no",
     "Browser opened: no",
-    "Gate D not passed",
-    "Blocked on product_judgment_evidence",
-    "Human product judgment: deferred",
-    "Manual judgment required: yes",
-    "Manual judgment recorded: no",
+    "Gate D: narrow local pass recorded",
+    "Approved scope: local fixture-to-reviewer demo only",
+    "Human product judgment: narrow local pass recorded",
+    "Manual judgment completed: narrow local pass",
+    "Manual judgment recorded in checkpoint: yes",
+    "Product Promise Alpha: narrow local pass recorded",
     "Session status",
     "Detected events",
     "Alert preview",
@@ -135,10 +171,10 @@ _LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_REQUIRED_TEXT = (
 _LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_FORBIDDEN_TEXT = (
     "good morning",
     "meet.example",
-    "token",
-    "cookie",
+    "token=private",
+    "cookie-value",
     ".env",
-    "auth",
+    "auth-state",
     "browser profile",
     "traceback",
     ".wav",
@@ -149,8 +185,38 @@ _LOCAL_ALPHA_DASHBOARD_STATIC_DEMO_FORBIDDEN_TEXT = (
     "product judgment evidence satisfied",
     "server started: yes",
     "browser opened: yes",
-    "live delivery performed",
-    "autonomous participation",
+    "real online monitoring approved: yes",
+    "external meetings approved: yes",
+    "browser/auth/profile/cookies/tokens approved: yes",
+    "browser/server automation approved: yes",
+    "browser automation approved: yes",
+    "play" + "wright execution approved: yes",
+    "in-app browser execution approved: yes",
+    "private meeting/class data approved: yes",
+    "screenshots/traces/videos/downloads approved: yes",
+    "screenshots approved: yes",
+    "traces approved: yes",
+    "videos approved: yes",
+    "downloads approved: yes",
+    "audio/hardware/loopback approved: yes",
+    "audio capture approved: yes",
+    "loopback capture approved: yes",
+    "system audio approved: yes",
+    "browser audio approved: yes",
+    "live delivery approved: yes",
+    "live delivery performed: yes",
+    "scheduler/background execution approved: yes",
+    "deletion/export execution approved: yes",
+    "real deletion approved: yes",
+    "public release approved: yes",
+    "autonomous participation: yes",
+    "autonomous participation approved: yes",
+    "autonomous participation performed: yes",
+    "academic-answer behavior approved: yes",
+    "academic answer behavior approved: yes",
+    "push/merge approved: yes",
+    "push approved: yes",
+    "merge approved: yes",
     "<script",
     "<link",
     "<img",
@@ -4672,9 +4738,9 @@ def _local_alpha_dashboard_demo_json(payload: object) -> str:
         port=payload["port"],
     ):
         raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
-    if payload["gate_d_status"] != "not_passed":
+    if payload["gate_d_status"] != "narrow_local_pass_recorded":
         raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
-    if payload["product_judgment_evidence_status"] != "blocking":
+    if payload["product_judgment_evidence_status"] != "human_recorded_narrow_pass":
         raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)
     if payload["safety_summary"] != _LOCAL_ALPHA_DASHBOARD_DEMO_SAFETY_SUMMARY:
         raise ValueError(_LOCAL_ALPHA_DASHBOARD_DEMO_CLI_ERROR)

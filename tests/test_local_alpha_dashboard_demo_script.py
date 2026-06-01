@@ -34,7 +34,7 @@ def test_script_dry_run_delegates_to_existing_cli_without_server() -> None:
     assert payload["url"] == "http://127.0.0.1:8086"
     assert payload["server_started"] is False
     assert payload["browser_opened"] is False
-    assert payload["product_judgment_evidence_status"] == "blocking"
+    assert payload["product_judgment_evidence_status"] == "human_recorded_narrow_pass"
     assert payload["product_promise_alpha_pass_claimed"] is False
 
 

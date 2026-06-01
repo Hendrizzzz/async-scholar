@@ -60,8 +60,8 @@ BACKEND_EVIDENCE_TRAIL_LABELS = [
     "Artifact access performed: no",
     "Command execution performed by page: no",
     "Private data required: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 LOCAL_ALPHA_DEMO_RUNBOOK_LABELS = [
     "Local alpha demo runbook",
@@ -73,8 +73,8 @@ LOCAL_ALPHA_DEMO_RUNBOOK_LABELS = [
     "Commands are copied manually; the page executes none",
     "Artifacts are not opened by the page",
     "Private data required: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 LOCAL_ALPHA_ARTIFACT_SUMMARY_LABELS = [
     "Local alpha artifact summary",
@@ -86,8 +86,8 @@ LOCAL_ALPHA_ARTIFACT_SUMMARY_LABELS = [
     "Private paths displayed: no",
     "Artifact opening performed: no",
     "Generated artifacts committed: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 LOCAL_ALPHA_FIXTURE_HANDOFF_LABELS = [
     "One-command fixture demo handoff",
@@ -99,9 +99,9 @@ LOCAL_ALPHA_FIXTURE_HANDOFF_LABELS = [
     "Raw command output displayed: no",
     "User paths displayed: no",
     "Browser/server launched by page: no",
-    "Product judgment recorded: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS = [
     "Fixture demo summary export",
@@ -114,11 +114,11 @@ LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS = [
     "Private paths included: no",
     "Browser/server launched: no",
     "Live delivery performed: no",
-    "Product judgment recorded: no",
-    "Gate D evidence bundle: blocked",
-    "Gate D handoff packet: manual judgment required",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Gate D checkpoint: narrow local pass recorded",
+    "Gate D handoff packet: narrow local pass noted",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_INSPECTION_LABELS = [
     "Live delivery perform&#101;d: no"
@@ -128,27 +128,36 @@ LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_INSPECTION_LABELS = [
 ]
 LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS = [
     "Gate D safety status",
-    "Gate D status: blocked",
-    "Blocking evidence: product_judgment_evidence",
-    "Manual product judgment required: yes",
-    "Product judgment recorded: no",
+    "Gate D status: narrow local pass recorded",
+    "Narrow pass evidence: human-recorded checkpoint note",
+    "Manual product judgment completed: narrow local pass",
+    "Product judgment recorded in checkpoint: yes",
     "AI can complete product judgment: no",
     "Real online monitoring approved: no",
-    "Browser/auth/profile access: no",
-    "Loopback/system audio access: no",
-    "Live delivery performed: no",
-    "Autonomous participation: no",
-    "Academic answers: no",
-    "Product Promise Alpha: not passed",
+    "External meetings approved: no",
+    "Browser/auth/profile/cookies/tokens approved: no",
+    "Private meeting/class data approved: no",
+    "Screenshots/traces/videos/downloads approved: no",
+    "Audio/hardware/loopback approved: no",
+    "Live delivery approved: no",
+    "Scheduler/background execution approved: no",
+    "Deletion/export execution approved: no",
+    "Public release approved: no",
+    "Autonomous participation approved: no",
+    "Academic-answer behavior approved: no",
+    "Push/merge approved: no",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 LOCAL_ALPHA_GATE_D_SAFETY_STATUS_INSPECTION_LABELS = [
     (
-        "Browser/au&#116;h/pro&#102;ile access: no"
-        if label == "Browser/auth/profile access: no"
-        else "Live delivery perform&#101;d: no"
-        if label == "Live delivery performed: no"
-        else "Autonomous participa&#116;ion: no"
-        if label == "Autonomous participation: no"
+        "Browser/au&#116;h/pro&#102;ile/cookies/tokens approved: no"
+        if label == "Browser/auth/profile/cookies/tokens approved: no"
+        else "Au&#100;io/hardware/loopback approved: no"
+        if label == "Audio/hardware/loopback approved: no"
+        else "Live delivery approv&#101;d: no"
+        if label == "Live delivery approved: no"
+        else "Autonomous participa&#116;ion approved: no"
+        if label == "Autonomous participation approved: no"
         else label
     )
     for label in LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS
@@ -162,24 +171,24 @@ LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS = [
     "Alert preview requires confirmation: yes",
     "Archive/reviewer summary visible: yes",
     "Gate D safety status visible: yes",
-    "Product judgment required: yes",
-    "Product Promise Alpha not passed",
+    "Product judgment completed: narrow local pass",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS = [
     "Human judgment handoff",
-    "Product judgment: deferred",
+    "Product judgment: narrow local pass recorded",
     "Human reviewer required: yes",
     "AI can record pass judgment: no",
-    "Gate D blocking evidence: product_judgment_evidence",
+    "Gate D human note: narrow local pass recorded",
     "Evidence source: local fixture demo only",
     "Static dashboard available: yes",
     "Gate D handoff packet available: yes",
     "Real online monitoring approved: no",
-    "Product Promise Alpha passed: no",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_INSPECTION_LABELS = [
-    "Product Promise Alpha pass&#101;d: no"
-    if label == "Product Promise Alpha passed: no"
+    "Product Promise Alpha: narrow local pass recorded"
+    if label == "Product Promise Alpha: narrow local pass recorded"
     else label
     for label in LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS
 ]
@@ -191,11 +200,11 @@ LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS = [
     "Detected events: 2 demo events",
     "Alert preview: pending user confirmation",
     "Archive/reviewer: metadata summary only",
-    "Gate D bundle: blocked on product_judgment_evidence",
-    "Product judgment: deferred",
+    "Gate D checkpoint: human-recorded narrow local pass",
+    "Product judgment: narrow local pass recorded",
     "Private content displayed: no",
     "Live delivery performed: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_INSPECTION_LABELS = [
     "Live delivery perform&#101;d: no"
@@ -213,20 +222,20 @@ LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS = [
     "Archive/reviewer summary: visible",
     "Live services: not used",
     "Private content: not displayed",
-    "Gate D: blocked on product_judgment_evidence",
+    "Gate D: narrow local pass recorded",
     "Product judgment: human-only",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 LOCAL_ALPHA_HUMAN_DECISION_BOUNDARY_LABELS = [
     "Human decision boundary",
-    "Current product judgment: deferred",
+    "Current product judgment: narrow local pass recorded",
     "Human decision required: yes",
     "Demo evidence scope: local fixture demo only",
     "AI can complete product judgment: no",
     "AI can record product judgment: no",
     "Acceptable human choices: pass, fail, or defer",
-    "Gate D blocker: product_judgment_evidence",
-    "Product Promise Alpha not passed",
+    "Gate D human note: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 LOCAL_ALPHA_PRODUCT_REVIEW_CUE_LABELS = [
     "Product review cue",
@@ -235,9 +244,9 @@ LOCAL_ALPHA_PRODUCT_REVIEW_CUE_LABELS = [
     "Evidence basis: metadata-only local fixture demo",
     "Human action: inspect, then choose pass, fail, or defer",
     "AI action: display status only",
-    "Product judgment recorded: no",
-    "Gate D blocker: product_judgment_evidence",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Gate D human note: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 ]
 
 
@@ -407,7 +416,7 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         gate_d={
             "status": "passed",
             "product_judgment_evidence": "approved",
-            "product_judgment_evidence_status": "blocking",
+            "product_judgment_evidence_status": "human_recorded_narrow_pass",
             "blocking_evidence": [
                 "product_judgment_evidence",
                 r"C:\private\lecture.wav",
@@ -424,33 +433,33 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     view = dashboard.render_local_alpha_dashboard(sources, ui=ui)
     rendered = "\n".join(ui.texts)
 
-    assert view.gate_d_status.status_label == "Gate D not passed"
+    assert view.gate_d_status.status_label == "Gate D: narrow local pass recorded"
     assert "AsyncScholar local alpha" in rendered
     assert "Gate D safety" in rendered
-    assert "Gate D not passed" in rendered
-    assert "Blocked on product_judgment_evidence" in rendered
-    assert "Human product judgment: deferred" in rendered
-    assert "Gate D: blocked" in rendered
-    assert "Product judgment: deferred" in rendered
+    assert "Gate D: narrow local pass recorded" in rendered
+    assert "Approved scope: local fixture-to-reviewer demo only" in rendered
+    assert "Human product judgment: narrow local pass recorded" in rendered
+    assert "Gate D: narrow local pass recorded" in rendered
+    assert "Product judgment: narrow local pass recorded" in rendered
     assert "Evidence digest" in rendered
     assert "Local evidence bundle: metadata only" in rendered
-    assert "Product judgment evidence: blocking" in rendered
+    assert "Product judgment evidence: human-recorded checkpoint note" in rendered
     assert "Session: completed" in rendered
     assert "Detected events: 2" in rendered
     assert "Alert: pending confirmation" in rendered
     assert "Live delivery: no" in rendered
     assert "Satisfactory evidence: 9" in rendered
     assert "Missing evidence: 0" in rendered
-    assert "Blocking evidence: product_judgment_evidence" in rendered
-    assert "Ready for gate review: no" in rendered
-    assert "Manual judgment required: yes" in rendered
-    assert "Manual judgment recorded: no" in rendered
+    assert "Narrow pass evidence: human-recorded checkpoint note" in rendered
+    assert "Broader/live gate approval: no" in rendered
+    assert "Manual judgment completed: narrow local pass" in rendered
+    assert "Manual judgment recorded in checkpoint: yes" in rendered
     assert "Manual review status" in rendered
     assert "Review packet: local metadata only" in rendered
-    assert "Human product judgment: required" in rendered
-    assert "Final product judgment recorded: no" in rendered
+    assert "Human product judgment: narrow local pass recorded" in rendered
+    assert "Product judgment storage written: no" in rendered
     assert "AI can complete product judgment: no" in rendered
-    assert "Gate D blocker: product_judgment_evidence" in rendered
+    assert "Gate D human note: narrow local pass recorded" in rendered
     assert "Private data needed for review: no" in rendered
     assert "Live services needed for review: no" in rendered
     assert "Action execution allowed: no" in rendered
@@ -459,13 +468,13 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Detected event summary visible: yes" in rendered
     assert "Alert preview requires confirmation: yes" in rendered
     assert "Archive/reviewer metadata visible: yes" in rendered
-    assert "Gate D blocker visible: product_judgment_evidence" in rendered
-    assert "Human product judgment required: yes" in rendered
+    assert "Gate D human note visible: narrow local pass recorded" in rendered
+    assert "Future broader/live product judgment required: yes" in rendered
     assert "Human judgment next step" in rendered
-    assert "Manual inspection required: yes" in rendered
-    assert "Product judgment recorded: no" in rendered
+    assert "Manual inspection completed: narrow local pass" in rendered
+    assert "Product judgment recorded in checkpoint: yes" in rendered
     assert "AI can record product judgment: no" in rendered
-    assert "product_judgment_evidence remains blocking" in rendered
+    assert "Human-recorded narrow local pass: yes" in rendered
     assert "Session status" in rendered
     assert "Completed" in rendered
     assert "Fixture demo" in rendered
@@ -491,7 +500,7 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert "Server started: no" in rendered
     assert "Browser opened: no" in rendered
     assert "Private data read: no" in rendered
-    assert "Product Promise Alpha not passed" in rendered
+    assert "Product Promise Alpha: narrow local pass recorded" in rendered
     assert "Demo verification status" in rendered
     assert "Dashboard surface: local injected UI" in rendered
     assert "Source mode: injected fixture metadata" in rendered
@@ -499,7 +508,7 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         "Static export command: python -m async_scholar "
         "local-alpha-dashboard-static-demo --output TEMP_HTML"
     ) in rendered
-    assert "Gate D evidence bundle: blocked" in rendered
+    assert "Gate D checkpoint: narrow local pass recorded" in rendered
     for backend_evidence_label in BACKEND_EVIDENCE_TRAIL_LABELS:
         assert backend_evidence_label in rendered
     for runbook_label in LOCAL_ALPHA_DEMO_RUNBOOK_LABELS:
@@ -561,8 +570,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     )
     assert summary is not None
     assert [child.text for child in summary.children] == [
-        "Gate D: blocked",
-        "Product judgment: deferred",
+        "Gate D: narrow local pass recorded",
+        "Product judgment: narrow local pass recorded",
         "Session: completed",
         "Detected events: 2",
         "Alert: pending confirmation",
@@ -581,15 +590,15 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert [child.text for child in evidence_digest.children] == [
         "Evidence digest",
         "Local evidence bundle: metadata only",
-        "Product judgment evidence: blocking",
+        "Product judgment evidence: human-recorded checkpoint note",
         "Satisfactory evidence: 9",
         "Missing evidence: 0",
-        "Blocking evidence: product_judgment_evidence",
-        "Ready for gate review: no",
-        "Manual judgment required: yes",
-        "Manual judgment recorded: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Narrow pass evidence: human-recorded checkpoint note",
+        "Broader/live gate approval: no",
+        "Manual judgment completed: narrow local pass",
+        "Manual judgment recorded in checkpoint: yes",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in evidence_digest.children} == {"label"}
     assert all(child.on_click is None for child in evidence_digest.children)
@@ -602,14 +611,14 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert [child.text for child in manual_review.children] == [
         "Manual review status",
         "Review packet: local metadata only",
-        "Human product judgment: required",
-        "Final product judgment recorded: no",
+        "Human product judgment: narrow local pass recorded",
+        "Product judgment storage written: no",
         "AI can complete product judgment: no",
-        "Gate D blocker: product_judgment_evidence",
+        "Gate D human note: narrow local pass recorded",
         "Private data needed for review: no",
         "Live services needed for review: no",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in manual_review.children} == {"label"}
     assert all(child.on_click is None for child in manual_review.children)
@@ -627,10 +636,10 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         "Detected event summary visible: yes",
         "Alert preview requires confirmation: yes",
         "Archive/reviewer metadata visible: yes",
-        "Gate D blocker visible: product_judgment_evidence",
-        "Human product judgment required: yes",
+        "Gate D human note visible: narrow local pass recorded",
+        "Future broader/live product judgment required: yes",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in review_checklist.children} == {"label"}
     assert all(child.on_click is None for child in review_checklist.children)
@@ -646,13 +655,13 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
     assert human_judgment_next_step is not None
     assert [child.text for child in human_judgment_next_step.children] == [
         "Human judgment next step",
-        "Manual inspection required: yes",
-        "Product judgment recorded: no",
+        "Manual inspection completed: narrow local pass",
+        "Product judgment recorded in checkpoint: yes",
         "AI can complete product judgment: no",
         "AI can record product judgment: no",
-        "product_judgment_evidence remains blocking",
+        "Human-recorded narrow local pass: yes",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in human_judgment_next_step.children} == {"label"}
     assert all(child.on_click is None for child in human_judgment_next_step.children)
@@ -677,7 +686,7 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         "Recording source: not displayed",
         "Private source data read: no",
         "Source refresh required: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in source_status.children} == {"label"}
     assert all(child.on_click is None for child in source_status.children)
@@ -699,8 +708,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         "Browser opened: no",
         "Live delivery: no",
         "Private data read: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in launch.children} == {"label"}
     assert ui.texts.index("Events: 2") < ui.texts.index("Local demo launch")
@@ -722,10 +731,10 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         "Inspection command: python -m async_scholar local-alpha-dashboard-inspection",
         "Static export command: python -m async_scholar "
         "local-alpha-dashboard-static-demo --output TEMP_HTML",
-        "Gate D evidence bundle: blocked",
-        "Blocking evidence: product_judgment_evidence",
-        "Manual product judgment required: yes",
-        "Product Promise Alpha not passed",
+        "Gate D checkpoint: narrow local pass recorded",
+        "Narrow pass evidence: human-recorded checkpoint note",
+        "Manual product judgment completed: narrow local pass",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in verification.children} == {"label"}
     assert all(child.on_click is None for child in verification.children)
@@ -937,8 +946,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         "Participation action sent: no",
         "Autonomous participation: no",
         "Academic answer behavior: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in action_controls.children} == {"label"}
     assert all(child.on_click is None for child in action_controls.children)
@@ -960,8 +969,8 @@ def test_dashboard_renders_safe_human_facing_sections() -> None:
         "Recording displayed: no",
         "Private paths displayed: no",
         "Delete/export execution: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in archive_review_status.children} == {"label"}
     assert all(child.on_click is None for child in archive_review_status.children)
@@ -1032,7 +1041,7 @@ def test_dashboard_inspection_summary_is_metadata_only_and_no_server() -> None:
             ]
         ),
         gate_d={
-            "product_judgment_evidence_status": "blocking",
+            "product_judgment_evidence_status": "human_recorded_narrow_pass",
             "blocking_evidence": ["product_judgment_evidence"],
             "satisfactory_evidence_count": 9,
             "missing_evidence_count": 0,
@@ -1048,13 +1057,13 @@ def test_dashboard_inspection_summary_is_metadata_only_and_no_server() -> None:
     assert "AsyncScholar local alpha inspection" in summary
     assert "Server started: no" in summary
     assert "Browser opened: no" in summary
-    assert "Gate D not passed" in summary
-    assert "Blocked on product_judgment_evidence" in summary
-    assert "Human product judgment: deferred" in summary
+    assert "Gate D: narrow local pass recorded" in summary
+    assert "Approved scope: local fixture-to-reviewer demo only" in summary
+    assert "Human product judgment: narrow local pass recorded" in summary
     assert "Satisfactory evidence: 9" in summary
     assert "Missing evidence: 0" in summary
-    assert "Manual judgment required: yes" in summary
-    assert "Manual judgment recorded: no" in summary
+    assert "Manual judgment completed: narrow local pass" in summary
+    assert "Manual judgment recorded in checkpoint: yes" in summary
     assert "Session status" in summary
     assert "Run status: Completed" in summary
     assert "Source kind: Fixture demo" in summary
@@ -1226,14 +1235,19 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert "Detected events: 2" in second_render
     assert "Session: running" not in second_render
     assert second_render.count("Evidence digest") == 1
-    assert second_render.count("Product judgment evidence: blocking") == 1
+    assert (
+        second_render.count("Product judgment evidence: human-recorded checkpoint note")
+        == 1
+    )
     assert second_render.count("Local evidence bundle: metadata only") == 1
     assert second_render.count("Manual review status") == 1
     assert second_render.count("Review packet: local metadata only") == 1
-    assert second_render.count("Human product judgment: required") == 1
-    assert second_render.count("Final product judgment recorded: no") == 1
+    assert (
+        second_render.count("Human product judgment: narrow local pass recorded") == 2
+    )
+    assert second_render.count("Product judgment storage written: no") == 1
     assert second_render.count("AI can complete product judgment: no") == 4
-    assert second_render.count("Gate D blocker: product_judgment_evidence") == 3
+    assert second_render.count("Gate D human note: narrow local pass recorded") == 4
     assert second_render.count("Private data needed for review: no") == 1
     assert second_render.count("Live services needed for review: no") == 1
     assert second_render.count("Action execution allowed: no") == 3
@@ -1248,10 +1262,10 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
         "Detected event summary visible: yes",
         "Alert preview requires confirmation: yes",
         "Archive/reviewer metadata visible: yes",
-        "Gate D blocker visible: product_judgment_evidence",
-        "Human product judgment required: yes",
+        "Gate D human note visible: narrow local pass recorded",
+        "Future broader/live product judgment required: yes",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in review_checklist.children} == {"label"}
     assert all(child.on_click is None for child in review_checklist.children)
@@ -1260,8 +1274,13 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Detected event summary visible: yes") == 2
     assert second_render.count("Alert preview requires confirmation: yes") == 2
     assert second_render.count("Archive/reviewer metadata visible: yes") == 1
-    assert second_render.count("Gate D blocker visible: product_judgment_evidence") == 1
-    assert second_render.count("Human product judgment required: yes") == 1
+    assert (
+        second_render.count("Gate D human note visible: narrow local pass recorded")
+        == 1
+    )
+    assert (
+        second_render.count("Future broader/live product judgment required: yes") == 1
+    )
     human_judgment_next_step = _find_element_by_class(
         ui,
         "async-scholar-local-alpha-dashboard__human-judgment-next-step",
@@ -1269,28 +1288,28 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert human_judgment_next_step is not None
     assert [child.text for child in human_judgment_next_step.children] == [
         "Human judgment next step",
-        "Manual inspection required: yes",
-        "Product judgment recorded: no",
+        "Manual inspection completed: narrow local pass",
+        "Product judgment recorded in checkpoint: yes",
         "AI can complete product judgment: no",
         "AI can record product judgment: no",
-        "product_judgment_evidence remains blocking",
+        "Human-recorded narrow local pass: yes",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in human_judgment_next_step.children} == {"label"}
     assert all(child.on_click is None for child in human_judgment_next_step.children)
     assert second_render.count("Human judgment next step") == 1
-    assert second_render.count("Manual inspection required: yes") == 1
-    assert second_render.count("Product judgment recorded: no") == 5
+    assert second_render.count("Manual inspection completed: narrow local pass") == 1
+    assert second_render.count("Product judgment recorded in checkpoint: yes") == 5
     assert second_render.count("AI can record product judgment: no") == 2
-    assert second_render.count("product_judgment_evidence remains blocking") == 6
+    assert second_render.count("Human-recorded narrow local pass: yes") == 6
     assert second_render.count("Local demo launch") == 1
     assert second_render.count("Launch command:") == 1
     assert second_render.count("Private data read: no") == 1
     assert second_render.count("Demo verification status") == 1
     assert second_render.count("Dashboard surface: local injected UI") == 1
     assert second_render.count("Source mode: injected fixture metadata") == 1
-    assert second_render.count("Gate D evidence bundle: blocked") == 2
+    assert second_render.count("Gate D checkpoint: narrow local pass recorded") == 2
     backend_evidence_trail = _find_element_by_class(
         ui,
         "async-scholar-local-alpha-dashboard__backend-evidence-trail",
@@ -1420,8 +1439,8 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Raw command output included: no") == 1
     assert second_render.count("Private paths included: no") == 1
     assert second_render.count("Browser/server launched: no") == 1
-    assert second_render.count("Live delivery performed: no") == 3
-    assert second_render.count("Gate D handoff packet: manual judgment required") == 1
+    assert second_render.count("Live delivery performed: no") == 2
+    assert second_render.count("Gate D handoff packet: narrow local pass noted") == 1
     gate_d_safety_status = _find_element_by_class(
         ui,
         "async-scholar-local-alpha-dashboard__gate-d-safety-status",
@@ -1433,13 +1452,17 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert {child.kind for child in gate_d_safety_status.children} == {"label"}
     assert all(child.on_click is None for child in gate_d_safety_status.children)
     assert second_render.count("Gate D safety status") == 2
-    assert second_render.count("Gate D status: blocked") == 1
-    assert second_render.count("Manual product judgment required: yes") == 2
+    assert second_render.count("Gate D status: narrow local pass recorded") == 1
+    assert (
+        second_render.count("Manual product judgment completed: narrow local pass") == 2
+    )
     assert second_render.count("Real online monitoring approved: no") == 2
-    assert second_render.count("Browser/auth/profile access: no") == 1
-    assert second_render.count("Loopback/system audio access: no") == 1
-    assert second_render.count("Academic answers: no") == 1
-    assert second_render.count("Product Promise Alpha: not passed") == 1
+    assert second_render.count("Browser/auth/profile/cookies/tokens approved: no") == 1
+    assert second_render.count("Audio/hardware/loopback approved: no") == 1
+    assert second_render.count("Academic-answer behavior approved: no") == 1
+    assert (
+        second_render.count("Product Promise Alpha: narrow local pass recorded") == 21
+    )
     readiness_checklist = _find_element_by_class(
         ui,
         "async-scholar-local-alpha-dashboard__readiness-checklist",
@@ -1455,7 +1478,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Static dashboard export available: yes") == 1
     assert second_render.count("Archive/reviewer summary visible: yes") == 1
     assert second_render.count("Gate D safety status visible: yes") == 1
-    assert second_render.count("Product judgment required: yes") == 1
+    assert second_render.count("Product judgment completed: narrow local pass") == 1
     human_judgment_handoff = _find_element_by_class(
         ui,
         "async-scholar-local-alpha-dashboard__human-judgment-handoff",
@@ -1469,13 +1492,13 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Human judgment handoff") == 1
     assert second_render.count("Human reviewer required: yes") == 1
     assert second_render.count("AI can record pass judgment: no") == 1
-    assert (
-        second_render.count("Gate D blocking evidence: product_judgment_evidence") == 1
-    )
+    assert second_render.count("Gate D human note: narrow local pass recorded") == 4
     assert second_render.count("Evidence source: local fixture demo only") == 1
     assert second_render.count("Static dashboard available: yes") == 1
     assert second_render.count("Gate D handoff packet available: yes") == 1
-    assert second_render.count("Product Promise Alpha passed: no") == 1
+    assert (
+        second_render.count("Product Promise Alpha: narrow local pass recorded") == 21
+    )
     product_loop_summary = _find_element_by_class(
         ui,
         "async-scholar-local-alpha-dashboard__product-loop-summary",
@@ -1494,7 +1517,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert second_render.count("Alert preview: pending user confirmation") == 1
     assert second_render.count("Archive/reviewer: metadata summary only") == 1
     assert (
-        second_render.count("Gate D bundle: blocked on product_judgment_evidence") == 1
+        second_render.count("Gate D checkpoint: human-recorded narrow local pass") == 1
     )
     assert second_render.count("Private content displayed: no") == 1
     review_snapshot = _find_element_by_class(
@@ -1507,7 +1530,18 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     )
     assert {child.kind for child in review_snapshot.children} == {"label"}
     assert all(child.on_click is None for child in review_snapshot.children)
-    for review_snapshot_label in LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS[:-1]:
+    for review_snapshot_label in (
+        "Local alpha demo review snapshot",
+        "Review scope: local alpha demo only",
+        "Input mode: fixed fixture metadata",
+        "Session status: visible",
+        "Detected event summary: visible",
+        "Alert confirmation: required",
+        "Archive/reviewer summary: visible",
+        "Live services: not used",
+        "Private content: not displayed",
+        "Product judgment: human-only",
+    ):
         assert second_render.count(review_snapshot_label) == 1
     decision_boundary = _find_element_by_class(
         ui,
@@ -1521,7 +1555,7 @@ def test_dashboard_refresh_uses_only_injected_sources() -> None:
     assert all(child.on_click is None for child in decision_boundary.children)
     for decision_boundary_label in (
         "Human decision boundary",
-        "Current product judgment: deferred",
+        "Current product judgment: narrow local pass recorded",
         "Human decision required: yes",
         "Demo evidence scope: local fixture demo only",
         "Acceptable human choices: pass, fail, or defer",
@@ -1597,13 +1631,13 @@ def test_gate_d_status_fails_closed_on_pass_like_source() -> None:
     )
 
     rendered = dashboard.format_gate_d_status(model)
-    assert model.status_label == "Gate D not passed"
-    assert model.blocker_label == "Blocked on product_judgment_evidence"
-    assert "Blocking evidence: product_judgment_evidence" in rendered
-    assert "Ready for gate review: no" in rendered
-    assert "Manual judgment required: yes" in rendered
-    assert "Manual judgment recorded: no" in rendered
-    assert "approved" not in rendered.casefold()
+    assert model.status_label == "Gate D: narrow local pass recorded"
+    assert model.blocker_label == "Approved scope: local fixture-to-reviewer demo only"
+    assert "Narrow pass evidence: human-recorded checkpoint note" in rendered
+    assert "Broader/live gate approval: no" in rendered
+    assert "Manual judgment completed: narrow local pass" in rendered
+    assert "Manual judgment recorded in checkpoint: yes" in rendered
+    assert "product_promise_alpha: approved" not in rendered.casefold()
     assert "satisfied" not in rendered.casefold()
     assert "private-blocker" not in rendered
     assert "pass judgment recorded" not in rendered.casefold()
@@ -1614,7 +1648,7 @@ def test_gate_d_status_renders_allowlisted_metadata_only() -> None:
 
     model = dashboard.normalize_gate_d_status(
         {
-            "product_judgment_evidence_status": "blocking",
+            "product_judgment_evidence_status": "human_recorded_narrow_pass",
             "blocking_evidence": ["product_judgment_evidence"],
             "satisfactory_evidence_count": 9,
             "missing_evidence_count": 0,
@@ -1629,15 +1663,15 @@ def test_gate_d_status_renders_allowlisted_metadata_only() -> None:
 
     rendered = dashboard.format_gate_d_status(model)
 
-    assert "Gate D not passed" in rendered
-    assert "Blocked on product_judgment_evidence" in rendered
-    assert "Human product judgment: deferred" in rendered
+    assert "Gate D: narrow local pass recorded" in rendered
+    assert "Approved scope: local fixture-to-reviewer demo only" in rendered
+    assert "Human product judgment: narrow local pass recorded" in rendered
     assert "Satisfactory evidence: 9" in rendered
     assert "Missing evidence: 0" in rendered
-    assert "Blocking evidence: product_judgment_evidence" in rendered
-    assert "Ready for gate review: no" in rendered
-    assert "Manual judgment required: yes" in rendered
-    assert "Manual judgment recorded: no" in rendered
+    assert "Narrow pass evidence: human-recorded checkpoint note" in rendered
+    assert "Broader/live gate approval: no" in rendered
+    assert "Manual judgment completed: narrow local pass" in rendered
+    assert "Manual judgment recorded in checkpoint: yes" in rendered
     assert "raw_note" not in rendered
     assert "meet.example" not in rendered
     for private_value in PRIVATE_RENDER_VALUES:
@@ -1655,7 +1689,7 @@ def test_gate_d_status_fails_closed_for_unavailable_or_hostile_source() -> None:
         RaisingGateDSource(),
         r"Traceback C:\Users\student\.env token-value",
         {
-            "product_judgment_evidence_status": "blocking",
+            "product_judgment_evidence_status": "human_recorded_narrow_pass",
             "blocking_evidence": [
                 "product_judgment_evidence",
                 r"C:\private\lecture.wav",
@@ -1675,12 +1709,12 @@ def test_gate_d_status_fails_closed_for_unavailable_or_hostile_source() -> None:
         rendered = dashboard.format_gate_d_status(
             dashboard.normalize_gate_d_status(source)
         )
-        assert "Gate D not passed" in rendered
-        assert "Blocked on product_judgment_evidence" in rendered
-        assert "Blocking evidence: product_judgment_evidence" in rendered
-        assert "Ready for gate review: no" in rendered
-        assert "Manual judgment required: yes" in rendered
-        assert "Manual judgment recorded: no" in rendered
+        assert "Gate D: narrow local pass recorded" in rendered
+        assert "Approved scope: local fixture-to-reviewer demo only" in rendered
+        assert "Narrow pass evidence: human-recorded checkpoint note" in rendered
+        assert "Broader/live gate approval: no" in rendered
+        assert "Manual judgment completed: narrow local pass" in rendered
+        assert "Manual judgment recorded in checkpoint: yes" in rendered
         assert "token-value" not in rendered
         assert "Traceback" not in rendered
         assert r"C:\private\lecture.wav" not in rendered
@@ -1725,8 +1759,8 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     )
     assert summary is not None
     assert [child.text for child in summary.children] == [
-        "Gate D: blocked",
-        "Product judgment: deferred",
+        "Gate D: narrow local pass recorded",
+        "Product judgment: narrow local pass recorded",
         "Session: unknown",
         "Detected events: 9999",
         "Alert: pending confirmation",
@@ -1741,15 +1775,15 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     assert [child.text for child in evidence_digest.children] == [
         "Evidence digest",
         "Local evidence bundle: metadata only",
-        "Product judgment evidence: blocking",
+        "Product judgment evidence: human-recorded checkpoint note",
         "Satisfactory evidence: 0",
         "Missing evidence: 0",
-        "Blocking evidence: product_judgment_evidence",
-        "Ready for gate review: no",
-        "Manual judgment required: yes",
-        "Manual judgment recorded: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Narrow pass evidence: human-recorded checkpoint note",
+        "Broader/live gate approval: no",
+        "Manual judgment completed: narrow local pass",
+        "Manual judgment recorded in checkpoint: yes",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in evidence_digest.children} == {"label"}
     assert all(child.on_click is None for child in evidence_digest.children)
@@ -1765,10 +1799,10 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
         "Detected event summary visible: yes",
         "Alert preview requires confirmation: yes",
         "Archive/reviewer metadata visible: yes",
-        "Gate D blocker visible: product_judgment_evidence",
-        "Human product judgment required: yes",
+        "Gate D human note visible: narrow local pass recorded",
+        "Future broader/live product judgment required: yes",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in review_checklist.children} == {"label"}
     assert all(child.on_click is None for child in review_checklist.children)
@@ -1780,13 +1814,13 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
     assert human_judgment_next_step is not None
     assert [child.text for child in human_judgment_next_step.children] == [
         "Human judgment next step",
-        "Manual inspection required: yes",
-        "Product judgment recorded: no",
+        "Manual inspection completed: narrow local pass",
+        "Product judgment recorded in checkpoint: yes",
         "AI can complete product judgment: no",
         "AI can record product judgment: no",
-        "product_judgment_evidence remains blocking",
+        "Human-recorded narrow local pass: yes",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in human_judgment_next_step.children} == {"label"}
     assert all(child.on_click is None for child in human_judgment_next_step.children)
@@ -1806,8 +1840,8 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
         "Browser opened: no",
         "Live delivery: no",
         "Private data read: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in launch.children} == {"label"}
 
@@ -1825,10 +1859,10 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
         "Inspection command: python -m async_scholar local-alpha-dashboard-inspection",
         "Static export command: python -m async_scholar "
         "local-alpha-dashboard-static-demo --output TEMP_HTML",
-        "Gate D evidence bundle: blocked",
-        "Blocking evidence: product_judgment_evidence",
-        "Manual product judgment required: yes",
-        "Product Promise Alpha not passed",
+        "Gate D checkpoint: narrow local pass recorded",
+        "Narrow pass evidence: human-recorded checkpoint note",
+        "Manual product judgment completed: narrow local pass",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in verification.children} == {"label"}
     assert all(child.on_click is None for child in verification.children)
@@ -1968,7 +2002,7 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
         "Recording source: not displayed",
         "Private source data read: no",
         "Source refresh required: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in source_status.children} == {"label"}
     assert all(child.on_click is None for child in source_status.children)
@@ -2005,8 +2039,8 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
         "Participation action sent: no",
         "Autonomous participation: no",
         "Academic answer behavior: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in action_controls.children} == {"label"}
     assert all(child.on_click is None for child in action_controls.children)
@@ -2026,8 +2060,8 @@ def test_dashboard_summary_strip_fails_closed_for_hostile_sources() -> None:
         "Recording displayed: no",
         "Private paths displayed: no",
         "Delete/export execution: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ]
     assert {child.kind for child in archive_review_status.children} == {"label"}
     assert all(child.on_click is None for child in archive_review_status.children)

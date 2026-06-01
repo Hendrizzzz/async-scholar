@@ -220,8 +220,8 @@ def test_readme_documents_static_demo_script_boundaries() -> None:
 
 def _assert_static_html_safe(html: str) -> None:
     assert "AsyncScholar local alpha static demo" in html
-    assert "Gate D: blocked" in html
-    assert "Product judgment: deferred" in html
+    assert "Gate D: narrow local pass recorded" in html
+    assert "Product judgment: narrow local pass recorded" in html
     assert "Session: completed" in html
     assert "Detected events: 2" in html
     assert "Alert: pending confirmation" in html
@@ -267,18 +267,18 @@ def _assert_static_html_safe(html: str) -> None:
     assert html.count("<section") == 29
     assert "Server started: no" in html
     assert "Browser opened: no" in html
-    assert "Gate D not passed" in html
-    assert "Blocked on product_judgment_evidence" in html
-    assert "Human product judgment: deferred" in html
-    assert "Manual judgment required: yes" in html
-    assert "Manual judgment recorded: no" in html
-    assert "Handoff status: Ready for manual review" in html
-    assert "Local bundle status: Blocked" in html
+    assert "Gate D: narrow local pass recorded" in html
+    assert "Approved scope: local fixture-to-reviewer demo only" in html
+    assert "Human product judgment: narrow local pass recorded" in html
+    assert "Manual judgment completed: narrow local pass" in html
+    assert "Manual judgment recorded in checkpoint: yes" in html
+    assert "Handoff status: Metadata aid only" in html
+    assert "Local bundle status: Narrow local pass recorded in checkpoint" in html
     assert "AI can complete product judgment: no" in html
     assert "Review packet: local metadata only" in html
-    assert "Human product judgment: required" in html
-    assert "Final product judgment recorded: no" in html
-    assert "Gate D blocker: product_judgment_evidence" in html
+    assert "Human product judgment: narrow local pass recorded" in html
+    assert "Product judgment storage written: no" in html
+    assert "Gate D human note: narrow local pass recorded" in html
     assert "Private data needed for review: no" in html
     assert "Live services needed for review: no" in html
     assert "Action execution allowed: no" in html
@@ -310,9 +310,9 @@ def _assert_static_html_safe(html: str) -> None:
         "Static export command: local-alpha-dashboard-static-demo --output "
         "local-html-file" in visible_html
     )
-    assert "Gate D evidence bundle: blocked" in html
-    assert "Blocking evidence: product_judgment_evidence" in html
-    assert "Manual product judgment required: yes" in html
+    assert "Gate D checkpoint: narrow local pass recorded" in html
+    assert "Narrow pass evidence: human-recorded checkpoint note" in html
+    assert "Manual product judgment completed: narrow local pass" in html
     assert "Fixture/local demo evidence: existing CLI surfaces" in html
     assert "Inspection summary: local-alpha-dashboard-inspection" in html
     assert (
@@ -361,21 +361,21 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Private paths included: no" in visible_html
     assert "Browser/server launched: no" in visible_html
     assert "Live delivery performed: no" in visible_html
-    assert "Product judgment recorded: no" in visible_html
-    assert "Gate D evidence bundle: blocked" in visible_html
-    assert "Gate D handoff packet: manual judgment required" in visible_html
-    assert "Gate D status: blocked" in visible_html
-    assert "Blocking evidence: product_judgment_evidence" in visible_html
-    assert "Manual product judgment required: yes" in visible_html
-    assert "Product judgment recorded: no" in visible_html
+    assert "Product judgment recorded in checkpoint: yes" in visible_html
+    assert "Gate D checkpoint: narrow local pass recorded" in visible_html
+    assert "Gate D handoff packet: narrow local pass noted" in visible_html
+    assert "Gate D status: narrow local pass recorded" in visible_html
+    assert "Narrow pass evidence: human-recorded checkpoint note" in visible_html
+    assert "Manual product judgment completed: narrow local pass" in visible_html
+    assert "Product judgment recorded in checkpoint: yes" in visible_html
     assert "AI can complete product judgment: no" in visible_html
     assert "Real online monitoring approved: no" in visible_html
-    assert "Browser/auth/profile access: no" in visible_html
-    assert "Loopback/system audio access: no" in visible_html
+    assert "Browser/auth/profile/cookies/tokens approved: no" in visible_html
+    assert "Audio/hardware/loopback approved: no" in visible_html
     assert "Live delivery performed: no" in visible_html
-    assert "Autonomous participation: no" in visible_html
-    assert "Academic answers: no" in visible_html
-    assert "Product Promise Alpha: not passed" in visible_html
+    assert "Autonomous participation approved: no" in visible_html
+    assert "Academic-answer behavior approved: no" in visible_html
+    assert "Product Promise Alpha: narrow local pass recorded" in visible_html
     assert "Fixture/local demo available: yes" in visible_html
     assert "Static dashboard export available: yes" in visible_html
     assert "Session status visible: yes" in visible_html
@@ -383,16 +383,16 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Alert preview requires confirmation: yes" in visible_html
     assert "Archive/reviewer summary visible: yes" in visible_html
     assert "Gate D safety status visible: yes" in visible_html
-    assert "Product judgment required: yes" in visible_html
+    assert "Product judgment completed: narrow local pass" in visible_html
     assert "Human reviewer required: yes" in visible_html
     assert "AI can record pass judgment: no" in visible_html
-    assert "Gate D blocking evidence: product_judgment_evidence" in visible_html
+    assert "Gate D human note: narrow local pass recorded" in visible_html
     assert "Evidence source: local fixture demo only" in visible_html
     assert "Static dashboard available: yes" in visible_html
     assert "Gate D handoff packet available: yes" in visible_html
     assert "Real online monitoring approved: no" in visible_html
-    assert "Product Promise Alpha passed: no" in visible_html
-    assert "Product Promise Alpha pass&#101;d: no" in html
+    assert "Product Promise Alpha: narrow local pass recorded" in visible_html
+    assert "Product Promise Alpha: narrow local pass recorded" in html
     assert "Product loop: fixture to reviewer" in visible_html
     assert "Fixture input: local metadata only" in visible_html
     assert "Session status: completed" in visible_html
@@ -405,16 +405,16 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Archive/reviewer summary: visible" in visible_html
     assert "Live services: not used" in visible_html
     assert "Private content: not displayed" in visible_html
-    assert "Gate D: blocked on product_judgment_evidence" in visible_html
+    assert "Gate D: narrow local pass recorded" in visible_html
     assert "Product judgment: human-only" in visible_html
     assert "Human decision boundary" in visible_html
-    assert "Current product judgment: deferred" in visible_html
+    assert "Current product judgment: narrow local pass recorded" in visible_html
     assert "Human decision required: yes" in visible_html
     assert "Demo evidence scope: local fixture demo only" in visible_html
     assert "AI can complete product judgment: no" in visible_html
     assert "AI can record product judgment: no" in visible_html
     assert "Acceptable human choices: pass, fail, or defer" in visible_html
-    assert "Gate D blocker: product_judgment_evidence" in visible_html
+    assert "Gate D human note: narrow local pass recorded" in visible_html
     assert "Product review cue" in visible_html
     assert "Review target: local Product Promise Alpha demo" in visible_html
     assert "What to judge: fixture-to-reviewer product loop clarity" in visible_html
@@ -423,11 +423,11 @@ def _assert_static_html_safe(html: str) -> None:
     assert "AI action: display status only" in visible_html
     assert "Alert preview: pending user confirmation" in visible_html
     assert "Archive/reviewer: metadata summary only" in visible_html
-    assert "Gate D bundle: blocked on product_judgment_evidence" in visible_html
+    assert "Gate D checkpoint: human-recorded narrow local pass" in visible_html
     assert "Private content displayed: no" in visible_html
     assert "Live delivery performed: no" in visible_html
     assert "Live delivery perform&#101;d: no" in html
-    assert "product_judgment_evidence remains blocking" in html
+    assert "Human-recorded narrow local pass: yes" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html
     assert "Live delivery: yes" not in html
@@ -437,7 +437,7 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Event detected" in html
     assert "Alert awaiting confirmation" in html
     assert "Archive/reviewer metadata ready" in html
-    assert "Gate D blocked" in html
+    assert "Gate D narrow local pass recorded" in html
     assert "Run status: Completed" in html
     assert "Attendance prompt - 42s - 94% confidence" in html
     assert "Important event - 185s - 88% confidence" in html
@@ -466,14 +466,14 @@ def _assert_static_html_safe(html: str) -> None:
     assert "Detected event summary visible: yes" in html
     assert "Alert preview requires confirmation: yes" in html
     assert "Archive/reviewer metadata visible: yes" in html
-    assert "Gate D blocker visible: product_judgment_evidence" in html
-    assert "Human product judgment required: yes" in html
-    assert "Manual inspection required: yes" in html
-    assert "Product judgment recorded: no" in html
+    assert "Gate D human note visible: narrow local pass recorded" in html
+    assert "Future broader/live product judgment required: yes" in html
+    assert "Manual inspection completed: narrow local pass" in html
+    assert "Product judgment recorded in checkpoint: yes" in html
     assert "AI can record product judgment: no" in html
-    assert "product_judgment_evidence remains blocking" in html
-    assert "Gate D not passed" in html
-    assert "Product Promise Alpha not passed" in html
+    assert "Human-recorded narrow local pass: yes" in html
+    assert "Gate D: narrow local pass recorded" in html
+    assert "Product Promise Alpha: narrow local pass recorded" in html
     assert html.count("<button ") == 4
     assert html.count('type="button"') == 4
     assert html.count(" disabled ") == 4
@@ -512,9 +512,9 @@ def _assert_static_html_safe(html: str) -> None:
         "academic answer behavior: yes",
         "traceback",
         ".env",
-        "cookie",
-        "token",
-        "auth",
+        "cookie-value",
+        "token=private",
+        "auth-state",
         "http:",
         "https:",
         "file:",

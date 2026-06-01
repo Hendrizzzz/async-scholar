@@ -35,8 +35,8 @@ STATIC_DEMO_RUNBOOK_LINES = (
     "Commands are copied manually; the page executes none",
     "Artifacts are not opened by the page",
     "Private data required: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 STATIC_DEMO_ARTIFACT_SUMMARY_LINES = (
     "Fixture artifacts: events.jsonl, alerts.log, reviewer.md",
@@ -47,8 +47,8 @@ STATIC_DEMO_ARTIFACT_SUMMARY_LINES = (
     "Private paths displayed: no",
     "Artifact opening performed: no",
     "Generated artifacts committed: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 STATIC_DEMO_FIXTURE_HANDOFF_LINES = (
     "Wrapper: scripts\\run_local_alpha_fixture_demo.ps1",
@@ -59,9 +59,9 @@ STATIC_DEMO_FIXTURE_HANDOFF_LINES = (
     "Raw command output displayed: no",
     "User paths displayed: no",
     "Browser/server launched by page: no",
-    "Product judgment recorded: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES = (
     "Summary export: scripts\\run_local_alpha_fixture_demo.ps1 "
@@ -73,25 +73,32 @@ STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES = (
     "Private paths included: no",
     "Browser/server launched: no",
     "Live delivery performed: no",
-    "Product judgment recorded: no",
-    "Gate D evidence bundle: blocked",
-    "Gate D handoff packet: manual judgment required",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Gate D checkpoint: narrow local pass recorded",
+    "Gate D handoff packet: narrow local pass noted",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 STATIC_DEMO_GATE_D_SAFETY_STATUS_LINES = (
-    "Gate D status: blocked",
-    "Blocking evidence: product_judgment_evidence",
-    "Manual product judgment required: yes",
-    "Product judgment recorded: no",
+    "Gate D status: narrow local pass recorded",
+    "Narrow pass evidence: human-recorded checkpoint note",
+    "Manual product judgment completed: narrow local pass",
+    "Product judgment recorded in checkpoint: yes",
     "AI can complete product judgment: no",
     "Real online monitoring approved: no",
-    "Browser/auth/profile access: no",
-    "Loopback/system audio access: no",
-    "Live delivery performed: no",
-    "Autonomous participation: no",
-    "Academic answers: no",
-    "Product Promise Alpha: not passed",
+    "External meetings approved: no",
+    "Browser/auth/profile/cookies/tokens approved: no",
+    "Private meeting/class data approved: no",
+    "Screenshots/traces/videos/downloads approved: no",
+    "Audio/hardware/loopback approved: no",
+    "Live delivery approved: no",
+    "Scheduler/background execution approved: no",
+    "Deletion/export execution approved: no",
+    "Public release approved: no",
+    "Autonomous participation approved: no",
+    "Academic-answer behavior approved: no",
+    "Push/merge approved: no",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 STATIC_DEMO_READINESS_CHECKLIST_LINES = (
     "Fixture/local demo available: yes",
@@ -101,19 +108,19 @@ STATIC_DEMO_READINESS_CHECKLIST_LINES = (
     "Alert preview requires confirmation: yes",
     "Archive/reviewer summary visible: yes",
     "Gate D safety status visible: yes",
-    "Product judgment required: yes",
-    "Product Promise Alpha not passed",
+    "Product judgment completed: narrow local pass",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES = (
-    "Product judgment: deferred",
+    "Product judgment: narrow local pass recorded",
     "Human reviewer required: yes",
     "AI can record pass judgment: no",
-    "Gate D blocking evidence: product_judgment_evidence",
+    "Gate D human note: narrow local pass recorded",
     "Evidence source: local fixture demo only",
     "Static dashboard available: yes",
     "Gate D handoff packet available: yes",
     "Real online monitoring approved: no",
-    "Product Promise Alpha passed: no",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES = (
     "Product loop: fixture to reviewer",
@@ -122,11 +129,11 @@ STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES = (
     "Detected events: 2 demo events",
     "Alert preview: pending user confirmation",
     "Archive/reviewer: metadata summary only",
-    "Gate D bundle: blocked on product_judgment_evidence",
-    "Product judgment: deferred",
+    "Gate D checkpoint: human-recorded narrow local pass",
+    "Product judgment: narrow local pass recorded",
     "Private content displayed: no",
     "Live delivery performed: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 STATIC_DEMO_REVIEW_SNAPSHOT_LINES = (
     "Review scope: local alpha demo only",
@@ -137,19 +144,19 @@ STATIC_DEMO_REVIEW_SNAPSHOT_LINES = (
     "Archive/reviewer summary: visible",
     "Live services: not used",
     "Private content: not displayed",
-    "Gate D: blocked on product_judgment_evidence",
+    "Gate D: narrow local pass recorded",
     "Product judgment: human-only",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES = (
-    "Current product judgment: deferred",
+    "Current product judgment: narrow local pass recorded",
     "Human decision required: yes",
     "Demo evidence scope: local fixture demo only",
     "AI can complete product judgment: no",
     "AI can record product judgment: no",
     "Acceptable human choices: pass, fail, or defer",
-    "Gate D blocker: product_judgment_evidence",
-    "Product Promise Alpha not passed",
+    "Gate D human note: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES = (
     "Review target: local Product Promise Alpha demo",
@@ -157,9 +164,9 @@ STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES = (
     "Evidence basis: metadata-only local fixture demo",
     "Human action: inspect, then choose pass, fail, or defer",
     "AI action: display status only",
-    "Product judgment recorded: no",
-    "Gate D blocker: product_judgment_evidence",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Gate D human note: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 
 
@@ -299,13 +306,15 @@ def test_build_demo_sources_are_deterministic_and_metadata_only() -> None:
     assert first.alerts.alerts()[0]["status"] == "pending"
     assert first.alerts.alerts()[0]["confirmation_required"] is True
     assert first.archive.items()[0]["title"] == "Local archive summary"
-    assert first.gate_d["product_judgment_evidence_status"] == "blocking"
+    assert (
+        first.gate_d["product_judgment_evidence_status"] == "human_recorded_narrow_pass"
+    )
     assert first.gate_d["blocking_evidence"] == ["product_judgment_evidence"]
     assert first.gate_d["satisfactory_evidence_count"] == 9
     assert first.gate_d["missing_evidence_count"] == 0
     assert first.gate_d["ready_for_gate_review"] is False
-    assert first.gate_d["manual_product_judgment_required"] is True
-    assert first.gate_d["manual_product_judgment_recorded"] is False
+    assert first.gate_d["manual_product_judgment_required"] is False
+    assert first.gate_d["manual_product_judgment_recorded"] is True
     assert first.gate_d["gate_d_pass_claimed"] is False
     assert first.gate_d["product_promise_alpha_pass_claimed"] is False
 
@@ -325,14 +334,14 @@ def test_build_inspection_summary_is_deterministic_and_metadata_only() -> None:
     assert "AsyncScholar local alpha inspection" in first
     assert "Server started: no" in first
     assert "Browser opened: no" in first
-    assert "Gate D not passed" in first
-    assert "Blocked on product_judgment_evidence" in first
-    assert "Human product judgment: deferred" in first
+    assert "Gate D: narrow local pass recorded" in first
+    assert "Approved scope: local fixture-to-reviewer demo only" in first
+    assert "Human product judgment: narrow local pass recorded" in first
     assert "Satisfactory evidence: 9" in first
     assert "Missing evidence: 0" in first
-    assert "Blocking evidence: product_judgment_evidence" in first
-    assert "Manual judgment required: yes" in first
-    assert "Manual judgment recorded: no" in first
+    assert "Narrow pass evidence: human-recorded checkpoint note" in first
+    assert "Manual judgment completed: narrow local pass" in first
+    assert "Manual judgment recorded in checkpoint: yes" in first
     assert "Run status: Completed" in first
     assert "Source kind: Fixture demo" in first
     assert "Attendance prompt - 42s - 94% confidence" in first
@@ -346,12 +355,53 @@ def test_build_inspection_summary_is_deterministic_and_metadata_only() -> None:
     assert "Human judgment handoff" in first
     for handoff_line in STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES[:-1]:
         assert handoff_line in first
-    assert "Product Promise Alpha pass&#101;d: no" in first
+    assert "Product Promise Alpha: narrow local pass recorded" in first
     assert "Gate D passed" not in first
     assert "Product Promise Alpha passed" not in first
     serialized = json.dumps({"summary": first})
     for private_value in PRIVATE_VALUES:
         assert private_value not in serialized
+
+
+def test_current_demo_surfaces_record_narrow_gate_d_pass_without_broad_approval() -> (
+    None
+):
+    demo = _demo_module()
+
+    summary = demo.build_local_alpha_dashboard_inspection_summary()
+    html = demo.build_local_alpha_dashboard_static_demo_html()
+    payload = demo.build_local_alpha_dashboard_demo_dry_run()
+    combined = "\n".join((summary, _visible_text(html), json.dumps(payload)))
+
+    for expected in (
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
+        "Human product judgment: narrow local pass recorded",
+        "Approved scope: local fixture-to-reviewer demo only",
+        "Real online monitoring approved: no",
+        "Screenshots/traces/videos/downloads approved: no",
+        "Audio/hardware/loopback approved: no",
+        "Push/merge approved: no",
+        "Future broader/live product judgment required: yes",
+        "Gate D handoff packet: narrow local pass noted",
+    ):
+        assert expected in combined
+
+    for stale in (
+        "Gate D not passed",
+        "Product Promise Alpha not passed",
+        "product_judgment_evidence remains blocking",
+        "Blocked on product_judgment_evidence",
+        "Gate D blocker: product_judgment_evidence",
+        "Gate D: blocked on product_judgment_evidence",
+        "Human product judgment required: yes",
+        "Gate D handoff packet: manual judgment required",
+    ):
+        assert stale not in combined
+
+    assert payload["gate_d_status"] == "narrow_local_pass_recorded"
+    assert payload["product_judgment_evidence_status"] == "human_recorded_narrow_pass"
+    assert payload["product_promise_alpha_pass_claimed"] is False
 
 
 def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
@@ -367,8 +417,8 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "<title>AsyncScholar local alpha static demo</title>" in first
     assert "AsyncScholar local alpha static demo" in first
     assert "Safety boundary" in first
-    assert "Gate D: blocked" in first
-    assert "Product judgment: deferred" in first
+    assert "Gate D: narrow local pass recorded" in first
+    assert "Product judgment: narrow local pass recorded" in first
     assert "Session: completed" in first
     assert "Detected events: 2" in first
     assert "Alert: pending confirmation" in first
@@ -392,13 +442,13 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     )
     assert "CLI export command: local-alpha-dashboard-static-demo --output" in first
     assert "Private data read: no" in first
-    assert "Gate D not passed" in first
-    assert "Blocked on product_judgment_evidence" in first
-    assert "Human product judgment: deferred" in first
+    assert "Gate D: narrow local pass recorded" in first
+    assert "Approved scope: local fixture-to-reviewer demo only" in first
+    assert "Human product judgment: narrow local pass recorded" in first
     assert "Satisfactory evidence: 9" in first
     assert "Missing evidence: 0" in first
-    assert "Manual judgment required: yes" in first
-    assert "Manual judgment recorded: no" in first
+    assert "Manual judgment completed: narrow local pass" in first
+    assert "Manual judgment recorded in checkpoint: yes" in first
     assert "Run status: Completed" in first
     assert "Source kind: Fixture demo" in first
     assert "Attendance prompt - 42s - 94% confidence" in first
@@ -420,15 +470,15 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Detected event summary visible: yes" in first
     assert "Alert preview requires confirmation: yes" in first
     assert "Archive/reviewer metadata visible: yes" in first
-    assert "Gate D blocker visible: product_judgment_evidence" in first
-    assert "Human product judgment required: yes" in first
+    assert "Gate D human note visible: narrow local pass recorded" in first
+    assert "Future broader/live product judgment required: yes" in first
     assert "Action execution allowed: no" in first
     assert "Human judgment next step" in first
-    assert "Manual inspection required: yes" in first
-    assert "Product judgment recorded: no" in first
+    assert "Manual inspection completed: narrow local pass" in first
+    assert "Product judgment recorded in checkpoint: yes" in first
     assert "AI can complete product judgment: no" in first
     assert "AI can record product judgment: no" in first
-    assert "product_judgment_evidence remains blocking" in first
+    assert "Human-recorded narrow local pass: yes" in first
     assert "Backend evidence trail" in first
     assert "Fixture/local demo evidence: existing CLI surfaces" in first
     assert "Inspection summary: local-alpha-dashboard-inspection" in first
@@ -464,7 +514,7 @@ def test_build_static_demo_html_is_deterministic_and_metadata_only() -> None:
     assert "Human judgment handoff" in first
     for handoff_line in STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES:
         assert handoff_line in visible_first
-    assert "Product Promise Alpha pass&#101;d: no" in first
+    assert "Product Promise Alpha: narrow local pass recorded" in first
     assert "Local alpha product loop summary" in first
     for product_loop_line in STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES:
         assert product_loop_line in visible_first
@@ -515,8 +565,8 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
 
     assert html.count("<section") == 29
     strip_text = _summary_status_strip_text(html)
-    assert "Gate D: blocked" in strip_text
-    assert "Product judgment: deferred" in strip_text
+    assert "Gate D: narrow local pass recorded" in strip_text
+    assert "Product judgment: narrow local pass recorded" in strip_text
     assert "Session: completed" in strip_text
     assert "Detected events: 2" in strip_text
     assert "Alert: pending confirmation" in strip_text
@@ -548,10 +598,10 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "\\\\",
         "meet.example",
         ".env",
-        "cookie",
-        "token",
-        "auth",
-        "profile",
+        "cookie-value",
+        "token=private",
+        "auth-state",
+        "browser profile",
         "secret",
         ".jsonl",
         ".wav",
@@ -635,20 +685,23 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     )
 
     gate_section = _section_text(html, "Gate D safety")
-    assert "Gate D not passed" in gate_section
-    assert "Blocked on product_judgment_evidence" in gate_section
-    assert "Human product judgment: deferred" in gate_section
-    assert "Manual judgment required: yes" in gate_section
-    assert "Manual judgment recorded: no" in gate_section
+    assert "Gate D: narrow local pass recorded" in gate_section
+    assert "Approved scope: local fixture-to-reviewer demo only" in gate_section
+    assert "Human product judgment: narrow local pass recorded" in gate_section
+    assert "Manual judgment completed: narrow local pass" in gate_section
+    assert "Manual judgment recorded in checkpoint: yes" in gate_section
 
     digest_section = _section_text(html, "Evidence digest")
-    assert "Handoff status: Ready for manual review" in digest_section
-    assert "Local bundle status: Blocked" in digest_section
+    assert "Handoff status: Metadata aid only" in digest_section
+    assert (
+        "Local bundle status: Narrow local pass recorded in checkpoint"
+        in digest_section
+    )
     assert "Satisfactory evidence: 9" in digest_section
     assert "Missing evidence: 0" in digest_section
-    assert "Blocking evidence: product_judgment_evidence" in digest_section
-    assert "Manual product judgment required: yes" in digest_section
-    assert "Manual product judgment recorded: no" in digest_section
+    assert "Narrow pass evidence: human-recorded checkpoint note" in digest_section
+    assert "Manual product judgment completed: narrow local pass" in digest_section
+    assert "Manual product judgment recorded in checkpoint: yes" in digest_section
     assert "AI can complete product judgment: no" in digest_section
 
     summary_export_section = _section_text(html, "Fixture demo summary export")
@@ -683,10 +736,10 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "\\\\",
         "meet.example",
         ".env",
-        "cookie",
-        "token",
-        "auth",
-        "profile",
+        "cookie-value",
+        "token=private",
+        "auth-state",
+        "browser profile",
         ".jsonl",
         ".wav",
         ".mp4",
@@ -742,10 +795,10 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "\\\\",
         "meet.example",
         ".env",
-        "cookie",
-        "token",
-        "auth",
-        "profile",
+        "cookie-value",
+        "token=private",
+        "auth-state",
+        "browser profile",
         ".jsonl",
         ".wav",
         ".mp4",
@@ -754,11 +807,11 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "transcript",
         "gate d status: passed",
         "real online monitoring approved: yes",
-        "browser/auth/profile access: yes",
-        "loopback/system audio access: yes",
-        "live delivery performed: yes",
-        "autonomous participation: yes",
-        "academic answers: yes",
+        "browser/auth/profile/cookies/tokens approved: yes",
+        "audio/hardware/loopback approved: yes",
+        "live delivery approved: yes",
+        "autonomous participation approved: yes",
+        "academic-answer behavior approved: yes",
         "product judgment recorded: yes",
         "gate d passed",
         "product promise alpha passed",
@@ -804,10 +857,10 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "\\\\",
         "meet.example",
         ".env",
-        "cookie",
-        "token",
-        "auth",
-        "profile",
+        "cookie-value",
+        "token=private",
+        "auth-state",
+        "browser profile",
         ".jsonl",
         ".wav",
         ".mp4",
@@ -837,7 +890,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Metadata unavailable." not in handoff_section
     for expected in STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES:
         assert expected in handoff_visible
-    assert "Product Promise Alpha pass&#101;d: no" in handoff_section
+    assert "Product Promise Alpha: narrow local pass recorded" in handoff_section
     for forbidden in (
         "<script",
         "<link",
@@ -865,10 +918,10 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "\\\\",
         "meet.example",
         ".env",
-        "cookie",
-        "token",
-        "auth",
-        "profile",
+        "cookie-value",
+        "token=private",
+        "auth-state",
+        "browser profile",
         ".jsonl",
         ".wav",
         ".mp4",
@@ -925,10 +978,10 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "\\\\",
         "meet.example",
         ".env",
-        "cookie",
-        "token",
-        "auth",
-        "profile",
+        "cookie-value",
+        "token=private",
+        "auth-state",
+        "browser profile",
         ".jsonl",
         ".wav",
         ".mp4",
@@ -958,14 +1011,14 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Metadata unavailable." not in manual_review_section
     for expected in (
         "Review packet: local metadata only",
-        "Human product judgment: required",
-        "Final product judgment recorded: no",
+        "Human product judgment: narrow local pass recorded",
+        "Product judgment storage written: no",
         "AI can complete product judgment: no",
-        "Gate D blocker: product_judgment_evidence",
+        "Gate D human note: narrow local pass recorded",
         "Private data needed for review: no",
         "Live services needed for review: no",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in manual_review_visible
     assert "<button" not in manual_review_section.casefold()
@@ -1034,10 +1087,10 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Detected event summary visible: yes",
         "Alert preview requires confirmation: yes",
         "Archive/reviewer metadata visible: yes",
-        "Gate D blocker visible: product_judgment_evidence",
-        "Human product judgment required: yes",
+        "Gate D human note visible: narrow local pass recorded",
+        "Future broader/live product judgment required: yes",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in checklist_visible
     assert "<button" not in checklist_section.casefold()
@@ -1101,13 +1154,13 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     human_judgment_visible = _visible_text(human_judgment_section)
     assert "Metadata unavailable." not in human_judgment_section
     for expected in (
-        "Manual inspection required: yes",
-        "Product judgment recorded: no",
+        "Manual inspection completed: narrow local pass",
+        "Product judgment recorded in checkpoint: yes",
         "AI can complete product judgment: no",
         "AI can record product judgment: no",
-        "product_judgment_evidence remains blocking",
+        "Human-recorded narrow local pass: yes",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in human_judgment_visible
     assert "<button" not in human_judgment_section.casefold()
@@ -1186,7 +1239,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Recording source: not displayed",
         "Private source data read: no",
         "Source refresh required: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in source_visible
     assert "<button" not in source_section.casefold()
@@ -1258,8 +1311,8 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Browser opened: no" in launch_visible
     assert "Live delivery: no" in launch_visible
     assert "Private data read: no" in launch_visible
-    assert "Gate D not passed" in launch_visible
-    assert "Product Promise Alpha not passed" in launch_visible
+    assert "Gate D: narrow local pass recorded" in launch_visible
+    assert "Product Promise Alpha: narrow local pass recorded" in launch_visible
     for forbidden in (
         "<form",
         "<input",
@@ -1308,10 +1361,10 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Inspection command: local-alpha-dashboard-inspection",
         "Static export command: local-alpha-dashboard-static-demo --output "
         "local-html-file",
-        "Gate D evidence bundle: blocked",
-        "Blocking evidence: product_judgment_evidence",
-        "Manual product judgment required: yes",
-        "Product Promise Alpha not passed",
+        "Gate D checkpoint: narrow local pass recorded",
+        "Narrow pass evidence: human-recorded checkpoint note",
+        "Manual product judgment completed: narrow local pass",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in verification_visible
     assert "<button" not in verification_section.casefold()
@@ -1380,8 +1433,8 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Artifact access performed: no",
         "Command execution performed by page: no",
         "Private data required: no",
-        "product_judgment_evidence remains blocking",
-        "Product Promise Alpha not passed",
+        "Human-recorded narrow local pass: yes",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in backend_evidence_visible
     assert "<button" not in backend_evidence_section.casefold()
@@ -1633,7 +1686,7 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Event detected" in timeline_section
     assert "Alert awaiting confirmation" in timeline_section
     assert "Archive/reviewer metadata ready" in timeline_section
-    assert "Gate D blocked" in timeline_section
+    assert "Gate D narrow local pass recorded" in timeline_section
 
     events_section = _section_text(html, "Detected events")
     assert "Attendance prompt - 42s - 94% confidence" in events_section
@@ -1666,8 +1719,8 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Participation action sent: no" in action_visible
     assert "Autonomous participation: no" in action_visible
     assert "Academic answer behavior: no" in action_visible
-    assert "Gate D not passed" in action_visible
-    assert "Product Promise Alpha not passed" in action_visible
+    assert "Gate D: narrow local pass recorded" in action_visible
+    assert "Product Promise Alpha: narrow local pass recorded" in action_visible
     assert action_section.count("<button ") == 4
     assert action_section.count('type="button"') == 4
     assert action_section.count(" disabled ") == 4
@@ -1701,8 +1754,8 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "Recording displayed: no",
         "Private paths displayed: no",
         "Delete/export execution: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in archive_review_visible
     assert "<button" not in archive_review_section.casefold()
@@ -1765,13 +1818,13 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
     assert "Reviewer artifact metadata only." in archive_section
 
     safety_section = _section_text(html, "Safety boundary")
-    assert "Local alpha demo only" in safety_section
-    assert "no real meeting" in safety_section
-    assert "private meeting data" in safety_section
-    assert "audio capture" in safety_section
+    assert "Local fixture-to-reviewer demo only" in safety_section
+    assert "no real external meetings" in safety_section
+    assert "private meeting/class data" in safety_section
+    assert "audio/hardware/loopback" in safety_section
     assert "live delivery" in safety_section
     assert "participation" in safety_section
-    assert "academic answers" in safety_section
+    assert "academic-answer behavior" in safety_section
 
 
 def test_static_demo_timeline_fails_closed_for_private_values(
@@ -1798,7 +1851,7 @@ def test_static_demo_timeline_fails_closed_for_private_values(
         "Event detected",
         "Alert awaiting confirmation",
         "Archive/reviewer metadata ready",
-        "Gate D blocked",
+        "Gate D narrow local pass recorded",
     ):
         assert expected in timeline_section
 
@@ -1957,8 +2010,8 @@ def test_static_demo_action_controls_fail_closed_for_unsafe_values(
         "Participation action sent: no",
         "Autonomous participation: no",
         "Academic answer behavior: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in action_visible
     assert action_section.count("<button ") == 4
@@ -2022,8 +2075,8 @@ def test_static_demo_action_controls_fail_closed_for_helper_exception(
     assert "Participation action sent: no" in action_visible
     assert "Autonomous participation: no" in action_visible
     assert "Academic answer behavior: no" in action_visible
-    assert "Gate D not passed" in action_visible
-    assert "Product Promise Alpha not passed" in action_visible
+    assert "Gate D: narrow local pass recorded" in action_visible
+    assert "Product Promise Alpha: narrow local pass recorded" in action_visible
     assert "traceback" not in action_section.casefold()
     assert ".env" not in action_section.casefold()
     assert "token" not in action_section.casefold()
@@ -2085,8 +2138,8 @@ def test_static_demo_archive_review_status_fails_closed_for_unsafe_values(
         "Recording displayed: no",
         "Private paths displayed: no",
         "Delete/export execution: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in archive_review_visible
 
@@ -2154,8 +2207,8 @@ def test_static_demo_archive_review_status_fails_closed_for_helper_exception(
     assert "Recording displayed: no" in archive_review_visible
     assert "Private paths displayed: no" in archive_review_visible
     assert "Delete/export execution: no" in archive_review_visible
-    assert "Gate D not passed" in archive_review_visible
-    assert "Product Promise Alpha not passed" in archive_review_visible
+    assert "Gate D: narrow local pass recorded" in archive_review_visible
+    assert "Product Promise Alpha: narrow local pass recorded" in archive_review_visible
     assert "traceback" not in archive_review_section.casefold()
     assert ".env" not in archive_review_section.casefold()
     assert "token" not in archive_review_section.casefold()
@@ -2184,9 +2237,9 @@ def test_static_demo_archive_review_status_fails_closed_for_helper_exception(
             "Inspection command: local-alpha-dashboard-inspection",
             "Static export command: local-alpha-dashboard-static-demo --output "
             "data\\sessions\\private.jsonl",
-            "Gate D evidence bundle: blocked",
-            "Blocking evidence: product_judgment_evidence",
-            "Manual product judgment required: yes",
+            "Gate D checkpoint: narrow local pass recorded",
+            "Narrow pass evidence: human-recorded checkpoint note",
+            "Manual product judgment completed: narrow local pass",
             "product judgment evidence satisfied",
         ),
         ("Static artifact: generated locally",),
@@ -2220,10 +2273,10 @@ def test_static_demo_verification_status_fails_closed_for_unsafe_values(
         "Inspection command: local-alpha-dashboard-inspection",
         "Static export command: local-alpha-dashboard-static-demo --output "
         "local-html-file",
-        "Gate D evidence bundle: blocked",
-        "Blocking evidence: product_judgment_evidence",
-        "Manual product judgment required: yes",
-        "Product Promise Alpha not passed",
+        "Gate D checkpoint: narrow local pass recorded",
+        "Narrow pass evidence: human-recorded checkpoint note",
+        "Manual product judgment completed: narrow local pass",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in verification_visible
 
@@ -2298,10 +2351,14 @@ def test_static_demo_verification_status_fails_closed_for_helper_exception(
         "Static export command: local-alpha-dashboard-static-demo --output "
         "local-html-file" in verification_visible
     )
-    assert "Gate D evidence bundle: blocked" in verification_visible
-    assert "Blocking evidence: product_judgment_evidence" in verification_visible
-    assert "Manual product judgment required: yes" in verification_visible
-    assert "Product Promise Alpha not passed" in verification_visible
+    assert "Gate D checkpoint: narrow local pass recorded" in verification_visible
+    assert (
+        "Narrow pass evidence: human-recorded checkpoint note" in verification_visible
+    )
+    assert (
+        "Manual product judgment completed: narrow local pass" in verification_visible
+    )
+    assert "Product Promise Alpha: narrow local pass recorded" in verification_visible
     assert "traceback" not in verification_section.casefold()
     assert ".env" not in verification_section.casefold()
     assert "token" not in verification_section.casefold()
@@ -2366,8 +2423,8 @@ def test_static_demo_backend_evidence_trail_fails_closed_for_unsafe_values(
         "Artifact access performed: no",
         "Command execution performed by page: no",
         "Private data required: no",
-        "product_judgment_evidence remains blocking",
-        "Product Promise Alpha not passed",
+        "Human-recorded narrow local pass: yes",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in backend_evidence_visible
 
@@ -2451,8 +2508,10 @@ def test_static_demo_backend_evidence_trail_fails_closed_for_helper_exception(
     assert "Artifact access performed: no" in backend_evidence_visible
     assert "Command execution performed by page: no" in backend_evidence_visible
     assert "Private data required: no" in backend_evidence_visible
-    assert "product_judgment_evidence remains blocking" in backend_evidence_visible
-    assert "Product Promise Alpha not passed" in backend_evidence_visible
+    assert "Human-recorded narrow local pass: yes" in backend_evidence_visible
+    assert (
+        "Product Promise Alpha: narrow local pass recorded" in backend_evidence_visible
+    )
     assert "traceback" not in backend_evidence_section.casefold()
     assert ".env" not in backend_evidence_section.casefold()
     assert "token" not in backend_evidence_section.casefold()
@@ -2516,7 +2575,7 @@ def test_static_demo_source_status_fails_closed_for_unsafe_values(
         "Recording source: not displayed",
         "Private source data read: no",
         "Source refresh required: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in source_visible
 
@@ -2592,7 +2651,7 @@ def test_static_demo_source_status_fails_closed_for_helper_exception(
     assert "Recording source: not displayed" in source_visible
     assert "Private source data read: no" in source_visible
     assert "Source refresh required: no" in source_visible
-    assert "Product Promise Alpha not passed" in source_visible
+    assert "Product Promise Alpha: narrow local pass recorded" in source_visible
     assert "traceback" not in source_section.casefold()
     assert ".env" not in source_section.casefold()
     assert "token" not in source_section.casefold()
@@ -2647,14 +2706,14 @@ def test_static_demo_manual_review_status_fails_closed_for_unsafe_values(
     manual_review_visible = _visible_text(manual_review_section)
     for expected in (
         "Review packet: local metadata only",
-        "Human product judgment: required",
-        "Final product judgment recorded: no",
+        "Human product judgment: narrow local pass recorded",
+        "Product judgment storage written: no",
         "AI can complete product judgment: no",
-        "Gate D blocker: product_judgment_evidence",
+        "Gate D human note: narrow local pass recorded",
         "Private data needed for review: no",
         "Live services needed for review: no",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in manual_review_visible
 
@@ -2725,14 +2784,14 @@ def test_static_demo_manual_review_status_fails_closed_for_helper_exception(
     manual_review_section = _section_text(html, "Manual review status")
     manual_review_visible = _visible_text(manual_review_section)
     assert "Review packet: local metadata only" in manual_review_visible
-    assert "Human product judgment: required" in manual_review_visible
-    assert "Final product judgment recorded: no" in manual_review_visible
+    assert "Human product judgment: narrow local pass recorded" in manual_review_visible
+    assert "Product judgment storage written: no" in manual_review_visible
     assert "AI can complete product judgment: no" in manual_review_visible
-    assert "Gate D blocker: product_judgment_evidence" in manual_review_visible
+    assert "Gate D human note: narrow local pass recorded" in manual_review_visible
     assert "Private data needed for review: no" in manual_review_visible
     assert "Live services needed for review: no" in manual_review_visible
     assert "Action execution allowed: no" in manual_review_visible
-    assert "Product Promise Alpha not passed" in manual_review_visible
+    assert "Product Promise Alpha: narrow local pass recorded" in manual_review_visible
     assert "traceback" not in manual_review_section.casefold()
     assert ".env" not in manual_review_section.casefold()
     assert "token" not in manual_review_section.casefold()
@@ -2789,10 +2848,10 @@ def test_static_demo_review_checklist_fails_closed_for_unsafe_values(
         "Detected event summary visible: yes",
         "Alert preview requires confirmation: yes",
         "Archive/reviewer metadata visible: yes",
-        "Gate D blocker visible: product_judgment_evidence",
-        "Human product judgment required: yes",
+        "Gate D human note visible: narrow local pass recorded",
+        "Future broader/live product judgment required: yes",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in checklist_visible
 
@@ -2866,10 +2925,10 @@ def test_static_demo_review_checklist_fails_closed_for_helper_exception(
     assert "Detected event summary visible: yes" in checklist_visible
     assert "Alert preview requires confirmation: yes" in checklist_visible
     assert "Archive/reviewer metadata visible: yes" in checklist_visible
-    assert "Gate D blocker visible: product_judgment_evidence" in checklist_visible
-    assert "Human product judgment required: yes" in checklist_visible
+    assert "Gate D human note visible: narrow local pass recorded" in checklist_visible
+    assert "Future broader/live product judgment required: yes" in checklist_visible
     assert "Action execution allowed: no" in checklist_visible
-    assert "Product Promise Alpha not passed" in checklist_visible
+    assert "Product Promise Alpha: narrow local pass recorded" in checklist_visible
     assert "traceback" not in checklist_section.casefold()
     assert ".env" not in checklist_section.casefold()
     assert "token" not in checklist_section.casefold()
@@ -2897,7 +2956,7 @@ def test_static_demo_review_checklist_fails_closed_for_helper_exception(
             "recording path: lecture.wav lecture.mp4 clip.png",
             "product judgment evidence satisfied",
         ),
-        ("Manual inspection required: yes",),
+        ("Manual inspection completed: narrow local pass",),
         (),
     ],
 )
@@ -2921,13 +2980,13 @@ def test_static_demo_human_judgment_next_step_fails_closed_for_unsafe_values(
     next_step_section = _section_text(html, "Human judgment next step")
     next_step_visible = _visible_text(next_step_section)
     for expected in (
-        "Manual inspection required: yes",
-        "Product judgment recorded: no",
+        "Manual inspection completed: narrow local pass",
+        "Product judgment recorded in checkpoint: yes",
         "AI can complete product judgment: no",
         "AI can record product judgment: no",
-        "product_judgment_evidence remains blocking",
+        "Human-recorded narrow local pass: yes",
         "Action execution allowed: no",
-        "Product Promise Alpha not passed",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in next_step_visible
 
@@ -2996,13 +3055,13 @@ def test_static_demo_human_judgment_next_step_fails_closed_for_helper_exception(
 
     next_step_section = _section_text(html, "Human judgment next step")
     next_step_visible = _visible_text(next_step_section)
-    assert "Manual inspection required: yes" in next_step_visible
-    assert "Product judgment recorded: no" in next_step_visible
+    assert "Manual inspection completed: narrow local pass" in next_step_visible
+    assert "Product judgment recorded in checkpoint: yes" in next_step_visible
     assert "AI can complete product judgment: no" in next_step_visible
     assert "AI can record product judgment: no" in next_step_visible
-    assert "product_judgment_evidence remains blocking" in next_step_visible
+    assert "Human-recorded narrow local pass: yes" in next_step_visible
     assert "Action execution allowed: no" in next_step_visible
-    assert "Product Promise Alpha not passed" in next_step_visible
+    assert "Product Promise Alpha: narrow local pass recorded" in next_step_visible
     assert "traceback" not in next_step_section.casefold()
     assert ".env" not in next_step_section.casefold()
     assert "token" not in next_step_section.casefold()
@@ -3059,8 +3118,8 @@ def test_static_demo_local_launch_fails_closed_for_unsafe_values(
         "Browser opened: no",
         "Live delivery: no",
         "Private data read: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     ):
         assert expected in launch_visible
 
@@ -3119,8 +3178,8 @@ def test_static_demo_local_launch_fails_closed_for_helper_exception(
     assert "Browser opened: no" in launch_visible
     assert "Live delivery: no" in launch_visible
     assert "Private data read: no" in launch_visible
-    assert "Gate D not passed" in launch_visible
-    assert "Product Promise Alpha not passed" in launch_visible
+    assert "Gate D: narrow local pass recorded" in launch_visible
+    assert "Product Promise Alpha: narrow local pass recorded" in launch_visible
     assert "traceback" not in launch_section.casefold()
     assert ".env" not in launch_section.casefold()
     assert "token" not in launch_section.casefold()
@@ -3138,7 +3197,7 @@ def test_static_demo_local_launch_fails_closed_for_helper_exception(
             "Live delivery: yes",
         ),
         (
-            "Gate D: blocked",
+            "Gate D: narrow local pass recorded",
             "Product Promise Alpha: passed",
             "product_judgment_evidence_status: satisfactory",
             "https://meet.example.edu/class-room?token=private",
@@ -3146,14 +3205,14 @@ def test_static_demo_local_launch_fails_closed_for_helper_exception(
             "transcript text: Good morning, everyone",
         ),
         (
-            "Gate D: blocked",
+            "Gate D: narrow local pass recorded",
             "file:///tmp/async-scholar-local-alpha-dashboard.html",
             "\\\\server\\share\\cookie-profile.json",
             "C:/Users/student/private/events.jsonl",
             "generated-media: lecture.mp4 clip.png",
             "product judgment evidence satisfied",
         ),
-        ("Gate D: blocked",),
+        ("Gate D: narrow local pass recorded",),
         (),
     ],
 )
@@ -3175,8 +3234,8 @@ def test_static_demo_summary_status_strip_fails_closed_for_unsafe_values(
     strip_html = _summary_status_strip_html(html)
     strip_text = _summary_status_strip_text(html)
     for expected in (
-        "Gate D: blocked",
-        "Product judgment: deferred",
+        "Gate D: narrow local pass recorded",
+        "Product judgment: narrow local pass recorded",
         "Session: completed",
         "Detected events: 2",
         "Alert: pending confirmation",
@@ -3234,8 +3293,8 @@ def test_static_demo_summary_status_strip_fails_closed_for_helper_exception(
 
     strip_html = _summary_status_strip_html(html)
     strip_text = _summary_status_strip_text(html)
-    assert "Gate D: blocked" in strip_text
-    assert "Product judgment: deferred" in strip_text
+    assert "Gate D: narrow local pass recorded" in strip_text
+    assert "Product judgment: narrow local pass recorded" in strip_text
     assert "Session: completed" in strip_text
     assert "Detected events: 2" in strip_text
     assert "Alert: pending confirmation" in strip_text
@@ -3269,13 +3328,16 @@ def test_static_demo_evidence_digest_fails_closed_for_pass_like_helper(
     html = demo.build_local_alpha_dashboard_static_demo_html()
 
     digest_section = _section_text(html, "Evidence digest")
-    assert "Handoff status: Ready for manual review" in digest_section
-    assert "Local bundle status: Blocked" in digest_section
+    assert "Handoff status: Metadata aid only" in digest_section
+    assert (
+        "Local bundle status: Narrow local pass recorded in checkpoint"
+        in digest_section
+    )
     assert "Satisfactory evidence: 0" in digest_section
     assert "Missing evidence: 0" in digest_section
-    assert "Blocking evidence: product_judgment_evidence" in digest_section
-    assert "Manual product judgment required: yes" in digest_section
-    assert "Manual product judgment recorded: no" in digest_section
+    assert "Narrow pass evidence: human-recorded checkpoint note" in digest_section
+    assert "Manual product judgment completed: narrow local pass" in digest_section
+    assert "Manual product judgment recorded in checkpoint: yes" in digest_section
     assert "AI can complete product judgment: no" in digest_section
 
     lowered = digest_section.casefold()
@@ -3634,10 +3696,10 @@ def test_static_demo_runbook_fails_closed_for_unsafe_values(
         "private data required: yes",
         "meet.example",
         ".env",
-        "cookie",
-        "token",
-        "auth",
-        "profile",
+        "cookie-value",
+        "token=private",
+        "auth-state",
+        "browser profile",
         "good morning",
         "traceback",
         ".wav",
@@ -4277,10 +4339,10 @@ def test_static_demo_gate_d_safety_status_fails_closed_for_unsafe_values(
         "https:",
         "meet.example",
         ".env",
-        "cookie",
-        "token",
-        "auth",
-        "profile",
+        "cookie-value",
+        "token=private",
+        "auth-state",
+        "browser profile",
         "good morning",
         "traceback",
         ".wav",
@@ -4290,11 +4352,11 @@ def test_static_demo_gate_d_safety_status_fails_closed_for_unsafe_values(
         "product judgment recorded: yes",
         "ai can complete product judgment: yes",
         "real online monitoring approved: yes",
-        "browser/auth/profile access: yes",
-        "loopback/system audio access: yes",
-        "live delivery performed: yes",
-        "autonomous participation: yes",
-        "academic answers: yes",
+        "browser/auth/profile/cookies/tokens approved: yes",
+        "audio/hardware/loopback approved: yes",
+        "live delivery approved: yes",
+        "autonomous participation approved: yes",
+        "academic-answer behavior approved: yes",
         "product promise alpha: passed",
         "product promise alpha passed",
         "product_judgment_evidence_status: satisfactory",
@@ -4330,7 +4392,8 @@ def test_static_demo_gate_d_safety_status_fails_closed_for_helper_exception(
         assert expected in gate_d_safety_status_visible
     assert "Traceback" not in gate_d_safety_status_section
     assert ".env" not in gate_d_safety_status_section
-    assert "token" not in gate_d_safety_status_section.casefold()
+    assert "token=private" not in gate_d_safety_status_section.casefold()
+    assert "cookie-value" not in gate_d_safety_status_section.casefold()
 
 
 def test_static_demo_gate_d_safety_status_helper_preserves_static_scope() -> None:
@@ -4594,7 +4657,7 @@ def test_static_demo_human_judgment_handoff_fails_closed_for_unsafe_values(
     for expected in STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES:
         assert expected in handoff_visible
     assert "Metadata unavailable." not in handoff_section
-    assert "Product Promise Alpha pass&#101;d: no" in handoff_section
+    assert "Product Promise Alpha: narrow local pass recorded" in handoff_section
     lowered = handoff_section.casefold()
     for forbidden in (
         "<script",
@@ -5338,9 +5401,9 @@ def test_dry_run_payload_is_safe_and_loopback_only() -> None:
     assert payload["dry_run"] is True
     assert payload["server_started"] is False
     assert payload["browser_opened"] is False
-    assert payload["gate_d_status"] == "not_passed"
-    assert payload["product_judgment_evidence_status"] == "blocking"
-    assert payload["manual_product_judgment_required"] is True
+    assert payload["gate_d_status"] == "narrow_local_pass_recorded"
+    assert payload["product_judgment_evidence_status"] == "human_recorded_narrow_pass"
+    assert payload["manual_product_judgment_required"] is False
     assert payload["product_promise_alpha_pass_claimed"] is False
     assert payload["metadata_only_demo_sources"] is True
     assert payload["private_data_read"] is False

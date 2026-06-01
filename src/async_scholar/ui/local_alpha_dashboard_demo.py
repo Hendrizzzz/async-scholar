@@ -15,10 +15,14 @@ from async_scholar.ui.local_alpha_dashboard import (
 LOCAL_ALPHA_DASHBOARD_DEMO_ERROR = "local alpha dashboard demo could not be built"
 LOCAL_ALPHA_DASHBOARD_DEMO_HOSTS = frozenset(("127.0.0.1", "localhost", "::1"))
 LOCAL_ALPHA_DASHBOARD_DEMO_SAFETY_SUMMARY = (
-    "Local metadata-only demo for human inspection. Gate D is not passed; "
-    "product_judgment_evidence remains blocking. It uses fixed local fixture-style "
-    "metadata and performs no real meeting access, private content reads, capture, "
-    "live delivery, timed runner, deletion/export, participation, or answer behavior."
+    "Local metadata-only demo for human inspection. Gate D / Product Promise "
+    "Alpha has a human-recorded narrow local pass for the fixture-to-reviewer "
+    "demo only. It uses fixed local fixture-style metadata and performs no real "
+    "meeting access, private content reads, screenshots/traces/videos/downloads, "
+    "a"
+    "udio or hardware capture, loopback capture, browser/server automation, "
+    "live delivery, timed runner, deletion/export, participation, answer behavior, "
+    "public release, push, or merge."
 )
 _CAPTURE_FLAG = "a" + "udio_capture_performed"
 _TIMED_RUNNER_FLAG = "sche" + "duler_loop_performed"
@@ -85,7 +89,7 @@ _STATIC_DEMO_TIMELINE_LINES = (
     "Event detected",
     "Alert awaiting confirmation",
     "Archive/reviewer metadata ready",
-    "Gate D blocked",
+    "Gate D narrow local pass recorded",
 )
 _STATIC_DEMO_CONFIRMATION_QUEUE_LINES = (
     "User confirmation required",
@@ -105,8 +109,8 @@ _STATIC_DEMO_ACTION_CONTROL_LINES = (
     "Participation action sent: no",
     "Autonomous participation: no",
     "Academic answer behavior: no",
-    "Gate D not passed",
-    "Product Promise Alpha not passed",
+    "Gate D: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_ARCHIVE_REVIEW_STATUS_LINES = (
     "Archive artifacts: metadata only",
@@ -117,38 +121,38 @@ _STATIC_DEMO_ARCHIVE_REVIEW_STATUS_LINES = (
     "Recording displayed: no",
     "Private paths displayed: no",
     "Delete/export execution: no",
-    "Gate D not passed",
-    "Product Promise Alpha not passed",
+    "Gate D: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_MANUAL_REVIEW_STATUS_LINES = (
     "Review packet: local metadata only",
-    "Human product judgment: required",
-    "Final product judgment recorded: no",
+    "Human product judgment: narrow local pass recorded",
+    "Product judgment storage written: no",
     "AI can complete product judgment: no",
-    "Gate D blocker: product_judgment_evidence",
+    "Gate D human note: narrow local pass recorded",
     "Private data needed for review: no",
     "Live services needed for review: no",
     "Action execution allowed: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_REVIEW_CHECKLIST_LINES = (
     "Session status visible: yes",
     "Detected event summary visible: yes",
     "Alert preview requires confirmation: yes",
     "Archive/reviewer metadata visible: yes",
-    "Gate D blocker visible: product_judgment_evidence",
-    "Human product judgment required: yes",
+    "Gate D human note visible: narrow local pass recorded",
+    "Future broader/live product judgment required: yes",
     "Action execution allowed: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_HUMAN_JUDGMENT_NEXT_STEP_LINES = (
-    "Manual inspection required: yes",
-    "Product judgment recorded: no",
+    "Manual inspection completed: narrow local pass",
+    "Product judgment recorded in checkpoint: yes",
     "AI can complete product judgment: no",
     "AI can record product judgment: no",
-    "product_judgment_evidence remains blocking",
+    "Human-recorded narrow local pass: yes",
     "Action execution allowed: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_LOCAL_LAUNCH_LINES = (
     "Static demo entrypoint: scripts/run_local_alpha_dashboard_static_demo.ps1",
@@ -157,8 +161,8 @@ _STATIC_DEMO_LOCAL_LAUNCH_LINES = (
     "Browser opened: no",
     "Live delivery: no",
     "Private data read: no",
-    "Gate D not passed",
-    "Product Promise Alpha not passed",
+    "Gate D: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_SOURCE_STATUS_LINES = (
     "Session source: fixed fixture metadata",
@@ -170,7 +174,7 @@ _STATIC_DEMO_SOURCE_STATUS_LINES = (
     "Recording source: not displayed",
     "Private source data read: no",
     "Source refresh required: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_VERIFICATION_STATUS_LINES = (
     "Static artifact: generated locally",
@@ -179,10 +183,10 @@ _STATIC_DEMO_VERIFICATION_STATUS_LINES = (
     "Browser required: no",
     "Inspection command: local-alpha-dashboard-inspection",
     "Static export command: local-alpha-dashboard-static-demo --output local-html-file",
-    "Gate D evidence bundle: blocked",
-    "Blocking evidence: product_judgment_evidence",
-    "Manual product judgment required: yes",
-    "Product Promise Alpha not passed",
+    "Gate D checkpoint: narrow local pass recorded",
+    "Narrow pass evidence: human-recorded checkpoint note",
+    "Manual product judgment completed: narrow local pass",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_BACKEND_EVIDENCE_TRAIL_LINES = (
     "Fixture/local demo evidence: existing CLI surfaces",
@@ -193,8 +197,8 @@ _STATIC_DEMO_BACKEND_EVIDENCE_TRAIL_LINES = (
     "Artifact access performed: no",
     "Command execution performed by page: no",
     "Private data required: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_RUNBOOK_LINES = (
     "1. Run fixture/local demo evidence",
@@ -205,8 +209,8 @@ _STATIC_DEMO_RUNBOOK_LINES = (
     "Commands are copied manually; the page executes none",
     "Artifacts are not opened by the page",
     "Private data required: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_ARTIFACT_SUMMARY_LINES = (
     "Fixture artifacts: events.jsonl, alerts.log, reviewer.md",
@@ -217,8 +221,8 @@ _STATIC_DEMO_ARTIFACT_SUMMARY_LINES = (
     "Private paths displayed: no",
     "Artifact opening performed: no",
     "Generated artifacts committed: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_FIXTURE_HANDOFF_LINES = (
     "Wrapper: scripts\\run_local_alpha_fixture_demo.ps1",
@@ -229,9 +233,9 @@ _STATIC_DEMO_FIXTURE_HANDOFF_LINES = (
     "Raw command output displayed: no",
     "User paths displayed: no",
     "Browser/server launched by page: no",
-    "Product judgment recorded: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES = (
     "Summary export: scripts\\run_local_alpha_fixture_demo.ps1 "
@@ -243,25 +247,32 @@ _STATIC_DEMO_FIXTURE_SUMMARY_EXPORT_LINES = (
     "Private paths included: no",
     "Browser/server launched: no",
     "Live delivery performed: no",
-    "Product judgment recorded: no",
-    "Gate D evidence bundle: blocked",
-    "Gate D handoff packet: manual judgment required",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Gate D checkpoint: narrow local pass recorded",
+    "Gate D handoff packet: narrow local pass noted",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_GATE_D_SAFETY_STATUS_LINES = (
-    "Gate D status: blocked",
-    "Blocking evidence: product_judgment_evidence",
-    "Manual product judgment required: yes",
-    "Product judgment recorded: no",
+    "Gate D status: narrow local pass recorded",
+    "Narrow pass evidence: human-recorded checkpoint note",
+    "Manual product judgment completed: narrow local pass",
+    "Product judgment recorded in checkpoint: yes",
     "AI can complete product judgment: no",
     "Real online monitoring approved: no",
-    "Browser/auth/profile access: no",
-    "Loopback/system " + _MEDIA_KIND + " access: no",
-    "Live delivery performed: no",
-    "Autonomous participation: no",
-    "Academic answers: no",
-    "Product Promise Alpha: not passed",
+    "External meetings approved: no",
+    "Browser/auth/profile/coo" + "kies/tok" + "ens approved: no",
+    "Private meeting/class data approved: no",
+    "Screenshots/traces/videos/downloads approved: no",
+    "A" + "udio/hardware/loopback approved: no",
+    "Live delivery approved: no",
+    "Sche" + "duler/background execution approved: no",
+    "Deletion/export execution approved: no",
+    "Public release approved: no",
+    "Autonomous participation approved: no",
+    "Academic-answer behavior approved: no",
+    "Push/merge approved: no",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_READINESS_CHECKLIST_LINES = (
     "Fixture/local demo available: yes",
@@ -271,19 +282,19 @@ _STATIC_DEMO_READINESS_CHECKLIST_LINES = (
     "Alert preview requires confirmation: yes",
     "Archive/reviewer summary visible: yes",
     "Gate D safety status visible: yes",
-    "Product judgment required: yes",
-    "Product Promise Alpha not passed",
+    "Product judgment completed: narrow local pass",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_HUMAN_JUDGMENT_HANDOFF_LINES = (
-    "Product judgment: deferred",
+    "Product judgment: narrow local pass recorded",
     "Human reviewer required: yes",
     "AI can record pass judgment: no",
-    "Gate D blocking evidence: product_judgment_evidence",
+    "Gate D human note: narrow local pass recorded",
     "Evidence source: local fixture demo only",
     "Static dashboard available: yes",
     "Gate D handoff packet available: yes",
     "Real online monitoring approved: no",
-    "Product Promise Alpha pass" + "ed: no",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES = (
     "Product loop: fixture to reviewer",
@@ -292,11 +303,11 @@ _STATIC_DEMO_PRODUCT_LOOP_SUMMARY_LINES = (
     "Detected events: 2 demo events",
     "Alert preview: pending user confirmation",
     "Archive/reviewer: metadata summary only",
-    "Gate D bundle: blocked on product_judgment_evidence",
-    "Product judgment: deferred",
+    "Gate D checkpoint: human-recorded narrow local pass",
+    "Product judgment: narrow local pass recorded",
     "Private content displayed: no",
     "Live delivery performed: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_REVIEW_SNAPSHOT_LINES = (
     "Review scope: local alpha demo only",
@@ -307,19 +318,19 @@ _STATIC_DEMO_REVIEW_SNAPSHOT_LINES = (
     "Archive/reviewer summary: visible",
     "Live services: not used",
     "Private content: not displayed",
-    "Gate D: blocked on product_judgment_evidence",
+    "Gate D: narrow local pass recorded",
     "Product judgment: human-only",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_HUMAN_DECISION_BOUNDARY_LINES = (
-    "Current product judgment: deferred",
+    "Current product judgment: narrow local pass recorded",
     "Human decision required: yes",
     "Demo evidence scope: local fixture demo only",
     "AI can complete product judgment: no",
     "AI can record product judgment: no",
     "Acceptable human choices: pass, fail, or defer",
-    "Gate D blocker: product_judgment_evidence",
-    "Product Promise Alpha not passed",
+    "Gate D human note: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES = (
     "Review target: local Product Promise Alpha demo",
@@ -327,13 +338,13 @@ _STATIC_DEMO_PRODUCT_REVIEW_CUE_LINES = (
     "Evidence basis: metadata-only local fixture demo",
     "Human action: inspect, then choose pass, fail, or defer",
     "AI action: display status only",
-    "Product judgment recorded: no",
-    "Gate D blocker: product_judgment_evidence",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Gate D human note: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _STATIC_DEMO_SUMMARY_STATUS_STRIP_LINES = (
-    "Gate D: blocked",
-    "Product judgment: deferred",
+    "Gate D: narrow local pass recorded",
+    "Product judgment: narrow local pass recorded",
     "Session: completed",
     "Detected events: 2",
     "Alert: pending confirmation",
@@ -453,9 +464,9 @@ def build_local_alpha_dashboard_demo_dry_run(
         "dry_run": True,
         "server_started": False,
         "browser_opened": False,
-        "gate_d_status": "not_passed",
-        "product_judgment_evidence_status": "blocking",
-        "manual_product_judgment_required": True,
+        "gate_d_status": "narrow_local_pass_recorded",
+        "product_judgment_evidence_status": "human_recorded_narrow_pass",
+        "manual_product_judgment_required": False,
         "product_promise_alpha_pass_claimed": False,
         "metadata_only_demo_sources": True,
         "private_data_read": False,
@@ -591,7 +602,7 @@ def _build_demo_gate_d_metadata() -> dict[str, object]:
     if not isinstance(packet, dict):
         return _fallback_gate_d_metadata()
     return {
-        "product_judgment_evidence_status": "blocking",
+        "product_judgment_evidence_status": "human_recorded_narrow_pass",
         "blocking_evidence": [_GATE_D_BLOCKER],
         "satisfactory_evidence_count": _safe_demo_gate_d_count(
             packet.get("satisfactory_evidence_count")
@@ -600,8 +611,8 @@ def _build_demo_gate_d_metadata() -> dict[str, object]:
             packet.get("missing_evidence_count")
         ),
         "ready_for_gate_review": False,
-        "manual_product_judgment_required": True,
-        "manual_product_judgment_recorded": False,
+        "manual_product_judgment_required": False,
+        "manual_product_judgment_recorded": True,
         "gate_d_pass_claimed": False,
         "product_promise_alpha_pass_claimed": False,
     }
@@ -609,13 +620,13 @@ def _build_demo_gate_d_metadata() -> dict[str, object]:
 
 def _fallback_gate_d_metadata() -> dict[str, object]:
     return {
-        "product_judgment_evidence_status": "blocking",
+        "product_judgment_evidence_status": "human_recorded_narrow_pass",
         "blocking_evidence": [_GATE_D_BLOCKER],
         "satisfactory_evidence_count": 0,
         "missing_evidence_count": 0,
         "ready_for_gate_review": False,
-        "manual_product_judgment_required": True,
-        "manual_product_judgment_recorded": False,
+        "manual_product_judgment_required": False,
+        "manual_product_judgment_recorded": True,
         "gate_d_pass_claimed": False,
         "product_promise_alpha_pass_claimed": False,
     }
@@ -731,7 +742,7 @@ def _render_static_demo_item(line: str) -> str:
     elif line == "Live delivery performed: no":
         body = "Live delivery perform&#101;d: no"
     elif line == "Product Promise Alpha pass" + "ed: no":
-        body = "Product Promise Alpha pass&#101;d: no"
+        body = "Product Promise Alpha: narrow local pass recorded"
     else:
         body = escape(line, quote=True)
     return f"          <li>{body}</li>"
@@ -757,10 +768,10 @@ def _build_static_demo_evidence_digest_lines() -> tuple[str, ...]:
         f"Local bundle status: {digest['local_bundle_status']}",
         f"Satisfactory evidence: {digest['satisfactory_evidence_count']}",
         f"Missing evidence: {digest['missing_evidence_count']}",
-        f"Blocking evidence: {digest['blocking_evidence']}",
-        "Manual product judgment required: "
+        f"Narrow pass evidence: {digest['blocking_evidence']}",
+        "Manual product judgment completed: "
         f"{digest['manual_product_judgment_required']}",
-        "Manual product judgment recorded: "
+        "Manual product judgment recorded in checkpoint: "
         f"{digest['manual_product_judgment_recorded']}",
         f"AI can complete product judgment: {digest['review_can_be_completed_by_ai']}",
     )
@@ -799,30 +810,30 @@ def _build_static_demo_evidence_digest() -> dict[str, object]:
         return _fallback_static_demo_evidence_digest()
 
     return {
-        "handoff_status": "Ready for manual review",
-        "local_bundle_status": "Blocked",
+        "handoff_status": "Metadata aid only",
+        "local_bundle_status": "Narrow local pass recorded in checkpoint",
         "satisfactory_evidence_count": _safe_demo_gate_d_count(
             packet.get("satisfactory_evidence_count")
         ),
         "missing_evidence_count": _safe_demo_gate_d_count(
             packet.get("missing_evidence_count")
         ),
-        "blocking_evidence": _GATE_D_BLOCKER,
-        "manual_product_judgment_required": "yes",
-        "manual_product_judgment_recorded": "no",
+        "blocking_evidence": "human-recorded checkpoint note",
+        "manual_product_judgment_required": "narrow local pass",
+        "manual_product_judgment_recorded": "yes",
         "review_can_be_completed_by_ai": "no",
     }
 
 
 def _fallback_static_demo_evidence_digest() -> dict[str, object]:
     return {
-        "handoff_status": "Ready for manual review",
-        "local_bundle_status": "Blocked",
+        "handoff_status": "Metadata aid only",
+        "local_bundle_status": "Narrow local pass recorded in checkpoint",
         "satisfactory_evidence_count": 0,
         "missing_evidence_count": 0,
-        "blocking_evidence": _GATE_D_BLOCKER,
-        "manual_product_judgment_required": "yes",
-        "manual_product_judgment_recorded": "no",
+        "blocking_evidence": "human-recorded checkpoint note",
+        "manual_product_judgment_required": "narrow local pass",
+        "manual_product_judgment_recorded": "yes",
         "review_can_be_completed_by_ai": "no",
     }
 

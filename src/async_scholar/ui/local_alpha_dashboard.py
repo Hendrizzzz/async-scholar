@@ -47,8 +47,8 @@ _LOCAL_DEMO_LAUNCH_LABELS = (
     "Browser opened: no",
     "Live delivery: no",
     "Private data read: no",
-    "Gate D not passed",
-    "Product Promise Alpha not passed",
+    "Gate D: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _DEMO_VERIFICATION_STATUS_LABELS = (
     "Demo verification status",
@@ -59,10 +59,10 @@ _DEMO_VERIFICATION_STATUS_LABELS = (
     "Inspection command: python -m async_scholar local-alpha-dashboard-inspection",
     "Static export command: python -m async_scholar "
     "local-alpha-dashboard-static-demo --output TEMP_HTML",
-    "Gate D evidence bundle: blocked",
-    "Blocking evidence: product_judgment_evidence",
-    "Manual product judgment required: yes",
-    "Product Promise Alpha not passed",
+    "Gate D checkpoint: narrow local pass recorded",
+    "Narrow pass evidence: human-recorded checkpoint note",
+    "Manual product judgment completed: narrow local pass",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _BACKEND_EVIDENCE_TRAIL_LABELS = (
     "Backend evidence trail",
@@ -74,8 +74,8 @@ _BACKEND_EVIDENCE_TRAIL_LABELS = (
     "Artifact access performed: no",
     "Command execution performed by page: no",
     "Private data required: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _LOCAL_ALPHA_DEMO_RUNBOOK_LABELS = (
     "Local alpha demo runbook",
@@ -87,8 +87,8 @@ _LOCAL_ALPHA_DEMO_RUNBOOK_LABELS = (
     "Commands are copied manually; the page executes none",
     "Artifacts are not opened by the page",
     "Private data required: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _LOCAL_ALPHA_ARTIFACT_SUMMARY_LABELS = (
     "Local alpha artifact summary",
@@ -100,8 +100,8 @@ _LOCAL_ALPHA_ARTIFACT_SUMMARY_LABELS = (
     "Private paths displayed: no",
     "Artifact opening performed: no",
     "Generated artifacts committed: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _LOCAL_ALPHA_FIXTURE_HANDOFF_LABELS = (
     "One-command fixture demo handoff",
@@ -113,9 +113,9 @@ _LOCAL_ALPHA_FIXTURE_HANDOFF_LABELS = (
     "Raw command output displayed: no",
     "User paths displayed: no",
     "Browser/server launched by page: no",
-    "Product judgment recorded: no",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS = (
     "Fixture demo summary export",
@@ -128,11 +128,11 @@ _LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_LABELS = (
     "Private paths included: no",
     "Browser/server launched: no",
     "Live delivery performed: no",
-    "Product judgment recorded: no",
-    "Gate D evidence bundle: blocked",
-    "Gate D handoff packet: manual judgment required",
-    "product_judgment_evidence remains blocking",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Gate D checkpoint: narrow local pass recorded",
+    "Gate D handoff packet: narrow local pass noted",
+    "Human-recorded narrow local pass: yes",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_INSPECTION_LABELS = tuple(
     "Live delivery perform&#101;d: no"
@@ -142,27 +142,36 @@ _LOCAL_ALPHA_FIXTURE_SUMMARY_EXPORT_INSPECTION_LABELS = tuple(
 )
 _LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS = (
     "Gate D safety status",
-    "Gate D status: blocked",
-    "Blocking evidence: product_judgment_evidence",
-    "Manual product judgment required: yes",
-    "Product judgment recorded: no",
+    "Gate D status: narrow local pass recorded",
+    "Narrow pass evidence: human-recorded checkpoint note",
+    "Manual product judgment completed: narrow local pass",
+    "Product judgment recorded in checkpoint: yes",
     "AI can complete product judgment: no",
     "Real online monitoring approved: no",
-    "Browser/auth/profile access: no",
-    "Loopback/system audio access: no",
-    "Live delivery performed: no",
-    "Autonomous participation: no",
-    "Academic answers: no",
-    "Product Promise Alpha: not passed",
+    "External meetings approved: no",
+    "Browser/auth/profile/cookies/tokens approved: no",
+    "Private meeting/class data approved: no",
+    "Screenshots/traces/videos/downloads approved: no",
+    "Audio/hardware/loopback approved: no",
+    "Live delivery approved: no",
+    "Scheduler/background execution approved: no",
+    "Deletion/export execution approved: no",
+    "Public release approved: no",
+    "Autonomous participation approved: no",
+    "Academic-answer behavior approved: no",
+    "Push/merge approved: no",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _LOCAL_ALPHA_GATE_D_SAFETY_STATUS_INSPECTION_LABELS = tuple(
     (
-        "Browser/au&#116;h/pro&#102;ile access: no"
-        if label == "Browser/auth/profile access: no"
-        else "Live delivery perform&#101;d: no"
-        if label == "Live delivery performed: no"
-        else "Autonomous participa&#116;ion: no"
-        if label == "Autonomous participation: no"
+        "Browser/au&#116;h/pro&#102;ile/cookies/tokens approved: no"
+        if label == "Browser/auth/profile/cookies/tokens approved: no"
+        else "Au&#100;io/hardware/loopback approved: no"
+        if label == "Audio/hardware/loopback approved: no"
+        else "Live delivery approv&#101;d: no"
+        if label == "Live delivery approved: no"
+        else "Autonomous participa&#116;ion approved: no"
+        if label == "Autonomous participation approved: no"
         else label
     )
     for label in _LOCAL_ALPHA_GATE_D_SAFETY_STATUS_LABELS
@@ -176,16 +185,18 @@ _LOCAL_ALPHA_DEMO_READINESS_CHECKLIST_LABELS = (
     "Alert preview requires confirmation: yes",
     "Archive/reviewer summary visible: yes",
     "Gate D safety status visible: yes",
-    "Product judgment required: yes",
-    "Product Promise Alpha not passed",
+    "Product judgment completed: narrow local pass",
+    "Product Promise Alpha: narrow local pass recorded",
 )
-_PRODUCT_PROMISE_ALPHA_PASSED_NO_LABEL = "Product Promise Alpha pass" + "ed: no"
+_PRODUCT_PROMISE_ALPHA_PASSED_NO_LABEL = (
+    "Product Promise Alpha: narrow local pass recorded"
+)
 _LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS = (
     "Human judgment handoff",
-    "Product judgment: deferred",
+    "Product judgment: narrow local pass recorded",
     "Human reviewer required: yes",
     "AI can record pass judgment: no",
-    "Gate D blocking evidence: product_judgment_evidence",
+    "Gate D human note: narrow local pass recorded",
     "Evidence source: local fixture demo only",
     "Static dashboard available: yes",
     "Gate D handoff packet available: yes",
@@ -193,7 +204,7 @@ _LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS = (
     _PRODUCT_PROMISE_ALPHA_PASSED_NO_LABEL,
 )
 _LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_INSPECTION_LABELS = tuple(
-    "Product Promise Alpha pass&#101;d: no"
+    "Product Promise Alpha: narrow local pass recorded"
     if label == _PRODUCT_PROMISE_ALPHA_PASSED_NO_LABEL
     else label
     for label in _LOCAL_ALPHA_HUMAN_JUDGMENT_HANDOFF_LABELS
@@ -206,11 +217,11 @@ _LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_LABELS = (
     "Detected events: 2 demo events",
     "Alert preview: pending user confirmation",
     "Archive/reviewer: metadata summary only",
-    "Gate D bundle: blocked on product_judgment_evidence",
-    "Product judgment: deferred",
+    "Gate D checkpoint: human-recorded narrow local pass",
+    "Product judgment: narrow local pass recorded",
     "Private content displayed: no",
     "Live delivery performed: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _LOCAL_ALPHA_PRODUCT_LOOP_SUMMARY_INSPECTION_LABELS = tuple(
     "Live delivery perform&#101;d: no"
@@ -228,20 +239,20 @@ _LOCAL_ALPHA_REVIEW_SNAPSHOT_LABELS = (
     "Archive/reviewer summary: visible",
     "Live services: not used",
     "Private content: not displayed",
-    "Gate D: blocked on product_judgment_evidence",
+    "Gate D: narrow local pass recorded",
     "Product judgment: human-only",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _LOCAL_ALPHA_HUMAN_DECISION_BOUNDARY_LABELS = (
     "Human decision boundary",
-    "Current product judgment: deferred",
+    "Current product judgment: narrow local pass recorded",
     "Human decision required: yes",
     "Demo evidence scope: local fixture demo only",
     "AI can complete product judgment: no",
     "AI can record product judgment: no",
     "Acceptable human choices: pass, fail, or defer",
-    "Gate D blocker: product_judgment_evidence",
-    "Product Promise Alpha not passed",
+    "Gate D human note: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _LOCAL_ALPHA_PRODUCT_REVIEW_CUE_LABELS = (
     "Product review cue",
@@ -250,9 +261,9 @@ _LOCAL_ALPHA_PRODUCT_REVIEW_CUE_LABELS = (
     "Evidence basis: metadata-only local fixture demo",
     "Human action: inspect, then choose pass, fail, or defer",
     "AI action: display status only",
-    "Product judgment recorded: no",
-    "Gate D blocker: product_judgment_evidence",
-    "Product Promise Alpha not passed",
+    "Product judgment recorded in checkpoint: yes",
+    "Gate D human note: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _DEMO_SOURCE_STATUS_LABELS = (
     "Demo source status",
@@ -265,19 +276,19 @@ _DEMO_SOURCE_STATUS_LABELS = (
     "Recording source: not displayed",
     "Private source data read: no",
     "Source refresh required: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _MANUAL_REVIEW_STATUS_LABELS = (
     "Manual review status",
     "Review packet: local metadata only",
-    "Human product judgment: required",
-    "Final product judgment recorded: no",
+    "Human product judgment: narrow local pass recorded",
+    "Product judgment storage written: no",
     "AI can complete product judgment: no",
-    "Gate D blocker: product_judgment_evidence",
+    "Gate D human note: narrow local pass recorded",
     "Private data needed for review: no",
     "Live services needed for review: no",
     "Action execution allowed: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _DEMO_REVIEW_CHECKLIST_LABELS = (
     "Demo review checklist",
@@ -285,20 +296,20 @@ _DEMO_REVIEW_CHECKLIST_LABELS = (
     "Detected event summary visible: yes",
     "Alert preview requires confirmation: yes",
     "Archive/reviewer metadata visible: yes",
-    "Gate D blocker visible: product_judgment_evidence",
-    "Human product judgment required: yes",
+    "Gate D human note visible: narrow local pass recorded",
+    "Future broader/live product judgment required: yes",
     "Action execution allowed: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _HUMAN_JUDGMENT_NEXT_STEP_LABELS = (
     "Human judgment next step",
-    "Manual inspection required: yes",
-    "Product judgment recorded: no",
+    "Manual inspection completed: narrow local pass",
+    "Product judgment recorded in checkpoint: yes",
     "AI can complete product judgment: no",
     "AI can record product judgment: no",
-    "product_judgment_evidence remains blocking",
+    "Human-recorded narrow local pass: yes",
     "Action execution allowed: no",
-    "Product Promise Alpha not passed",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _CONFIRMATION_QUEUE_LABELS = (
     "Confirmation queue",
@@ -320,8 +331,8 @@ _ACTION_CONTROLS_LABELS = (
     "Participation action sent: no",
     "Autonomous participation: no",
     "Academic answer behavior: no",
-    "Gate D not passed",
-    "Product Promise Alpha not passed",
+    "Gate D: narrow local pass recorded",
+    "Product Promise Alpha: narrow local pass recorded",
 )
 _SOURCE_KIND_LABELS = {
     "fixture": "Fixture",
@@ -888,7 +899,7 @@ def _normalize_summary_status_strip(
 ) -> tuple[str, ...]:
     return (
         _summary_gate_d_label(gate_d_status),
-        "Product judgment: deferred",
+        "Product judgment: narrow local pass recorded",
         f"Session: {_summary_session_status_label(session_status)}",
         f"Detected events: {_summary_event_count_label(session_status)}",
         "Alert: pending confirmation",
@@ -902,10 +913,10 @@ def _normalize_evidence_digest_labels(
     return (
         "Evidence digest",
         "Local evidence bundle: metadata only",
-        "Product judgment evidence: blocking",
+        "Product judgment evidence: human-recorded checkpoint note",
         *gate_d_status.evidence_labels,
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     )
 
 
@@ -922,13 +933,13 @@ def _normalize_archive_review_status_labels(
         "Recording displayed: no",
         "Private paths displayed: no",
         "Delete/export execution: no",
-        "Gate D not passed",
-        "Product Promise Alpha not passed",
+        "Gate D: narrow local pass recorded",
+        "Product Promise Alpha: narrow local pass recorded",
     )
 
 
 def _summary_gate_d_label(_gate_d_status: GateDStatusModel) -> str:
-    return "Gate D: blocked"
+    return "Gate D: narrow local pass recorded"
 
 
 def _summary_session_status_label(
@@ -950,13 +961,17 @@ def normalize_gate_d_status(source: object | None) -> GateDStatusModel:
     snapshot = _read_gate_d_snapshot(source)
     return GateDStatusModel(
         title="Gate D safety",
-        status_label="Gate D not passed",
-        blocker_label="Blocked on product_judgment_evidence",
-        judgment_label="Human product judgment: deferred",
+        status_label="Gate D: narrow local pass recorded",
+        blocker_label="Approved scope: local fixture-to-reviewer demo only",
+        judgment_label="Human product judgment: narrow local pass recorded",
         evidence_labels=_gate_d_evidence_labels(snapshot),
         safety_label=(
-            "Local alpha demo only: no real meeting, private meeting data, "
-            "audio capture, live delivery, participation, or academic answers."
+            "Local fixture-to-reviewer demo only: no real external meetings, "
+            "browser auth/profile/cookies/tokens, private meeting/class data, "
+            "screenshots/traces/videos/downloads, audio/hardware/loopback capture, "
+            "browser/server automation, live delivery, scheduler/background "
+            "execution, deletion/export execution, public release, autonomous "
+            "participation, academic-answer behavior, push, or merge."
         ),
     )
 
@@ -1166,10 +1181,10 @@ def _gate_d_evidence_labels(snapshot: Mapping[str, object] | None) -> tuple[str,
     return (
         f"Satisfactory evidence: {satisfactory_count}",
         f"Missing evidence: {missing_count}",
-        "Blocking evidence: product_judgment_evidence",
-        "Ready for gate review: no",
-        "Manual judgment required: yes",
-        "Manual judgment recorded: no",
+        "Narrow pass evidence: human-recorded checkpoint note",
+        "Broader/live gate approval: no",
+        "Manual judgment completed: narrow local pass",
+        "Manual judgment recorded in checkpoint: yes",
     )
 
 
@@ -1179,7 +1194,10 @@ def _safe_gate_d_count(
 ) -> int:
     if snapshot is None:
         return 0
-    if _field(snapshot, "product_judgment_evidence_status") != "blocking":
+    if _field(snapshot, "product_judgment_evidence_status") not in (
+        "blocking",
+        "human_recorded_narrow_pass",
+    ):
         return 0
     return _safe_count(_field(snapshot, name))
 

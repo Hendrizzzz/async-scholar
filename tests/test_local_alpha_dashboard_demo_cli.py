@@ -130,9 +130,9 @@ def test_local_alpha_dashboard_demo_dry_run_prints_compact_json() -> None:
     assert payload["url"] == "http://127.0.0.1:8086"
     assert payload["server_started"] is False
     assert payload["browser_opened"] is False
-    assert payload["gate_d_status"] == "not_passed"
-    assert payload["product_judgment_evidence_status"] == "blocking"
-    assert payload["manual_product_judgment_required"] is True
+    assert payload["gate_d_status"] == "narrow_local_pass_recorded"
+    assert payload["product_judgment_evidence_status"] == "human_recorded_narrow_pass"
+    assert payload["manual_product_judgment_required"] is False
     assert payload["product_promise_alpha_pass_claimed"] is False
     assert payload["metadata_only_demo_sources"] is True
     assert payload["private_data_read"] is False
@@ -144,7 +144,8 @@ def test_local_alpha_dashboard_demo_dry_run_prints_compact_json() -> None:
     assert payload["real_online_monitoring_performed"] is False
     assert payload["autonomous_participation_performed"] is False
     assert payload["academic_answer_behavior_performed"] is False
-    assert "product_judgment_evidence remains blocking" in payload["safety_summary"]
+    assert "human-recorded narrow local pass" in payload["safety_summary"]
+    assert "fixture-to-reviewer demo only" in payload["safety_summary"]
     _assert_output_safe(result.stdout, result.stderr)
 
 
@@ -167,13 +168,13 @@ def test_local_alpha_dashboard_inspection_prints_plain_text() -> None:
     assert "AsyncScholar local alpha inspection" in result.stdout
     assert "Server started: no" in result.stdout
     assert "Browser opened: no" in result.stdout
-    assert "Gate D not passed" in result.stdout
-    assert "Blocked on product_judgment_evidence" in result.stdout
-    assert "Human product judgment: deferred" in result.stdout
+    assert "Gate D: narrow local pass recorded" in result.stdout
+    assert "Approved scope: local fixture-to-reviewer demo only" in result.stdout
+    assert "Human product judgment: narrow local pass recorded" in result.stdout
     assert "Satisfactory evidence: 9" in result.stdout
     assert "Missing evidence: 0" in result.stdout
-    assert "Manual judgment required: yes" in result.stdout
-    assert "Manual judgment recorded: no" in result.stdout
+    assert "Manual judgment completed: narrow local pass" in result.stdout
+    assert "Manual judgment recorded in checkpoint: yes" in result.stdout
     assert "Run status: Completed" in result.stdout
     assert "Source kind: Fixture demo" in result.stdout
     assert "Attendance prompt - 42s - 94% confidence" in result.stdout
@@ -196,22 +197,22 @@ def test_local_alpha_dashboard_inspection_prints_plain_text() -> None:
     assert "Private paths included: no" in result.stdout
     assert "Browser/server launched: no" in result.stdout
     assert "Live delivery perform&#101;d: no" in result.stdout
-    assert "Product judgment recorded: no" in result.stdout
-    assert "Gate D evidence bundle: blocked" in result.stdout
-    assert "Gate D handoff packet: manual judgment required" in result.stdout
+    assert "Product judgment recorded in checkpoint: yes" in result.stdout
+    assert "Gate D checkpoint: narrow local pass recorded" in result.stdout
+    assert "Gate D handoff packet: narrow local pass noted" in result.stdout
     assert "Gate D safety status" in result.stdout
-    assert "Gate D status: blocked" in result.stdout
-    assert "Blocking evidence: product_judgment_evidence" in result.stdout
-    assert "Manual product judgment required: yes" in result.stdout
-    assert "Product judgment recorded: no" in result.stdout
+    assert "Gate D status: narrow local pass recorded" in result.stdout
+    assert "Narrow pass evidence: human-recorded checkpoint note" in result.stdout
+    assert "Manual product judgment completed: narrow local pass" in result.stdout
+    assert "Product judgment recorded in checkpoint: yes" in result.stdout
     assert "AI can complete product judgment: no" in result.stdout
     assert "Real online monitoring approved: no" in result.stdout
-    assert "Browser/au&#116;h/pro&#102;ile access: no" in result.stdout
-    assert "Loopback/system audio access: no" in result.stdout
-    assert "Live delivery perform&#101;d: no" in result.stdout
-    assert "Autonomous participa&#116;ion: no" in result.stdout
-    assert "Academic answers: no" in result.stdout
-    assert "Product Promise Alpha: not passed" in result.stdout
+    assert "Browser/au&#116;h/pro&#102;ile/cookies/tokens approved: no" in result.stdout
+    assert "Au&#100;io/hardware/loopback approved: no" in result.stdout
+    assert "Live delivery approv&#101;d: no" in result.stdout
+    assert "Autonomous participa&#116;ion approved: no" in result.stdout
+    assert "Academic-answer behavior approved: no" in result.stdout
+    assert "Product Promise Alpha: narrow local pass recorded" in result.stdout
     assert "Local alpha demo readiness checklist" in result.stdout
     assert "Fixture/local demo available: yes" in result.stdout
     assert "Static dashboard export available: yes" in result.stdout
@@ -220,17 +221,17 @@ def test_local_alpha_dashboard_inspection_prints_plain_text() -> None:
     assert "Alert preview requires confirmation: yes" in result.stdout
     assert "Archive/reviewer summary visible: yes" in result.stdout
     assert "Gate D safety status visible: yes" in result.stdout
-    assert "Product judgment required: yes" in result.stdout
+    assert "Product judgment completed: narrow local pass" in result.stdout
     assert "Human judgment handoff" in result.stdout
-    assert "Product judgment: deferred" in result.stdout
+    assert "Product judgment: narrow local pass recorded" in result.stdout
     assert "Human reviewer required: yes" in result.stdout
     assert "AI can record pass judgment: no" in result.stdout
-    assert "Gate D blocking evidence: product_judgment_evidence" in result.stdout
+    assert "Gate D human note: narrow local pass recorded" in result.stdout
     assert "Evidence source: local fixture demo only" in result.stdout
     assert "Static dashboard available: yes" in result.stdout
     assert "Gate D handoff packet available: yes" in result.stdout
     assert "Real online monitoring approved: no" in result.stdout
-    assert "Product Promise Alpha pass&#101;d: no" in result.stdout
+    assert "Product Promise Alpha: narrow local pass recorded" in result.stdout
     assert "Local alpha product loop summary" in result.stdout
     assert "Product loop: fixture to reviewer" in result.stdout
     assert "Fixture input: local metadata only" in result.stdout
@@ -238,7 +239,7 @@ def test_local_alpha_dashboard_inspection_prints_plain_text() -> None:
     assert "Detected events: 2 demo events" in result.stdout
     assert "Alert preview: pending user confirmation" in result.stdout
     assert "Archive/reviewer: metadata summary only" in result.stdout
-    assert "Gate D bundle: blocked on product_judgment_evidence" in result.stdout
+    assert "Gate D checkpoint: human-recorded narrow local pass" in result.stdout
     assert "Private content displayed: no" in result.stdout
     assert "Live delivery perform&#101;d: no" in result.stdout
     assert "Local alpha demo review snapshot" in result.stdout
@@ -250,15 +251,15 @@ def test_local_alpha_dashboard_inspection_prints_plain_text() -> None:
     assert "Archive/reviewer summary: visible" in result.stdout
     assert "Live services: not used" in result.stdout
     assert "Private content: not displayed" in result.stdout
-    assert "Gate D: blocked on product_judgment_evidence" in result.stdout
+    assert "Gate D: narrow local pass recorded" in result.stdout
     assert "Product judgment: human-only" in result.stdout
     assert "Human decision boundary" in result.stdout
-    assert "Current product judgment: deferred" in result.stdout
+    assert "Current product judgment: narrow local pass recorded" in result.stdout
     assert "Human decision required: yes" in result.stdout
     assert "Demo evidence scope: local fixture demo only" in result.stdout
     assert "AI can record product judgment: no" in result.stdout
     assert "Acceptable human choices: pass, fail, or defer" in result.stdout
-    assert "Gate D blocker: product_judgment_evidence" in result.stdout
+    assert "Gate D human note: narrow local pass recorded" in result.stdout
     assert "Product review cue" in result.stdout
     assert "Review target: local Product Promise Alpha demo" in result.stdout
     assert "What to judge: fixture-to-reviewer product loop clarity" in result.stdout
@@ -291,8 +292,8 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     html = output.read_text(encoding="utf-8")
     assert html.startswith("<!doctype html>\n")
     assert "AsyncScholar local alpha static demo" in html
-    assert "Gate D: blocked" in html
-    assert "Product judgment: deferred" in html
+    assert "Gate D: narrow local pass recorded" in html
+    assert "Product judgment: narrow local pass recorded" in html
     assert "Session: completed" in html
     assert "Detected events: 2" in html
     assert "Alert: pending confirmation" in html
@@ -329,16 +330,16 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "<h2>Safety boundary</h2>" in html
     assert "Server started: no" in html
     assert "Browser opened: no" in html
-    assert "Gate D not passed" in html
-    assert "Blocked on product_judgment_evidence" in html
-    assert "Human product judgment: deferred" in html
-    assert "Handoff status: Ready for manual review" in html
-    assert "Local bundle status: Blocked" in html
+    assert "Gate D: narrow local pass recorded" in html
+    assert "Approved scope: local fixture-to-reviewer demo only" in html
+    assert "Human product judgment: narrow local pass recorded" in html
+    assert "Handoff status: Metadata aid only" in html
+    assert "Local bundle status: Narrow local pass recorded in checkpoint" in html
     assert "AI can complete product judgment: no" in html
     assert "Review packet: local metadata only" in html
-    assert "Human product judgment: required" in html
-    assert "Final product judgment recorded: no" in html
-    assert "Gate D blocker: product_judgment_evidence" in html
+    assert "Human product judgment: narrow local pass recorded" in html
+    assert "Product judgment storage written: no" in html
+    assert "Gate D human note: narrow local pass recorded" in html
     assert "Private data needed for review: no" in html
     assert "Live services needed for review: no" in html
     assert "Action execution allowed: no" in html
@@ -346,12 +347,12 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Detected event summary visible: yes" in html
     assert "Alert preview requires confirmation: yes" in html
     assert "Archive/reviewer metadata visible: yes" in html
-    assert "Gate D blocker visible: product_judgment_evidence" in html
-    assert "Human product judgment required: yes" in html
-    assert "Manual inspection required: yes" in html
-    assert "Product judgment recorded: no" in html
+    assert "Gate D human note visible: narrow local pass recorded" in html
+    assert "Future broader/live product judgment required: yes" in html
+    assert "Manual inspection completed: narrow local pass" in html
+    assert "Product judgment recorded in checkpoint: yes" in html
     assert "AI can record product judgment: no" in html
-    assert "product_judgment_evidence remains blocking" in html
+    assert "Human-recorded narrow local pass: yes" in html
     assert "Run status: Completed" in html
     assert "Session source: fixed fixture metadata" in html
     assert "Event source: fixed fixture metadata" in html
@@ -381,9 +382,9 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
         "Static export command: local-alpha-dashboard-static-demo --output "
         "local-html-file" in visible_html
     )
-    assert "Gate D evidence bundle: blocked" in html
-    assert "Blocking evidence: product_judgment_evidence" in html
-    assert "Manual product judgment required: yes" in html
+    assert "Gate D checkpoint: narrow local pass recorded" in html
+    assert "Narrow pass evidence: human-recorded checkpoint note" in html
+    assert "Manual product judgment completed: narrow local pass" in html
     assert "Fixture/local demo evidence: existing CLI surfaces" in html
     assert "Inspection summary: local-alpha-dashboard-inspection" in html
     assert (
@@ -433,21 +434,21 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Private paths included: no" in visible_html
     assert "Browser/server launched: no" in visible_html
     assert "Live delivery performed: no" in visible_html
-    assert "Product judgment recorded: no" in visible_html
-    assert "Gate D evidence bundle: blocked" in visible_html
-    assert "Gate D handoff packet: manual judgment required" in visible_html
-    assert "Gate D status: blocked" in visible_html
-    assert "Blocking evidence: product_judgment_evidence" in visible_html
-    assert "Manual product judgment required: yes" in visible_html
-    assert "Product judgment recorded: no" in visible_html
+    assert "Product judgment recorded in checkpoint: yes" in visible_html
+    assert "Gate D checkpoint: narrow local pass recorded" in visible_html
+    assert "Gate D handoff packet: narrow local pass noted" in visible_html
+    assert "Gate D status: narrow local pass recorded" in visible_html
+    assert "Narrow pass evidence: human-recorded checkpoint note" in visible_html
+    assert "Manual product judgment completed: narrow local pass" in visible_html
+    assert "Product judgment recorded in checkpoint: yes" in visible_html
     assert "AI can complete product judgment: no" in visible_html
     assert "Real online monitoring approved: no" in visible_html
-    assert "Browser/auth/profile access: no" in visible_html
-    assert "Loopback/system audio access: no" in visible_html
+    assert "Browser/auth/profile/cookies/tokens approved: no" in visible_html
+    assert "Audio/hardware/loopback approved: no" in visible_html
     assert "Live delivery performed: no" in visible_html
-    assert "Autonomous participation: no" in visible_html
-    assert "Academic answers: no" in visible_html
-    assert "Product Promise Alpha: not passed" in visible_html
+    assert "Autonomous participation approved: no" in visible_html
+    assert "Academic-answer behavior approved: no" in visible_html
+    assert "Product Promise Alpha: narrow local pass recorded" in visible_html
     assert "Fixture/local demo available: yes" in visible_html
     assert "Static dashboard export available: yes" in visible_html
     assert "Session status visible: yes" in visible_html
@@ -455,16 +456,16 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Alert preview requires confirmation: yes" in visible_html
     assert "Archive/reviewer summary visible: yes" in visible_html
     assert "Gate D safety status visible: yes" in visible_html
-    assert "Product judgment required: yes" in visible_html
+    assert "Product judgment completed: narrow local pass" in visible_html
     assert "Human reviewer required: yes" in visible_html
     assert "AI can record pass judgment: no" in visible_html
-    assert "Gate D blocking evidence: product_judgment_evidence" in visible_html
+    assert "Gate D human note: narrow local pass recorded" in visible_html
     assert "Evidence source: local fixture demo only" in visible_html
     assert "Static dashboard available: yes" in visible_html
     assert "Gate D handoff packet available: yes" in visible_html
     assert "Real online monitoring approved: no" in visible_html
-    assert "Product Promise Alpha passed: no" in visible_html
-    assert "Product Promise Alpha pass&#101;d: no" in html
+    assert "Product Promise Alpha: narrow local pass recorded" in visible_html
+    assert "Product Promise Alpha: narrow local pass recorded" in html
     assert "Product loop: fixture to reviewer" in visible_html
     assert "Fixture input: local metadata only" in visible_html
     assert "Session status: completed" in visible_html
@@ -477,16 +478,16 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Archive/reviewer summary: visible" in visible_html
     assert "Live services: not used" in visible_html
     assert "Private content: not displayed" in visible_html
-    assert "Gate D: blocked on product_judgment_evidence" in visible_html
+    assert "Gate D: narrow local pass recorded" in visible_html
     assert "Product judgment: human-only" in visible_html
     assert "Human decision boundary" in visible_html
-    assert "Current product judgment: deferred" in visible_html
+    assert "Current product judgment: narrow local pass recorded" in visible_html
     assert "Human decision required: yes" in visible_html
     assert "Demo evidence scope: local fixture demo only" in visible_html
     assert "AI can complete product judgment: no" in visible_html
     assert "AI can record product judgment: no" in visible_html
     assert "Acceptable human choices: pass, fail, or defer" in visible_html
-    assert "Gate D blocker: product_judgment_evidence" in visible_html
+    assert "Gate D human note: narrow local pass recorded" in visible_html
     assert "Product review cue" in visible_html
     assert "Review target: local Product Promise Alpha demo" in visible_html
     assert "What to judge: fixture-to-reviewer product loop clarity" in visible_html
@@ -495,11 +496,11 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "AI action: display status only" in visible_html
     assert "Alert preview: pending user confirmation" in visible_html
     assert "Archive/reviewer: metadata summary only" in visible_html
-    assert "Gate D bundle: blocked on product_judgment_evidence" in visible_html
+    assert "Gate D checkpoint: human-recorded narrow local pass" in visible_html
     assert "Private content displayed: no" in visible_html
     assert "Live delivery performed: no" in visible_html
     assert "Live delivery perform&#101;d: no" in html
-    assert "product_judgment_evidence remains blocking" in html
+    assert "Human-recorded narrow local pass: yes" in html
     assert "Server started: yes" not in html
     assert "Browser opened: yes" not in html
     assert "Live delivery: yes" not in html
@@ -514,7 +515,7 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Event detected" in html
     assert "Alert awaiting confirmation" in html
     assert "Archive/reviewer metadata ready" in html
-    assert "Gate D blocked" in html
+    assert "Gate D narrow local pass recorded" in html
     assert "Attendance prompt - 42s - 94% confidence" in html
     assert "Important event - 185s - 88% confidence" in html
     assert "Urgent alert" in html
@@ -538,8 +539,8 @@ def test_local_alpha_dashboard_static_demo_writes_html(tmp_path: Path) -> None:
     assert "Recording displayed: no" in html
     assert "Private paths displayed: no" in html
     assert "Delete/export execution: no" in html
-    assert "Gate D not passed" in html
-    assert "Product Promise Alpha not passed" in html
+    assert "Gate D: narrow local pass recorded" in html
+    assert "Product Promise Alpha: narrow local pass recorded" in html
     assert html.count("<button ") == 4
     assert html.count('type="button"') == 4
     assert html.count(" disabled ") == 4
@@ -754,9 +755,9 @@ def test_local_alpha_dashboard_demo_command_delegates_to_helper(
             "dry_run": True,
             "server_started": False,
             "browser_opened": False,
-            "gate_d_status": "not_passed",
-            "product_judgment_evidence_status": "blocking",
-            "manual_product_judgment_required": True,
+            "gate_d_status": "narrow_local_pass_recorded",
+            "product_judgment_evidence_status": "human_recorded_narrow_pass",
+            "manual_product_judgment_required": False,
             "product_promise_alpha_pass_claimed": False,
             "metadata_only_demo_sources": True,
             "private_data_read": False,
@@ -769,11 +770,14 @@ def test_local_alpha_dashboard_demo_command_delegates_to_helper(
             "autonomous_participation_performed": False,
             "academic_answer_behavior_performed": False,
             "safety_summary": (
-                "Local metadata-only demo for human inspection. Gate D is not "
-                "passed; product_judgment_evidence remains blocking. It uses "
-                "fixed local fixture-style metadata and performs no real meeting "
-                "access, private content reads, capture, live delivery, timed "
-                "runner, deletion/export, participation, or answer behavior."
+                "Local metadata-only demo for human inspection. Gate D / Product "
+                "Promise Alpha has a human-recorded narrow local pass for the "
+                "fixture-to-reviewer demo only. It uses fixed local fixture-style "
+                "metadata and performs no real meeting access, private content "
+                "reads, screenshots/traces/videos/downloads, audio or hardware "
+                "capture, loopback capture, browser/server automation, live "
+                "delivery, timed runner, deletion/export, participation, answer "
+                "behavior, public release, push, or merge."
             ),
         }
 
@@ -865,8 +869,8 @@ def test_local_alpha_dashboard_demo_rejects_malformed_helper_payload(
             "dry_run": True,
             "server_started": False,
             "browser_opened": False,
-            "gate_d_status": "not_passed",
-            "product_judgment_evidence_status": "blocking",
+            "gate_d_status": "narrow_local_pass_recorded",
+            "product_judgment_evidence_status": "human_recorded_narrow_pass",
             "manual_product_judgment_required": True,
             "product_promise_alpha_pass_claimed": False,
             "metadata_only_demo_sources": True,
@@ -927,6 +931,142 @@ def test_local_alpha_dashboard_static_demo_rejects_malformed_helper_output(
 
     def fake_build_html() -> str:
         return "Traceback C:\\Users\\student\\.env token Product Promise Alpha passed"
+
+    fake_module.build_local_alpha_dashboard_static_demo_html = fake_build_html
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["local-alpha-dashboard-static-demo", "--output", str(output)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == f"{STATIC_ERROR}\n"
+    assert not output.exists()
+    _assert_static_output_safe(captured.out, captured.err, "")
+
+
+def test_local_alpha_dashboard_inspection_rejects_appended_broad_approval(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_summary() -> str:
+        return _valid_inspection_summary() + (
+            "Real online monitoring approved: yes\n"
+            "Browser/auth/profile/cookies/tokens approved: yes\n"
+            "Audio/hardware/loopback approved: yes\n"
+            "Scheduler/background execution approved: yes\n"
+            "Public release approved: yes\n"
+            "Push/merge approved: yes\n"
+        )
+
+    fake_module.build_local_alpha_dashboard_inspection_summary = fake_build_summary
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["local-alpha-dashboard-inspection"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == f"{INSPECTION_ERROR}\n"
+    _assert_inspection_output_safe(captured.out, captured.err)
+
+
+def test_local_alpha_dashboard_static_demo_rejects_appended_broad_approval(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    fake_module = types.ModuleType(module_name)
+    output = tmp_path / "dashboard.html"
+
+    def fake_build_html() -> str:
+        return _valid_static_demo_html().replace(
+            "</body>",
+            (
+                "<p>Real online monitoring approved: yes</p>"
+                "<p>Browser/auth/profile/cookies/tokens approved: yes</p>"
+                "<p>Audio/hardware/loopback approved: yes</p>"
+                "<p>Scheduler/background execution approved: yes</p>"
+                "<p>Public release approved: yes</p>"
+                "<p>Push/merge approved: yes</p>"
+                "</body>"
+            ),
+        )
+
+    fake_module.build_local_alpha_dashboard_static_demo_html = fake_build_html
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["local-alpha-dashboard-static-demo", "--output", str(output)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == f"{STATIC_ERROR}\n"
+    assert not output.exists()
+    _assert_static_output_safe(captured.out, captured.err, "")
+
+
+def test_local_alpha_dashboard_inspection_rejects_adjacent_broad_approval(
+    capsys,
+    monkeypatch,
+) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    fake_module = types.ModuleType(module_name)
+
+    def fake_build_summary() -> str:
+        return _valid_inspection_summary() + (
+            "Browser/server automation approved: yes\n"
+            "Playwright execution approved: yes\n"
+            "In-app browser execution approved: yes\n"
+            "Screenshots approved: yes\n"
+            "Audio capture approved: yes\n"
+            "Loopback capture approved: yes\n"
+            "Real deletion approved: yes\n"
+            "Push approved: yes\n"
+            "Merge approved: yes\n"
+        )
+
+    fake_module.build_local_alpha_dashboard_inspection_summary = fake_build_summary
+    monkeypatch.setitem(sys.modules, module_name, fake_module)
+
+    exit_code = cli.main(["local-alpha-dashboard-inspection"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == f"{INSPECTION_ERROR}\n"
+    _assert_inspection_output_safe(captured.out, captured.err)
+
+
+def test_local_alpha_dashboard_static_demo_rejects_adjacent_broad_approval(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module_name = "async_scholar.ui.local_alpha_dashboard_demo"
+    fake_module = types.ModuleType(module_name)
+    output = tmp_path / "dashboard.html"
+
+    def fake_build_html() -> str:
+        return _valid_static_demo_html().replace(
+            "</body>",
+            (
+                "<p>Browser/server automation approved: yes</p>"
+                "<p>Playwright execution approved: yes</p>"
+                "<p>In-app browser execution approved: yes</p>"
+                "<p>Screenshots approved: yes</p>"
+                "<p>Audio capture approved: yes</p>"
+                "<p>Loopback capture approved: yes</p>"
+                "<p>Real deletion approved: yes</p>"
+                "<p>Push approved: yes</p>"
+                "<p>Merge approved: yes</p>"
+                "</body>"
+            ),
+        )
 
     fake_module.build_local_alpha_dashboard_static_demo_html = fake_build_html
     monkeypatch.setitem(sys.modules, module_name, fake_module)
@@ -1249,9 +1389,9 @@ def _valid_dry_run_payload(*, host: str, port: int) -> dict[str, object]:
         "dry_run": True,
         "server_started": False,
         "browser_opened": False,
-        "gate_d_status": "not_passed",
-        "product_judgment_evidence_status": "blocking",
-        "manual_product_judgment_required": True,
+        "gate_d_status": "narrow_local_pass_recorded",
+        "product_judgment_evidence_status": "human_recorded_narrow_pass",
+        "manual_product_judgment_required": False,
         "product_promise_alpha_pass_claimed": False,
         "metadata_only_demo_sources": True,
         "private_data_read": False,
@@ -1264,11 +1404,14 @@ def _valid_dry_run_payload(*, host: str, port: int) -> dict[str, object]:
         "autonomous_participation_performed": False,
         "academic_answer_behavior_performed": False,
         "safety_summary": (
-            "Local metadata-only demo for human inspection. Gate D is not "
-            "passed; product_judgment_evidence remains blocking. It uses "
-            "fixed local fixture-style metadata and performs no real meeting "
-            "access, private content reads, capture, live delivery, timed "
-            "runner, deletion/export, participation, or answer behavior."
+            "Local metadata-only demo for human inspection. Gate D / Product "
+            "Promise Alpha has a human-recorded narrow local pass for the "
+            "fixture-to-reviewer demo only. It uses fixed local fixture-style "
+            "metadata and performs no real meeting access, private content "
+            "reads, screenshots/traces/videos/downloads, audio or hardware "
+            "capture, loopback capture, browser/server automation, live delivery, "
+            "timed runner, deletion/export, participation, answer behavior, public "
+            "release, push, or merge."
         ),
     }
 
@@ -1279,15 +1422,16 @@ def _valid_inspection_summary() -> str:
         "Server started: no\n"
         "Browser opened: no\n"
         "Gate D safety\n"
-        "Gate D not passed\n"
-        "Blocked on product_judgment_evidence\n"
-        "Human product judgment: deferred\n"
+        "Gate D: narrow local pass recorded\n"
+        "Approved scope: local fixture-to-reviewer demo only\n"
+        "Human product judgment: narrow local pass recorded\n"
         "Satisfactory evidence: 9\n"
         "Missing evidence: 0\n"
-        "Blocking evidence: product_judgment_evidence\n"
-        "Ready for gate review: no\n"
-        "Manual judgment required: yes\n"
-        "Manual judgment recorded: no\n"
+        "Narrow pass evidence: human-recorded checkpoint note\n"
+        "Broader/live gate approval: no\n"
+        "Manual judgment completed: narrow local pass\n"
+        "Manual judgment recorded in checkpoint: yes\n"
+        "Product Promise Alpha: narrow local pass recorded\n"
         "Session status\n"
         "Run status: Completed\n"
         "Source kind: Fixture demo\n"
@@ -1303,8 +1447,12 @@ def _valid_inspection_summary() -> str:
         "Local archive summary | Reviewer available | Events: 2 | Alerts: 1 | "
         "Updated unknown | Reviewer artifact metadata only.\n"
         "Safety boundary\n"
-        "Local alpha demo only: no real meeting, private meeting data, "
-        "audio capture, live delivery, participation, or academic answers.\n"
+        "Local fixture-to-reviewer demo only: no real external meetings, browser "
+        "auth/profile/cookies/tokens, private meeting/class data, screenshots/"
+        "traces/videos/downloads, audio/hardware/loopback capture, browser/server "
+        "automation, live delivery, scheduler/background execution, "
+        "deletion/export execution, public release, autonomous participation, "
+        "academic-answer behavior, push, or merge.\n"
     )
 
 
@@ -1322,11 +1470,12 @@ def _valid_static_demo_html() -> str:
     <p>Browser opened: no</p>
     <section>
       <h2>Gate D safety</h2>
-      <p>Gate D not passed</p>
-      <p>Blocked on product_judgment_evidence</p>
-      <p>Human product judgment: deferred</p>
-      <p>Manual judgment required: yes</p>
-      <p>Manual judgment recorded: no</p>
+      <p>Gate D: narrow local pass recorded</p>
+      <p>Approved scope: local fixture-to-reviewer demo only</p>
+      <p>Human product judgment: narrow local pass recorded</p>
+      <p>Manual judgment completed: narrow local pass</p>
+      <p>Manual judgment recorded in checkpoint: yes</p>
+      <p>Product Promise Alpha: narrow local pass recorded</p>
     </section>
     <section>
       <h2>Session status</h2>
@@ -1361,10 +1510,10 @@ def _assert_output_safe(stdout: str, stderr: str) -> None:
     for forbidden in (
         "good morning",
         "meet.example",
-        "token",
-        "cookie",
+        "token=private",
+        "cookie-value",
         ".env",
-        "auth",
+        "auth-state",
         "browser profile",
         "traceback",
         ".wav",
@@ -1388,10 +1537,10 @@ def _assert_inspection_output_safe(stdout: str, stderr: str) -> None:
     for forbidden in (
         "good morning",
         "meet.example",
-        "token",
-        "cookie",
+        "token=private",
+        "cookie-value",
         ".env",
-        "auth",
+        "auth-state",
         "browser profile",
         "traceback",
         ".wav",
@@ -1417,10 +1566,10 @@ def _assert_static_output_safe(stdout: str, stderr: str, html: str) -> None:
         "http:",
         "https:",
         "file:",
-        "token",
-        "cookie",
+        "token=private",
+        "cookie-value",
         ".env",
-        "auth",
+        "auth-state",
         "browser profile",
         "traceback",
         ".wav",
