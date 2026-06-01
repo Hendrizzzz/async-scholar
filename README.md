@@ -55,6 +55,18 @@ data/sessions/fixture_attendance_roll_call/alerts.log
 data/sessions/fixture_attendance_roll_call/reviewer.md
 ```
 
+Current Gate D / Product Promise Alpha status: human-recorded pass for the
+narrow local fixture-to-reviewer alpha demo only. That scope covers local
+fixture input, completed session status, detected demo events,
+confirmation-required alert preview, archive/reviewer metadata summary, Gate D
+safety status, and explicit safety boundaries. It does not approve real Google
+Meet or external meeting behavior, auth/profile/cookies/tokens, private meeting
+data, audio capture, loopback/system/browser audio, browser/server launch,
+browser automation, Playwright or in-app browser execution,
+screenshots/traces/videos/downloads, live delivery, scheduler/background
+execution, deletion/export execution, public release, autonomous participation,
+academic-answer behavior, push, merge, or real deletion.
+
 Run the local alpha fixture-only demo wrapper:
 
 ```powershell
@@ -69,11 +81,11 @@ optional summary export writes a sanitized JSON summary with fixed local
 fixture-only metadata; it does not include raw command output, private paths, or
 raw Gate D JSON. It remains local fixture-only: it does not start a server, open
 a browser, use private meeting data, deliver live alerts, perform real deletion,
-record product judgment, satisfy `product_judgment_evidence`, replace product
-judgment evidence, or pass Gate D / Product Promise Alpha. The summary export
-does not satisfy `product_judgment_evidence`, does not replace product judgment
-evidence, and does not pass Gate D / Product Promise Alpha;
-`product_judgment_evidence` remains blocking.
+record product judgment, replace product judgment evidence, broaden the
+human-recorded narrow Gate D / Product Promise Alpha pass, or approve live
+behavior. The summary export is an inspection aid only: it does not satisfy `product_judgment_evidence`,
+does not replace product judgment evidence, and
+does not pass Gate D / Product Promise Alpha by itself.
 
 Preview a scheduled start decision without starting a scheduler:
 
@@ -163,8 +175,9 @@ preflight, authorization, and read-only recovery commands do not start a
 background scheduler loop, create timers, run daemons, perform real online
 monitoring, automate a browser, access browser auth/profile/cookie data, capture
 audio, capture loopback or system audio, deliver live notifications, perform
-real deletion, participate autonomously, answer academic questions, pass Gate D,
-or pass Product Promise Alpha.
+real deletion, participate autonomously, answer academic questions, record or
+broaden the narrow Gate D / Product Promise Alpha pass, or approve live
+behavior.
 
 Build the current local Gate D evidence bundle metadata:
 
@@ -172,21 +185,23 @@ Build the current local Gate D evidence bundle metadata:
 uv run python -m async_scholar gate-d-local-evidence-bundle
 ```
 
-Build the local Gate D human handoff packet for blocked human review:
+Build the local Gate D human handoff packet for metadata-only human review:
 
 ```powershell
 uv run python -m async_scholar gate-d-handoff-packet-local
 ```
 
-The Gate D handoff packet is a blocked human-review aid only. It summarizes the
-local metadata blocker and does not replace, record, or prove human product
-judgment; it is not product judgment evidence, a Gate D pass, or a Product
-Promise Alpha pass.
+The Gate D handoff packet is a metadata-only human-review aid. It does not
+replace, record, or prove human product judgment, and it does not broaden the
+already recorded narrow Gate D / Product Promise Alpha pass.
 
 For personal Gate D human demo inspection, use
-`docs/public/gate-d-human-demo-inspection-runbook.md`. The runbook keeps the review
-blocked on `product_judgment_evidence` until a fresh human product judgment is
-recorded.
+`docs/public/gate-d-human-demo-inspection-runbook.md`. The runbook remains useful
+for inspecting the same local fixture-to-reviewer demo scope; it does not expand
+the recorded narrow pass or approve live behavior. Before the 2026-06-01 narrow
+pass judgment, this review path was blocked on `product_judgment_evidence`;
+that blocker term is kept here as historical context for the runbook, not as
+the current project status.
 
 For a one-command human walkthrough of the same local metadata evidence, run:
 
@@ -213,8 +228,9 @@ same fixed local demo story. The static HTML export writes a standalone local
 file for browser inspection without starting a server or opening a browser; the
 PowerShell wrapper creates a fresh temp HTML output path when `-Output` is not
 provided. The dry run prints the loopback URL and a safety summary without
-starting a server. To inspect the dashboard locally, run the same command
-without `--dry-run` and open the same loopback URL:
+starting a server. Local loopback inspection is optional demo support and does
+not broaden the recorded narrow pass. To inspect the dashboard locally, run the
+same command without `--dry-run` and open the same loopback URL:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_local_alpha_dashboard_demo.ps1
@@ -227,9 +243,10 @@ and the Gate D safety panel. It is local inspection support only: it does not
 read private transcripts, recordings, meeting links, auth profiles, cookies, or
 tokens; it does not perform real online monitoring, browser automation, capture,
 live delivery, deletion/export, autonomous participation, or academic-answer
-behavior; and it does not replace product judgment evidence or pass Gate D /
-Product Promise Alpha.
-It does not pass Gate D / Product Promise Alpha.
+behavior; and it does not replace product judgment evidence, broaden the
+human-recorded narrow Gate D / Product Promise Alpha pass, or approve live
+behavior. The dashboard support surfaces do not pass Gate D / Product Promise
+Alpha by themselves.
 
 Show read-only crash recovery preflight metadata for one explicit local session root:
 
