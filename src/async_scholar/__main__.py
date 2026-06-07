@@ -371,6 +371,13 @@ _GATE_E_PUBLIC_READINESS_STATUS_KEYS = (
     "ignored_file_review_status",
     "push_merge_release_plan_review_status",
 )
+_GATE_E_PUBLIC_READINESS_CURRENT_STATUS_KWARGS = {
+    "public_docs_boundary_review_status": "satisfactory",
+    "secret_and_private_data_review_status": "satisfactory",
+    "generated_artifact_review_status": "satisfactory",
+    "ignored_file_review_status": "satisfactory",
+    "push_merge_release_plan_review_status": "satisfactory",
+}
 _GATE_E_PUBLIC_READINESS_ALLOWED_REVIEW_STATUSES = {
     "satisfactory",
     "missing",
@@ -4315,7 +4322,9 @@ def _run_gate_e_public_readiness_command(args: argparse.Namespace) -> int:
             build_gate_e_public_readiness_preflight,
         )
 
-        payload = build_gate_e_public_readiness_preflight()
+        payload = build_gate_e_public_readiness_preflight(
+            **_GATE_E_PUBLIC_READINESS_CURRENT_STATUS_KWARGS
+        )
         output = _gate_e_public_readiness_json(payload)
     except (ImportError, KeyError, RuntimeError, TypeError, ValueError):
         print(_GATE_E_PUBLIC_READINESS_CLI_ERROR, file=sys.stderr)

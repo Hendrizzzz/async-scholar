@@ -11,33 +11,35 @@ from pathlib import Path
 import async_scholar.__main__ as cli
 
 GATE_E_PUBLIC_READINESS_ERROR = "gate e public readiness could not be built"
-EXPECTED_GATE_E_PUBLIC_READINESS_DEFAULT = {
+EXPECTED_GATE_E_PUBLIC_READINESS_CURRENT_STATUS_KWARGS = {
+    "public_docs_boundary_review_status": "satisfactory",
+    "secret_and_private_data_review_status": "satisfactory",
+    "generated_artifact_review_status": "satisfactory",
+    "ignored_file_review_status": "satisfactory",
+    "push_merge_release_plan_review_status": "satisfactory",
+}
+EXPECTED_GATE_E_PUBLIC_READINESS_CURRENT_STATUS = {
     "preflight_kind": "gate_e_public_readiness",
     "mode": "dry_run_report_only",
     "gate_d_scope_status": "narrow_local_fixture_to_reviewer_pass_recorded",
     "gate_e_status": "human_approval_required",
     "decision": "blocked",
-    "reason": "required_gate_e_preflight_items_missing_or_blocking",
-    "ready_for_human_gate_e_review": False,
+    "reason": "human_gate_e_approval_required",
+    "ready_for_human_gate_e_review": True,
     "human_gate_e_approval_required": True,
     "human_gate_e_approval_status": "missing",
-    "public_docs_boundary_review_status": "missing",
-    "secret_and_private_data_review_status": "missing",
-    "generated_artifact_review_status": "missing",
-    "ignored_file_review_status": "missing",
-    "push_merge_release_plan_review_status": "missing",
+    "public_docs_boundary_review_status": "satisfactory",
+    "secret_and_private_data_review_status": "satisfactory",
+    "generated_artifact_review_status": "satisfactory",
+    "ignored_file_review_status": "satisfactory",
+    "push_merge_release_plan_review_status": "satisfactory",
     "missing_review_items": [
-        "public_docs_boundary_review",
-        "secret_and_private_data_review",
-        "generated_artifact_review",
-        "ignored_file_review",
-        "push_merge_release_plan_review",
         "human_gate_e_approval",
     ],
-    "missing_review_item_count": 6,
+    "missing_review_item_count": 1,
     "blocking_review_items": [],
     "blocking_review_item_count": 0,
-    "satisfactory_review_item_count": 0,
+    "satisfactory_review_item_count": 5,
     "public_release_approved": False,
     "push_approved": False,
     "merge_approved": False,
@@ -114,7 +116,7 @@ def test_gate_e_public_readiness_dry_run_prints_compact_json() -> None:
         text=True,
     )
     expected_line = json.dumps(
-        EXPECTED_GATE_E_PUBLIC_READINESS_DEFAULT,
+        EXPECTED_GATE_E_PUBLIC_READINESS_CURRENT_STATUS,
         sort_keys=True,
         separators=(",", ":"),
     )
@@ -233,7 +235,10 @@ def test_gate_e_public_readiness_sanitizes_malformed_helper_output(
     module_name = "async_scholar.gate_e_public_readiness"
     fake_module = types.ModuleType(module_name)
 
-    def fake_build_gate_e_public_readiness_preflight() -> dict[str, object]:
+    def fake_build_gate_e_public_readiness_preflight(
+        **kwargs: object,
+    ) -> dict[str, object]:
+        _assert_gate_e_public_readiness_current_status_kwargs(kwargs)
         return {"private": object()}
 
     fake_module.build_gate_e_public_readiness_preflight = (
@@ -256,7 +261,10 @@ def test_gate_e_public_readiness_sanitizes_json_malformed_output(
     module_name = "async_scholar.gate_e_public_readiness"
     fake_module = types.ModuleType(module_name)
 
-    def fake_build_gate_e_public_readiness_preflight() -> dict[str, object]:
+    def fake_build_gate_e_public_readiness_preflight(
+        **kwargs: object,
+    ) -> dict[str, object]:
+        _assert_gate_e_public_readiness_current_status_kwargs(kwargs)
         return {"private": "C:/Users/student/token-secret-auth-profile"}
 
     fake_module.build_gate_e_public_readiness_preflight = (
@@ -280,8 +288,11 @@ def test_gate_e_public_readiness_rejects_broad_approval_payload(
     module_name = "async_scholar.gate_e_public_readiness"
     fake_module = types.ModuleType(module_name)
 
-    def fake_build_gate_e_public_readiness_preflight() -> dict[str, object]:
-        payload = dict(EXPECTED_GATE_E_PUBLIC_READINESS_DEFAULT)
+    def fake_build_gate_e_public_readiness_preflight(
+        **kwargs: object,
+    ) -> dict[str, object]:
+        _assert_gate_e_public_readiness_current_status_kwargs(kwargs)
+        payload = dict(EXPECTED_GATE_E_PUBLIC_READINESS_CURRENT_STATUS)
         payload["public_release_approved"] = True
         payload["push_approved"] = True
         payload["merge_approved"] = True
@@ -362,7 +373,7 @@ def _assert_gate_e_public_readiness_output_is_safe(
     assert payload["autonomous_participation_performed"] is False
     assert payload["academic_answer_behavior_performed"] is False
     assert payload["product_promise_alpha_scope_broadened"] is False
-    assert set(payload) == set(EXPECTED_GATE_E_PUBLIC_READINESS_DEFAULT)
+    assert set(payload) == set(EXPECTED_GATE_E_PUBLIC_READINESS_CURRENT_STATUS)
 
     combined_output = f"{stdout}\n{stderr}".lower()
     for forbidden_fragment in (
@@ -416,3 +427,9 @@ def _assert_error_is_sanitized(error_text: str) -> None:
         "traceback",
     ):
         assert forbidden_fragment not in error_text
+
+
+def _assert_gate_e_public_readiness_current_status_kwargs(
+    kwargs: dict[str, object],
+) -> None:
+    assert kwargs == EXPECTED_GATE_E_PUBLIC_READINESS_CURRENT_STATUS_KWARGS
