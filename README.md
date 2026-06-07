@@ -203,6 +203,11 @@ pass judgment, this review path was blocked on `product_judgment_evidence`;
 that blocker term is kept here as historical context for the runbook, not as
 the current project status.
 
+For the current Gate E public-readiness boundary, see the Gate E deferred
+readiness note at `docs/public/gate-e-deferred-readiness-note.md`. The note
+records that AI-solvable review preparation is complete, Gate E remains blocked
+on `human_gate_e_approval`, and Gate E is not approved.
+
 For a one-command human walkthrough of the same local metadata evidence, run:
 
 ```powershell
