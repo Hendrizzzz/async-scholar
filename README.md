@@ -218,6 +218,9 @@ index at `docs/public/index.md`. Gate E is not approved.
 For a non-technical reader summary, see the recruiter/public-readiness FAQ at
 `docs/public/recruiter-readiness-faq.md`. Gate E is not approved.
 
+For the current release hold checklist, see
+`docs/public/release-hold-checklist.md`. Gate E is not approved.
+
 For a one-command human walkthrough of the same local metadata evidence, run:
 
 ```powershell
