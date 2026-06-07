@@ -500,54 +500,353 @@ def build_local_alpha_dashboard_static_demo_html() -> str:
         _safe_static_demo_summary_status_strip_lines()
     )
     sections = _build_static_demo_sections(summary_lines)
-    section_html = "\n".join(
+    section_html = _build_static_demo_layout_html(sections)
+    return _build_static_demo_html_page(status_strip_html, section_html)
+
+
+def _build_static_demo_layout_html(
+    sections: tuple[tuple[str, tuple[str, ...]], ...],
+) -> str:
+    """Output all 29 sections flat in DOM order; CSS order controls visual layout.
+
+    DOM order must match _STATIC_DEMO_SECTION_HEADINGS (tests assert sorted
+    positions). CSS :nth-child() + order property reorder them visually so the
+    product-relevant content (detected events, alert preview, archive) appears
+    first on screen.
+
+    Child index mapping (1-based, matches :nth-child):
+      1  Gate D safety          11 Local alpha artifact summary
+      2  Evidence digest        12 One-command fixture demo handoff
+      3  Manual review status   13 Fixture demo summary export
+      4  Demo review checklist  14 Gate D safety status
+      5  Human judgment         15 Local alpha demo readiness checklist
+         next step
+      6  Session status         16 Human judgment handoff
+      7  Demo source status     17 Local alpha product loop summary
+      8  Local demo launch      18 Local alpha demo review snapshot
+      9  Demo verification      19 Human decision boundary
+      10 Backend evidence trail 20 Product review cue
+                                21 Demo timeline
+                                22 Detected events      ← primary hero
+                                23 Alert preview        ← primary hero
+                                24 Confirmation queue
+                                25 Action controls
+                                26 Archive review status
+                                27 Archive and reviewer
+                                28 Safety boundary
+    """
+    inner = "\n    ".join(
         _render_static_demo_section(heading, lines) for heading, lines in sections
     )
+    return f'  <div class="main-grid">\n    {inner}\n  </div>\n'
+
+
+def _build_static_demo_html_page(
+    status_strip_html: str,
+    section_html: str,
+) -> str:
+    """Assemble the final static demo HTML page."""
+
     return (
         "<!doctype html>\n"
         '<html lang="en">\n'
         "<head>\n"
         '  <meta charset="utf-8">\n'
-        '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        '  <meta name="viewport" content="width=device-width,initial-scale=1">\n'
         "  <title>AsyncScholar local alpha static demo</title>\n"
         "  <style>\n"
-        "    body { margin: 0; font-family: Arial, sans-serif; "
-        "background: #f7f8fa; color: #17202a; }\n"
-        "    main { max-width: 960px; margin: 0 auto; padding: 40px 20px; }\n"
-        "    h1 { font-size: 28px; margin: 0 0 16px; }\n"
-        "    p { margin: 0; color: #4d5b6a; line-height: 1.5; }\n"
-        "    .intro { margin: 0 0 24px; }\n"
-        "    .summary-status-strip { display: flex; flex-wrap: wrap; "
-        "gap: 8px; margin: 0 0 16px; }\n"
-        "    .summary-status-strip span { border: 1px solid #d8dee6; "
-        "border-radius: 6px; padding: 7px 9px; background: #ffffff; "
-        "color: #324153; font-size: 14px; }\n"
-        "    .dashboard { display: grid; grid-template-columns: repeat(2, "
-        "minmax(0, 1fr)); gap: 14px; }\n"
-        "    section { background: #ffffff; border: 1px solid #d8dee6; "
-        "border-radius: 8px; padding: 16px; }\n"
-        "    h2 { font-size: 16px; margin: 0 0 12px; color: #17202a; }\n"
-        "    ol { margin: 0; padding: 0; list-style: none; display: grid; "
-        "gap: 8px; }\n"
-        "    li { border: 1px solid #edf0f4; border-radius: 6px; "
-        "padding: 9px 10px; color: #324153; }\n"
-        "    button { width: 100%; border: 1px solid #d8dee6; "
-        "border-radius: 6px; padding: 9px 10px; background: #edf0f4; "
-        "color: #667384; text-align: left; font: inherit; }\n"
-        "    button:disabled { cursor: not-allowed; opacity: 1; }\n"
-        "    @media (max-width: 700px) { .dashboard { grid-template-columns: 1fr; } }\n"
+        # ── reset ─────────────────────────────────────────────────────────
+        "    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}\n"
+        # ── design vars ───────────────────────────────────────────────────
+        "    :root{\n"
+        "      --bg:#0d1117;--sf:#161b22;--sf2:#1c2128;--sf3:#21262d;\n"
+        "      --bd:#30363d;--bds:#21262d;\n"
+        "      --tx:#e6edf3;--txm:#8b949e;--txd:#484f58;\n"
+        "      --ac:#2dd4bf;--acd:rgba(45,212,191,.09);\n"
+        "      --acb:rgba(45,212,191,.30);\n"
+        "      --am:#f59e0b;--amd:rgba(245,158,11,.07);\n"
+        "      --amb:rgba(245,158,11,.38);\n"
+        "      --gr:#3fb950;--grd:rgba(63,185,80,.08);\n"
+        "      --grb:rgba(63,185,80,.38);\n"
+        "      --r:8px;--rs:5px;\n"
+        "      --mono:'SFMono-Regular',Consolas,'Liberation Mono',monospace;\n"
+        "      --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,"
+        "sans-serif\n"
+        "    }\n"
+        # ── base ──────────────────────────────────────────────────────────
+        "    body{font-family:var(--sans);font-size:13px;line-height:1.6;\n"
+        "         background:var(--bg);color:var(--tx);min-height:100vh}\n"
+        # ── topbar ────────────────────────────────────────────────────────
+        "    .tb{background:var(--sf);border-bottom:1px solid var(--bd);\n"
+        "         display:flex;align-items:center;gap:14px;\n"
+        "         padding:0 28px;height:48px}\n"
+        "    .tb__wm{font-size:15px;font-weight:700;letter-spacing:-.01em}\n"
+        "    .tb__wm span{color:var(--ac)}\n"
+        "    .tb__pill{font-size:10px;font-weight:600;letter-spacing:.06em;\n"
+        "               text-transform:uppercase;border:1px solid var(--bd);\n"
+        "               border-radius:20px;padding:2px 9px;color:var(--txm)}\n"
+        "    .tb__pill--hi{border-color:var(--ac);color:var(--ac);\n"
+        "                   background:var(--acd)}\n"
+        "    .tb__gates{margin-left:auto;display:flex;gap:8px;\n"
+        "                align-items:center}\n"
+        "    .tb__g{font-size:11px;font-family:var(--mono);\n"
+        "            border-radius:var(--rs);padding:2px 8px}\n"
+        "    .tb__g--ok{color:var(--gr);background:var(--grd)}\n"
+        "    .tb__g--df{color:var(--am);background:var(--amd)}\n"
+        # ── product-loop bar ──────────────────────────────────────────────
+        "    .plb{background:var(--sf);border-bottom:1px solid var(--bd);\n"
+        "          padding:10px 28px;display:flex;align-items:center;\n"
+        "          overflow-x:auto;gap:0}\n"
+        "    .pln{display:flex;flex-direction:column;align-items:center;\n"
+        "          gap:4px;min-width:72px;flex-shrink:0}\n"
+        "    .pld{width:26px;height:26px;border-radius:50%;\n"
+        "          border:2px solid var(--bd);background:var(--sf2);\n"
+        "          display:flex;align-items:center;justify-content:center;\n"
+        "          font-size:12px}\n"
+        "    .pld--ok{border-color:var(--gr);background:var(--grd)}\n"
+        "    .pld--act{border-color:var(--am);\n"
+        "               background:rgba(245,158,11,.18)}\n"
+        "    .pln__name{font-size:9px;color:var(--txd);text-align:center;\n"
+        "                line-height:1.2}\n"
+        "    .pla{color:var(--txd);font-size:11px;padding:0 4px;\n"
+        "          margin-bottom:13px;flex-shrink:0}\n"
+        # ── session hero (4 stat cards) ───────────────────────────────────
+        "    .sh{background:var(--sf);border-bottom:1px solid var(--bd);\n"
+        "         padding:18px 28px;display:grid;\n"
+        "         grid-template-columns:repeat(4,1fr);gap:12px}\n"
+        "    .sc{background:var(--sf2);border:1px solid var(--bd);\n"
+        "         border-radius:var(--r);padding:16px 20px;\n"
+        "         display:flex;flex-direction:column;gap:5px}\n"
+        "    .sc--ok{border-color:var(--grb)}\n"
+        "    .sc--pend{border-color:var(--amb);background:var(--amd)}\n"
+        "    .sc__n{font-size:34px;font-weight:700;line-height:1;\n"
+        "            font-variant-numeric:tabular-nums}\n"
+        "    .sc__n--ok{color:var(--gr)}\n"
+        "    .sc__n--pend{color:var(--am)}\n"
+        "    .sc__lbl{font-size:11px;font-weight:600;text-transform:uppercase;\n"
+        "              letter-spacing:.05em;color:var(--txm)}\n"
+        "    .sc__sub{font-size:10px;color:var(--txd);font-family:var(--mono)}\n"
+        # ── status rail ───────────────────────────────────────────────────
+        "    .sr{border-bottom:1px solid var(--bd);background:var(--sf3);\n"
+        "         padding:0 28px}\n"
+        "    .summary-status-strip{display:flex;flex-wrap:wrap}\n"
+        "    .summary-status-strip span{\n"
+        "      display:inline-flex;align-items:center;\n"
+        "      padding:6px 14px;font-family:var(--mono);\n"
+        "      font-size:11px;color:var(--txm);\n"
+        "      border-right:1px solid var(--bds);white-space:nowrap}\n"
+        "    .summary-status-strip span:last-child{border-right:none}\n"
+        # ── page body ─────────────────────────────────────────────────────
+        "    .pb{max-width:1280px;margin:0 auto;padding:24px 28px 80px}\n"
+        # ── 12-col main grid ──────────────────────────────────────────────
+        "    .main-grid{display:grid;\n"
+        "                grid-template-columns:repeat(12,1fr);\n"
+        "                gap:12px;align-items:start}\n"
+        # ── default section: compact evidence card ─────────────────────────
+        "    section{grid-column:span 3;order:90;\n"
+        "             background:var(--sf2);border:1px solid var(--bd);\n"
+        "             border-radius:var(--r);padding:10px 12px;\n"
+        "             display:flex;flex-direction:column;gap:4px}\n"
+        "    h2{font-size:9px;font-weight:700;letter-spacing:.08em;\n"
+        "        text-transform:uppercase;color:var(--txd);\n"
+        "        padding-bottom:7px;border-bottom:1px solid var(--bds);\n"
+        "        flex-shrink:0}\n"
+        "    ol{list-style:none;display:flex;flex-direction:column;gap:2px}\n"
+        # evidence li: monospace, compact
+        "    li{font-size:11px;color:var(--txm);font-family:var(--mono);\n"
+        "        padding:3px 6px;background:var(--sf3);\n"
+        "        border-radius:3px;word-break:break-word}\n"
+        "    p.unavailable{font-size:10px;color:var(--txd);font-style:italic}\n"
+        "    button{width:100%;background:var(--sf2);\n"
+        "            border:1px solid var(--bd);border-radius:var(--rs);\n"
+        "            padding:8px 12px;color:var(--txm);\n"
+        "            font:inherit;font-family:var(--mono);font-size:11px;\n"
+        "            text-align:left;cursor:not-allowed}\n"
+        "    button:disabled{opacity:1}\n"
+        # ─────────────────────────────────────────────────────────────────
+        # PRIMARY HERO: child 23 = Detected events, child 24 = Alert preview
+        # These two must sit visually first and largest.
+        # ─────────────────────────────────────────────────────────────────
+        "    section:nth-child(23){\n"
+        "      order:10;grid-column:span 7;\n"
+        "      background:var(--sf);border-color:var(--acb);\n"
+        "      padding:18px 20px}\n"
+        "    section:nth-child(23) h2{\n"
+        "      font-size:11px;color:var(--ac);\n"
+        "      border-color:rgba(45,212,191,.2)}\n"
+        "    section:nth-child(23) li{\n"
+        "      font-family:var(--sans);font-size:13px;\n"
+        "      padding:10px 14px;background:var(--sf2);\n"
+        "      border-radius:var(--rs);color:var(--tx);margin-bottom:2px}\n"
+        "    section:nth-child(24){\n"
+        "      order:11;grid-column:span 5;\n"
+        "      background:rgba(245,158,11,.05);\n"
+        "      border-color:var(--amb);padding:18px 20px}\n"
+        "    section:nth-child(24) h2{\n"
+        "      font-size:11px;color:var(--am);\n"
+        "      border-color:rgba(245,158,11,.25)}\n"
+        "    section:nth-child(24) li{\n"
+        "      font-family:var(--sans);font-size:13px;\n"
+        "      padding:10px 14px;background:rgba(245,158,11,.10);\n"
+        "      border-radius:var(--rs);color:var(--tx);margin-bottom:2px}\n"
+        # ─────────────────────────────────────────────────────────────────
+        # SECONDARY: Confirmation(25), Actions(26), Archive+Reviewer(28)
+        # ─────────────────────────────────────────────────────────────────
+        "    section:nth-child(25){order:20;grid-column:span 4;\n"
+        "      background:var(--sf);border-color:var(--bd)}\n"
+        "    section:nth-child(26){order:21;grid-column:span 4;\n"
+        "      background:var(--sf);border-color:var(--bd)}\n"
+        "    section:nth-child(28){order:22;grid-column:span 4;\n"
+        "      background:var(--sf);border-color:var(--bd)}\n"
+        "    section:nth-child(25) h2,\n"
+        "    section:nth-child(26) h2,\n"
+        "    section:nth-child(28) h2{font-size:10px;color:var(--txm)}\n"
+        "    section:nth-child(25) li,\n"
+        "    section:nth-child(26) li,\n"
+        "    section:nth-child(28) li{\n"
+        "      font-family:var(--sans);font-size:12px;\n"
+        "      padding:5px 10px;background:var(--sf2);\n"
+        "      border-radius:3px;color:var(--txm)}\n"
+        # ─────────────────────────────────────────────────────────────────
+        # TERTIARY: Archive review(27), Human decision(20)
+        # ─────────────────────────────────────────────────────────────────
+        "    section:nth-child(27){order:30;grid-column:span 6;\n"
+        "      background:var(--sf);border-color:var(--bd)}\n"
+        "    section:nth-child(20){order:31;grid-column:span 6;\n"
+        "      background:var(--sf);border-color:var(--bd)}\n"
+        "    section:nth-child(27) h2,\n"
+        "    section:nth-child(20) h2{font-size:10px;color:var(--txm)}\n"
+        "    section:nth-child(27) li,\n"
+        "    section:nth-child(20) li{\n"
+        "      font-family:var(--sans);font-size:12px;\n"
+        "      padding:5px 10px;background:var(--sf2);\n"
+        "      border-radius:3px;color:var(--txm)}\n"
+        # ─────────────────────────────────────────────────────────────────
+        # CONTEXT: Timeline(22), Gate D safety(1), Session status(6)
+        # Safety boundary(29), Product loop summary(18)
+        # ─────────────────────────────────────────────────────────────────
+        "    section:nth-child(22){order:40;grid-column:span 4;\n"
+        "      background:var(--sf)}\n"
+        "    section:nth-child(1){order:41;grid-column:span 4;\n"
+        "      background:var(--sf)}\n"
+        "    section:nth-child(6){order:42;grid-column:span 4;\n"
+        "      background:var(--sf)}\n"
+        "    section:nth-child(29){order:43;grid-column:span 6;\n"
+        "      background:var(--sf)}\n"
+        "    section:nth-child(18){order:44;grid-column:span 6;\n"
+        "      background:var(--sf)}\n"
+        "    section:nth-child(22) h2,section:nth-child(1) h2,\n"
+        "    section:nth-child(6) h2,section:nth-child(29) h2,\n"
+        "    section:nth-child(18) h2{font-size:10px;color:var(--txm)}\n"
+        "    section:nth-child(22) li,section:nth-child(1) li,\n"
+        "    section:nth-child(6) li,section:nth-child(29) li,\n"
+        "    section:nth-child(18) li{\n"
+        "      font-family:var(--sans);font-size:12px;\n"
+        "      padding:5px 10px;background:var(--sf2);\n"
+        "      border-radius:3px;color:var(--txm)}\n"
+        # ─────────────────────────────────────────────────────────────────
+        # Evidence sections remain at default (order:90, span:3, compact)
+        # ─────────────────────────────────────────────────────────────────
+        # responsive
+        "    @media(max-width:1100px){\n"
+        "      .sh{grid-template-columns:repeat(2,1fr)}\n"
+        "      section:nth-child(23){grid-column:span 12}\n"
+        "      section:nth-child(24){grid-column:span 12}\n"
+        "      section:nth-child(25),section:nth-child(26),"
+        "section:nth-child(28){grid-column:span 6}\n"
+        "      section:nth-child(27),section:nth-child(20),"
+        "section:nth-child(29),section:nth-child(18){grid-column:span 12}\n"
+        "      section:nth-child(22),section:nth-child(1),"
+        "section:nth-child(6){grid-column:span 6}\n"
+        "      section{grid-column:span 6}\n"
+        "    }\n"
+        "    @media(max-width:640px){\n"
+        "      section{grid-column:span 12 !important}\n"
+        "      .sh{grid-template-columns:repeat(2,1fr)}\n"
+        "      .summary-status-strip span{\n"
+        "        border-right:none;\n"
+        "        border-bottom:1px solid var(--bds)}\n"
+        "    }\n"
         "  </style>\n"
         "</head>\n"
         "<body>\n"
-        "  <main>\n"
-        "    <h1>AsyncScholar local alpha static demo</h1>\n"
-        '    <p class="intro">No-server, no-browser export of the fixed local '
-        "alpha story.</p>\n"
-        f"{status_strip_html}\n"
-        '    <div class="dashboard">\n'
-        f"{section_html}\n"
+        # ── topbar ────────────────────────────────────────────────────────
+        '  <nav class="tb">\n'
+        '    <span class="tb__wm">Async<span>Scholar</span></span>\n'
+        '    <span class="tb__pill tb__pill--hi">Local Alpha</span>\n'
+        '    <span class="tb__pill">Fixture&#8202;&rarr;&#8202;Reviewer</span>\n'
+        '    <div class="tb__gates">\n'
+        '      <span class="tb__g tb__g--ok">'
+        "Gate&#8202;D:&#8202;narrow&#8202;local&#8202;pass</span>\n"
+        '      <span class="tb__g tb__g--df">'
+        "Gate&#8202;E:&#8202;deferred</span>\n"
         "    </div>\n"
-        "  </main>\n"
+        "  </nav>\n"
+        # ── product loop (compact bar) ─────────────────────────────────────
+        '  <div class="plb">\n'
+        '    <div class="pln">\n'
+        '      <div class="pld pld--ok">&#127908;</div>\n'
+        '      <span class="pln__name">Lecture<br>Capture</span>\n'
+        "    </div>\n"
+        '    <div class="pla">&rarr;</div>\n'
+        '    <div class="pln">\n'
+        '      <div class="pld pld--ok">&#128221;</div>\n'
+        '      <span class="pln__name">Transcription<br>+ Speech</span>\n'
+        "    </div>\n"
+        '    <div class="pla">&rarr;</div>\n'
+        '    <div class="pln">\n'
+        '      <div class="pld pld--ok">&#128269;</div>\n'
+        '      <span class="pln__name">Event<br>Detection</span>\n'
+        "    </div>\n"
+        '    <div class="pla">&rarr;</div>\n'
+        '    <div class="pln">\n'
+        '      <div class="pld pld--act">&#128276;</div>\n'
+        '      <span class="pln__name">Alert<br>Preview</span>\n'
+        "    </div>\n"
+        '    <div class="pla">&rarr;</div>\n'
+        '    <div class="pln">\n'
+        '      <div class="pld pld--ok">&#128196;</div>\n'
+        '      <span class="pln__name">Archive<br>+ Reviewer</span>\n'
+        "    </div>\n"
+        '    <div class="pla">&rarr;</div>\n'
+        '    <div class="pln">\n'
+        '      <div class="pld">&#128100;</div>\n'
+        '      <span class="pln__name">Human<br>Confirm</span>\n'
+        "    </div>\n"
+        "  </div>\n"
+        # ── current session hero ───────────────────────────────────────────
+        '  <div class="sh">\n'
+        '    <div class="sc sc--ok">\n'
+        '      <span class="sc__n sc__n--ok">&#10003;</span>\n'
+        '      <span class="sc__lbl">Session Completed</span>\n'
+        '      <span class="sc__sub">run_status: completed</span>\n'
+        "    </div>\n"
+        '    <div class="sc sc--ok">\n'
+        '      <span class="sc__n sc__n--ok">2</span>\n'
+        '      <span class="sc__lbl">Events Detected</span>\n'
+        '      <span class="sc__sub">attendance_prompt'
+        " &middot; important_event</span>\n"
+        "    </div>\n"
+        '    <div class="sc sc--pend">\n'
+        '      <span class="sc__n sc__n--pend">1</span>\n'
+        '      <span class="sc__lbl">Alert Pending</span>\n'
+        '      <span class="sc__sub">severity: urgent'
+        " &middot; awaiting confirmation</span>\n"
+        "    </div>\n"
+        '    <div class="sc sc--ok">\n'
+        '      <span class="sc__n sc__n--ok">&#10003;</span>\n'
+        '      <span class="sc__lbl">Archive Ready</span>\n'
+        '      <span class="sc__sub">reviewer_status: available</span>\n'
+        "    </div>\n"
+        "  </div>\n"
+        # ── status rail ───────────────────────────────────────────────────
+        '  <div class="sr">\n'
+        f"{status_strip_html}\n"
+        "  </div>\n"
+        # ── main content ──────────────────────────────────────────────────
+        '  <div class="pb">\n'
+        f"{section_html}\n"
+        "  </div>\n"
         "</body>\n"
         "</html>\n"
     )
@@ -720,7 +1019,7 @@ def _render_static_demo_section(heading: str, lines: tuple[str, ...]) -> str:
         items = "\n".join(_render_static_demo_item(line) for line in lines)
         body = f"        <ol>\n{items}\n        </ol>\n"
     else:
-        body = "        <p>Metadata unavailable.</p>\n"
+        body = '        <p class="unavailable">Metadata unavailable.</p>\n'
     return (
         "      <section>\n"
         f"        <h2>{escape(heading, quote=True)}</h2>\n"
