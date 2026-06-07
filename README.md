@@ -208,6 +208,10 @@ readiness note at `docs/public/gate-e-deferred-readiness-note.md`. The note
 records that AI-solvable review preparation is complete, Gate E remains blocked
 on `human_gate_e_approval`, and Gate E is not approved.
 
+For a one-page local public status snapshot, see
+`docs/public/project-status-snapshot.md`. It summarizes the narrow local demo
+status and deferred Gate E boundary; Gate E is not approved.
+
 For a one-command human walkthrough of the same local metadata evidence, run:
 
 ```powershell
