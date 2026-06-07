@@ -215,6 +215,9 @@ status and deferred Gate E boundary; Gate E is not approved.
 For local navigation across the public-readiness docs, see the local public docs
 index at `docs/public/index.md`. Gate E is not approved.
 
+For a non-technical reader summary, see the recruiter/public-readiness FAQ at
+`docs/public/recruiter-readiness-faq.md`. Gate E is not approved.
+
 For a one-command human walkthrough of the same local metadata evidence, run:
 
 ```powershell
