@@ -13,6 +13,8 @@ product behavior.
 - README.md: main local project overview and usage boundary.
 - docs/public/project-status-snapshot.md: Project status snapshot: one-page
   local state summary.
+- docs/public/recruiter-readiness-faq.md: Recruiter/public-readiness FAQ:
+  non-technical local reader summary.
 - docs/public/gate-e-deferred-readiness-note.md: Gate E deferred readiness note:
   deferred Gate E boundary.
 - docs/public/gate-d-human-demo-inspection-runbook.md: Gate D human demo
