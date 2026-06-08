@@ -17,6 +17,8 @@ product behavior.
   non-technical local reader summary.
 - docs/public/gate-e-human-review-packet.md: Human Gate E review packet:
   human-review aid only, not an approval record.
+- docs/public/release-hold-checklist.md: Release hold checklist: local
+  release-hold aid only, not an approval record.
 - docs/public/gate-e-deferred-readiness-note.md: Gate E deferred readiness note:
   deferred Gate E boundary.
 - docs/public/gate-d-human-demo-inspection-runbook.md: Gate D human demo

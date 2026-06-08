@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = ROOT / "docs" / "public" / "index.md"
+PUBLIC_DOCS = ROOT / "docs" / "public"
 README = ROOT / "README.md"
 
 
@@ -30,6 +31,7 @@ def test_public_docs_index_lists_only_internal_public_docs() -> None:
         "docs/public/project-status-snapshot.md",
         "docs/public/recruiter-readiness-faq.md",
         "docs/public/gate-e-human-review-packet.md",
+        "docs/public/release-hold-checklist.md",
         "docs/public/gate-e-deferred-readiness-note.md",
         "docs/public/gate-d-human-demo-inspection-runbook.md",
     )
@@ -42,6 +44,19 @@ def test_public_docs_index_lists_only_internal_public_docs() -> None:
     assert "meet.google" not in text.lower()
 
 
+def test_public_docs_index_lists_every_public_markdown_file() -> None:
+    text = _read_index()
+
+    expected_paths = [
+        _repo_path(path)
+        for path in sorted(PUBLIC_DOCS.glob("*.md"))
+        if path.name != "index.md"
+    ]
+    missing_paths = [path for path in expected_paths if path not in text]
+
+    assert missing_paths == []
+
+
 def test_public_docs_index_explains_each_document_without_approval() -> None:
     text = _read_index()
     normalized_text = _normalize_whitespace(text)
@@ -50,6 +65,7 @@ def test_public_docs_index_explains_each_document_without_approval() -> None:
         "Project status snapshot: one-page local state summary",
         "Recruiter/public-readiness FAQ: non-technical local reader summary",
         "Human Gate E review packet: human-review aid only, not an approval record",
+        "Release hold checklist: local release-hold aid only, not an approval record",
         "Gate E deferred readiness note: deferred Gate E boundary",
         "Gate D human demo inspection runbook: local fixture-to-reviewer",
         "human-recorded narrow local fixture-to-reviewer pass only",
@@ -128,6 +144,10 @@ def _read_index() -> str:
 
 def _normalize_whitespace(text: str) -> str:
     return " ".join(text.split())
+
+
+def _repo_path(path: Path) -> str:
+    return path.relative_to(ROOT).as_posix()
 
 
 def _powershell_code_blocks(markdown: str) -> list[str]:
