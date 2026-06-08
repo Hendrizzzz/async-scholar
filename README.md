@@ -221,6 +221,11 @@ For a non-technical reader summary, see the recruiter/public-readiness FAQ at
 For the current release hold checklist, see
 `docs/public/release-hold-checklist.md`. Gate E is not approved.
 
+For the Gate E human review packet, see
+`docs/public/gate-e-human-review-packet.md`. The packet is a human-review aid
+only, not an approval record; Gate E remains blocked on
+`human_gate_e_approval` and Gate E is not approved.
+
 For a one-command human walkthrough of the same local metadata evidence, run:
 
 ```powershell

@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+README = ROOT / "README.md"
 PACKET = ROOT / "docs" / "public" / "gate-e-human-review-packet.md"
 
 
@@ -127,6 +128,47 @@ def test_gate_e_human_review_packet_avoids_execution_and_approval_language() -> 
     assert _markdown_code_blocks(text) == []
 
 
+def test_readme_points_to_gate_e_human_review_packet_without_approval_claim() -> None:
+    text = _read_readme()
+    normalized_text = _normalize_whitespace(text)
+    pointer = "docs/public/gate-e-human-review-packet.md"
+
+    assert pointer in normalized_text
+
+    pointer_window = _normalized_window_around(normalized_text, pointer, radius=220)
+    required_fragments = (
+        "human-review aid only",
+        "not an approval record",
+        "Gate E is not approved",
+        "human_gate_e_approval",
+    )
+    for fragment in required_fragments:
+        assert fragment in pointer_window
+
+    unsafe_claims = (
+        "Gate E passed",
+        "Gate E approved",
+        "public readiness approved",
+        "public release approved",
+        "safe to publish",
+        "safe to push",
+        "release ready",
+        "push-ready",
+        "ready to push",
+        "approved to push",
+        "approved to merge",
+        "permission granted",
+        "greenlit",
+        "launch-ready",
+    )
+    for claim in unsafe_claims:
+        assert claim not in normalized_text
+
+
+def _read_readme() -> str:
+    return README.read_text(encoding="utf-8")
+
+
 def _read_packet() -> str:
     assert PACKET.is_file(), f"expected human review packet at {PACKET}"
     return PACKET.read_text(encoding="utf-8")
@@ -134,6 +176,11 @@ def _read_packet() -> str:
 
 def _normalize_whitespace(text: str) -> str:
     return " ".join(text.split())
+
+
+def _normalized_window_around(text: str, needle: str, *, radius: int) -> str:
+    start = text.index(needle)
+    return text[max(0, start - radius) : start + len(needle) + radius]
 
 
 def _markdown_code_blocks(markdown: str) -> list[str]:
