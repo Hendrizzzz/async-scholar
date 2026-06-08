@@ -23680,3 +23680,134 @@ def test_fixture_demo_command_writes_artifacts(tmp_path) -> None:
     assert (output_dir / "events.jsonl").is_file()
     assert (output_dir / "alerts.log").is_file()
     assert (output_dir / "reviewer.md").is_file()
+
+
+def test_fixture_demo_command_writes_controlled_alert_log_payloads(tmp_path) -> None:
+    fixture_path = Path("tests/fixtures/transcripts/attendance_roll_call.jsonl")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "async_scholar",
+            "fixture-demo",
+            str(fixture_path),
+            "--output-root",
+            str(tmp_path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    alerts_log_path = tmp_path / "fixture_attendance_roll_call" / "alerts.log"
+    alerts_log_text = alerts_log_path.read_text(encoding="utf-8")
+    alert_payloads = [
+        json.loads(line) for line in alerts_log_text.splitlines() if line.strip()
+    ]
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert len(alert_payloads) == 2
+    alert_payload_keys = {
+        "alert_id",
+        "created_at",
+        "dispatch_results",
+        "event_id",
+        "event_type",
+        "message",
+        "requires_confirmation",
+        "retry_log_decisions",
+        "session_id",
+        "severity",
+        "status",
+    }
+    for alert_payload in alert_payloads:
+        assert set(alert_payload) == alert_payload_keys
+        assert alert_payload["created_at"].endswith("Z")
+
+    assert [
+        {key: value for key, value in alert_payload.items() if key != "created_at"}
+        for alert_payload in alert_payloads
+    ] == [
+        {
+            "alert_id": "alert-log-alert-0001",
+            "event_id": "alert-log-event-0001",
+            "session_id": "alert-log-session",
+            "event_type": "attendance_prompt",
+            "severity": "urgent",
+            "message": "Attendance prompt detected.",
+            "requires_confirmation": True,
+            "status": "pending",
+            "dispatch_results": [
+                {
+                    "provider": "file",
+                    "severity": "urgent",
+                    "status": "sent",
+                    "requires_confirmation": True,
+                },
+            ],
+            "retry_log_decisions": [],
+        },
+        {
+            "alert_id": "alert-log-alert-0002",
+            "event_id": "alert-log-event-0002",
+            "session_id": "alert-log-session",
+            "event_type": "attendance_prompt",
+            "severity": "urgent",
+            "message": "Attendance prompt detected.",
+            "requires_confirmation": True,
+            "status": "pending",
+            "dispatch_results": [
+                {
+                    "provider": "file",
+                    "severity": "urgent",
+                    "status": "sent",
+                    "requires_confirmation": True,
+                },
+            ],
+            "retry_log_decisions": [],
+        },
+    ]
+
+    for forbidden_fragment in (
+        "Good morning",
+        "take attendance before we begin",
+        "When I call your name",
+        "Maya Santos",
+        "Jordan Lee",
+        "Here, professor",
+        "source_segment_ids",
+        "fixture:attendance_roll_call",
+        "segment:",
+        "C:\\",
+        "\\Users",
+        "/Users",
+        str(Path.home()),
+        ".env",
+        "token",
+        "secret",
+        "auth",
+        "browser",
+        "cookie",
+        "profile",
+        "audio",
+        "media",
+        ".wav",
+        ".mp3",
+        ".mp4",
+        "stdout",
+        "stderr",
+        "exception",
+        "traceback",
+        "error_kind",
+        "retry_action",
+        "max_attempts",
+        "provider_error",
+        "request",
+        "url",
+        "command",
+        "desktop",
+        "telegram",
+    ):
+        assert forbidden_fragment not in alerts_log_text
