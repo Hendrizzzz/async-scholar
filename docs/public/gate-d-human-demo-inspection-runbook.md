@@ -40,20 +40,17 @@ What only the user can decide:
 - Whether to merge, push-to-main, expose the repository publicly, or release.
 - Whether broader/live/private/external-service product behavior should proceed.
 
-Run the local metadata checks:
+For local metadata checks, inspect the CLI help, local alpha dashboard dry run,
+Gate D evidence bundle, and Gate D handoff packet surfaces. The corresponding
+local command references are `uv run python -m async_scholar --help`,
+`uv run python -m async_scholar local-alpha-dashboard-demo --dry-run`,
+`uv run python -m async_scholar gate-d-local-evidence-bundle`, and
+`uv run python -m async_scholar gate-d-handoff-packet-local`.
 
-```powershell
-uv run python -m async_scholar --help
-uv run python -m async_scholar local-alpha-dashboard-demo --dry-run
-uv run python -m async_scholar gate-d-local-evidence-bundle
-uv run python -m async_scholar gate-d-handoff-packet-local
-```
-
-Run the local scheduler/archive workflow smoke in a temporary work root:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_scheduler_archive_workflow_smoke.ps1 -WorkRoot "$env:TEMP\async-scholar-gate-d-human-demo-runbook-smoke"
-```
+For the local scheduler/archive workflow smoke, use the local PowerShell smoke
+script reference `scripts\run_scheduler_archive_workflow_smoke.ps1` with an
+explicit temporary `-WorkRoot` such as
+`$env:TEMP\async-scholar-gate-d-human-demo-runbook-smoke`.
 
 The smoke command may create local temp metadata artifacts under the selected
 `-WorkRoot`. Do not commit those artifacts.
@@ -65,15 +62,12 @@ human walkthrough. It wraps the same local metadata checks, explains what each
 step proves, treats the older Gate D bundle and handoff outputs as historical
 pre-pass helper signals, and stops before Gate E approval.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_gate_d_human_walkthrough.ps1
-```
+The local command reference is
+`powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_gate_d_human_walkthrough.ps1`.
 
-To keep all temporary metadata artifacts under a chosen local root:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_gate_d_human_walkthrough.ps1 -WorkRoot "$env:TEMP\async-scholar-gate-d-human-walkthrough"
-```
+To keep all temporary metadata artifacts under a chosen local root, use the same
+local walkthrough script with an explicit `-WorkRoot` such as
+`$env:TEMP\async-scholar-gate-d-human-walkthrough`.
 
 Sample expected walkthrough readout:
 

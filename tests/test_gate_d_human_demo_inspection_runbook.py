@@ -45,8 +45,8 @@ def test_runbook_references_only_allowed_demo_commands() -> None:
     for fragment in allowed_command_fragments:
         assert fragment in text
 
-    command_blocks = _powershell_code_blocks(text)
-    assert command_blocks
+    assert _powershell_code_blocks(text) == []
+
     unsafe_command_fragments = (
         "meet.google.com",
         "playwright",
@@ -59,10 +59,9 @@ def test_runbook_references_only_allowed_demo_commands() -> None:
         "start-job",
         "register-scheduledjob",
     )
-    for command_block in command_blocks:
-        lowered_block = command_block.lower()
-        for fragment in unsafe_command_fragments:
-            assert fragment not in lowered_block
+    lowered_text = text.lower()
+    for fragment in unsafe_command_fragments:
+        assert fragment not in lowered_text
 
 
 def test_runbook_lists_forbidden_live_private_or_destructive_surfaces() -> None:
