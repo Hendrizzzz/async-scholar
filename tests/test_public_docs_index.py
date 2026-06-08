@@ -29,6 +29,7 @@ def test_public_docs_index_lists_only_internal_public_docs() -> None:
     required_links = (
         "docs/public/project-status-snapshot.md",
         "docs/public/recruiter-readiness-faq.md",
+        "docs/public/gate-e-human-review-packet.md",
         "docs/public/gate-e-deferred-readiness-note.md",
         "docs/public/gate-d-human-demo-inspection-runbook.md",
     )
@@ -48,6 +49,7 @@ def test_public_docs_index_explains_each_document_without_approval() -> None:
     required_fragments = (
         "Project status snapshot: one-page local state summary",
         "Recruiter/public-readiness FAQ: non-technical local reader summary",
+        "Human Gate E review packet: human-review aid only, not an approval record",
         "Gate E deferred readiness note: deferred Gate E boundary",
         "Gate D human demo inspection runbook: local fixture-to-reviewer",
         "human-recorded narrow local fixture-to-reviewer pass only",
