@@ -511,29 +511,30 @@ def _build_static_demo_layout_html(
 
     DOM order must match _STATIC_DEMO_SECTION_HEADINGS (tests assert sorted
     positions). CSS :nth-child() + order property reorder them visually so the
-    product-relevant content (detected events, alert preview, archive) appears
-    first on screen.
+    product-relevant content (loop, session, events, alert, confirmation,
+    archive, safety) appears first on screen.
 
     Child index mapping (1-based, matches :nth-child):
-      1  Gate D safety          11 Local alpha artifact summary
-      2  Evidence digest        12 One-command fixture demo handoff
-      3  Manual review status   13 Fixture demo summary export
-      4  Demo review checklist  14 Gate D safety status
-      5  Human judgment         15 Local alpha demo readiness checklist
+      1  Gate D safety          11 Local alpha demo runbook
+      2  Evidence digest        12 Local alpha artifact summary
+      3  Manual review status   13 One-command fixture demo handoff
+      4  Demo review checklist  14 Fixture demo summary export
+      5  Human judgment         15 Gate D safety status
          next step
-      6  Session status         16 Human judgment handoff
-      7  Demo source status     17 Local alpha product loop summary
-      8  Local demo launch      18 Local alpha demo review snapshot
-      9  Demo verification      19 Human decision boundary
-      10 Backend evidence trail 20 Product review cue
-                                21 Demo timeline
-                                22 Detected events      ← primary hero
-                                23 Alert preview        ← primary hero
-                                24 Confirmation queue
-                                25 Action controls
-                                26 Archive review status
-                                27 Archive and reviewer
-                                28 Safety boundary
+      6  Session status         16 Local alpha demo readiness checklist
+      7  Demo source status     17 Human judgment handoff
+      8  Local demo launch      18 Local alpha product loop summary
+      9  Demo verification      19 Local alpha demo review snapshot
+      10 Backend evidence trail 20 Human decision boundary
+                                21 Product review cue
+                                22 Demo timeline
+                                23 Detected events
+                                24 Alert preview
+                                25 Confirmation queue
+                                26 Action controls
+                                27 Archive review status
+                                28 Archive and reviewer
+                                29 Safety boundary
     """
     inner = "\n    ".join(
         _render_static_demo_section(heading, lines) for heading, lines in sections
@@ -664,100 +665,106 @@ def _build_static_demo_html_page(
         "            text-align:left;cursor:not-allowed}\n"
         "    button:disabled{opacity:1}\n"
         # ─────────────────────────────────────────────────────────────────
-        # PRIMARY HERO: child 23 = Detected events, child 24 = Alert preview
-        # These two must sit visually first and largest.
+        # PRODUCT FIRST: loop(18), session(6), events(23), alert(24).
         # ─────────────────────────────────────────────────────────────────
-        "    section:nth-child(23){\n"
-        "      order:10;grid-column:span 7;\n"
+        "    section:nth-child(18){\n"
+        "      order:10;grid-column:span 12;\n"
         "      background:var(--sf);border-color:var(--acb);\n"
         "      padding:18px 20px}\n"
+        "    section:nth-child(18) h2{\n"
+        "      font-size:11px;color:var(--ac);\n"
+        "      border-color:rgba(45,212,191,.2)}\n"
+        "    section:nth-child(18) li{\n"
+        "      font-family:var(--sans);font-size:13px;\n"
+        "      padding:10px 14px;background:var(--sf2);\n"
+        "      border-radius:var(--rs);color:var(--tx);margin-bottom:2px}\n"
+        "    section:nth-child(6){\n"
+        "      order:11;grid-column:span 4;\n"
+        "      background:var(--sf);border-color:var(--grb);\n"
+        "      padding:16px 18px}\n"
+        "    section:nth-child(23){\n"
+        "      order:12;grid-column:span 4;\n"
+        "      background:var(--sf);border-color:var(--acb);\n"
+        "      padding:16px 18px}\n"
+        "    section:nth-child(24){\n"
+        "      order:13;grid-column:span 4;\n"
+        "      background:rgba(245,158,11,.05);\n"
+        "      border-color:var(--amb);padding:16px 18px}\n"
+        "    section:nth-child(6) h2,\n"
         "    section:nth-child(23) h2{\n"
         "      font-size:11px;color:var(--ac);\n"
         "      border-color:rgba(45,212,191,.2)}\n"
+        "    section:nth-child(24) h2{\n"
+        "      font-size:11px;color:var(--am);\n"
+        "      border-color:rgba(245,158,11,.25)}\n"
+        "    section:nth-child(6) li,\n"
         "    section:nth-child(23) li{\n"
         "      font-family:var(--sans);font-size:13px;\n"
         "      padding:10px 14px;background:var(--sf2);\n"
         "      border-radius:var(--rs);color:var(--tx);margin-bottom:2px}\n"
-        "    section:nth-child(24){\n"
-        "      order:11;grid-column:span 5;\n"
-        "      background:rgba(245,158,11,.05);\n"
-        "      border-color:var(--amb);padding:18px 20px}\n"
-        "    section:nth-child(24) h2{\n"
-        "      font-size:11px;color:var(--am);\n"
-        "      border-color:rgba(245,158,11,.25)}\n"
         "    section:nth-child(24) li{\n"
         "      font-family:var(--sans);font-size:13px;\n"
         "      padding:10px 14px;background:rgba(245,158,11,.10);\n"
         "      border-radius:var(--rs);color:var(--tx);margin-bottom:2px}\n"
         # ─────────────────────────────────────────────────────────────────
-        # SECONDARY: Confirmation(25), Actions(26), Archive+Reviewer(28)
+        # PRODUCT CONTINUATION: confirmation(25), archive(28), safety(29).
         # ─────────────────────────────────────────────────────────────────
-        "    section:nth-child(25){order:20;grid-column:span 4;\n"
+        "    section:nth-child(25){order:14;grid-column:span 4;\n"
         "      background:var(--sf);border-color:var(--bd)}\n"
-        "    section:nth-child(26){order:21;grid-column:span 4;\n"
+        "    section:nth-child(28){order:15;grid-column:span 4;\n"
         "      background:var(--sf);border-color:var(--bd)}\n"
-        "    section:nth-child(28){order:22;grid-column:span 4;\n"
+        "    section:nth-child(29){order:16;grid-column:span 4;\n"
         "      background:var(--sf);border-color:var(--bd)}\n"
         "    section:nth-child(25) h2,\n"
-        "    section:nth-child(26) h2,\n"
-        "    section:nth-child(28) h2{font-size:10px;color:var(--txm)}\n"
+        "    section:nth-child(28) h2,\n"
+        "    section:nth-child(29) h2{font-size:10px;color:var(--txm)}\n"
         "    section:nth-child(25) li,\n"
-        "    section:nth-child(26) li,\n"
-        "    section:nth-child(28) li{\n"
+        "    section:nth-child(28) li,\n"
+        "    section:nth-child(29) li{\n"
         "      font-family:var(--sans);font-size:12px;\n"
         "      padding:5px 10px;background:var(--sf2);\n"
         "      border-radius:3px;color:var(--txm)}\n"
         # ─────────────────────────────────────────────────────────────────
-        # TERTIARY: Archive review(27), Human decision(20)
+        # TERTIARY: actions(26), archive status(27), timeline(22), decision(20).
         # ─────────────────────────────────────────────────────────────────
-        "    section:nth-child(27){order:30;grid-column:span 6;\n"
+        "    section:nth-child(26){order:30;grid-column:span 3;\n"
         "      background:var(--sf);border-color:var(--bd)}\n"
-        "    section:nth-child(20){order:31;grid-column:span 6;\n"
+        "    section:nth-child(27){order:31;grid-column:span 3;\n"
         "      background:var(--sf);border-color:var(--bd)}\n"
+        "    section:nth-child(22){order:32;grid-column:span 3;\n"
+        "      background:var(--sf);border-color:var(--bd)}\n"
+        "    section:nth-child(20){order:33;grid-column:span 3;\n"
+        "      background:var(--sf);border-color:var(--bd)}\n"
+        "    section:nth-child(26) h2,\n"
         "    section:nth-child(27) h2,\n"
+        "    section:nth-child(22) h2,\n"
         "    section:nth-child(20) h2{font-size:10px;color:var(--txm)}\n"
+        "    section:nth-child(26) li,\n"
         "    section:nth-child(27) li,\n"
+        "    section:nth-child(22) li,\n"
         "    section:nth-child(20) li{\n"
         "      font-family:var(--sans);font-size:12px;\n"
         "      padding:5px 10px;background:var(--sf2);\n"
         "      border-radius:3px;color:var(--txm)}\n"
         # ─────────────────────────────────────────────────────────────────
-        # CONTEXT: Timeline(22), Gate D safety(1), Session status(6)
-        # Safety boundary(29), Product loop summary(18)
+        # COMPACT GATE CONTEXT: Gate D safety(1).
         # ─────────────────────────────────────────────────────────────────
-        "    section:nth-child(22){order:40;grid-column:span 4;\n"
+        "    section:nth-child(1){order:70;grid-column:span 3;\n"
         "      background:var(--sf)}\n"
-        "    section:nth-child(1){order:41;grid-column:span 4;\n"
-        "      background:var(--sf)}\n"
-        "    section:nth-child(6){order:42;grid-column:span 4;\n"
-        "      background:var(--sf)}\n"
-        "    section:nth-child(29){order:43;grid-column:span 6;\n"
-        "      background:var(--sf)}\n"
-        "    section:nth-child(18){order:44;grid-column:span 6;\n"
-        "      background:var(--sf)}\n"
-        "    section:nth-child(22) h2,section:nth-child(1) h2,\n"
-        "    section:nth-child(6) h2,section:nth-child(29) h2,\n"
-        "    section:nth-child(18) h2{font-size:10px;color:var(--txm)}\n"
-        "    section:nth-child(22) li,section:nth-child(1) li,\n"
-        "    section:nth-child(6) li,section:nth-child(29) li,\n"
-        "    section:nth-child(18) li{\n"
-        "      font-family:var(--sans);font-size:12px;\n"
-        "      padding:5px 10px;background:var(--sf2);\n"
-        "      border-radius:3px;color:var(--txm)}\n"
+        "    section:nth-child(1) h2{font-size:10px;color:var(--txm)}\n"
+        "    section:nth-child(1) li{font-family:var(--mono)}\n"
         # ─────────────────────────────────────────────────────────────────
         # Evidence sections remain at default (order:90, span:3, compact)
         # ─────────────────────────────────────────────────────────────────
         # responsive
         "    @media(max-width:1100px){\n"
         "      .sh{grid-template-columns:repeat(2,1fr)}\n"
-        "      section:nth-child(23){grid-column:span 12}\n"
-        "      section:nth-child(24){grid-column:span 12}\n"
-        "      section:nth-child(25),section:nth-child(26),"
-        "section:nth-child(28){grid-column:span 6}\n"
-        "      section:nth-child(27),section:nth-child(20),"
-        "section:nth-child(29),section:nth-child(18){grid-column:span 12}\n"
-        "      section:nth-child(22),section:nth-child(1),"
-        "section:nth-child(6){grid-column:span 6}\n"
+        "      section:nth-child(18){grid-column:span 12}\n"
+        "      section:nth-child(6),section:nth-child(23),"
+        "section:nth-child(24),section:nth-child(25),"
+        "section:nth-child(28),section:nth-child(29){grid-column:span 6}\n"
+        "      section:nth-child(26),section:nth-child(27),"
+        "section:nth-child(22),section:nth-child(20){grid-column:span 6}\n"
         "      section{grid-column:span 6}\n"
         "    }\n"
         "    @media(max-width:640px){\n"

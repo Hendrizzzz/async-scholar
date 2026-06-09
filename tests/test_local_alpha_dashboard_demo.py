@@ -684,6 +684,41 @@ def test_static_demo_html_sections_are_human_facing_and_ordered() -> None:
         "<h2>Demo timeline</h2>"
     )
 
+    visual_order = _static_demo_section_visual_order(html)
+    product_first_sections = (
+        "Local alpha product loop summary",
+        "Session status",
+        "Detected events",
+        "Alert preview",
+        "Confirmation queue",
+        "Archive and reviewer",
+        "Safety boundary",
+    )
+    lower_priority_sections = (
+        "Gate D safety",
+        "Evidence digest",
+        "Demo verification status",
+        "Backend evidence trail",
+        "Local alpha demo runbook",
+        "Local alpha artifact summary",
+        "One-command fixture demo handoff",
+        "Fixture demo summary export",
+        "Gate D safety status",
+        "Local alpha demo readiness checklist",
+    )
+    assert tuple(heading for _, heading in visual_order[:7]) == product_first_sections
+    product_orders = {
+        heading: order
+        for order, heading in visual_order
+        if heading in product_first_sections
+    }
+    lower_priority_orders = {
+        heading: order
+        for order, heading in visual_order
+        if heading in lower_priority_sections
+    }
+    assert max(product_orders.values()) < min(lower_priority_orders.values())
+
     gate_section = _section_text(html, "Gate D safety")
     assert "Gate D: narrow local pass recorded" in gate_section
     assert "Approved scope: local fixture-to-reviewer demo only" in gate_section
@@ -5474,6 +5509,28 @@ def _summary_status_strip_html(html: str) -> str:
 
 def _summary_status_strip_text(html: str) -> str:
     return _visible_text(_summary_status_strip_html(html))
+
+
+def _static_demo_section_visual_order(html: str) -> tuple[tuple[int, str], ...]:
+    headings = tuple(re.findall(r"<section>\s*<h2>([^<]+)</h2>", html))
+    default_order = _static_demo_default_section_order(html)
+    overrides = {
+        int(section_index): int(order)
+        for section_index, order in re.findall(
+            r"section:nth-child\((\d+)\)\{[^{}]*?order:(\d+)", html
+        )
+    }
+    ordered = tuple(
+        (overrides.get(index, default_order), heading)
+        for index, heading in enumerate(headings, start=1)
+    )
+    return tuple(sorted(ordered, key=lambda item: (item[0], headings.index(item[1]))))
+
+
+def _static_demo_default_section_order(html: str) -> int:
+    match = re.search(r"section\{[^{}]*?order:(\d+)", html)
+    assert match is not None
+    return int(match.group(1))
 
 
 def _assert_no_event_handler_attributes(html: str) -> None:
